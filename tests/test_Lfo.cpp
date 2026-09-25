@@ -72,6 +72,24 @@ TEST_CASE("sample and hold is constant within a period and in range", "[lfo]")
     CHECK(changed);
 }
 
+TEST_CASE("sample and hold re-rolls across successive trigger seeds", "[lfo]")
+{
+    int low = 0, high = 0;
+    for (std::uint32_t seed = 1; seed <= 32; ++seed)
+    {
+        Lfo lfo;
+        lfo.prepare(kSr);
+        lfo.reset(seed);
+        const float first = lfo.process(LfoShape::SampleHold, 10.0f);
+        if (first > 0.25f)
+            ++high;
+        if (first < 0.75f)
+            ++low;
+    }
+    CHECK(high >= 8);
+    CHECK(low >= 8);
+}
+
 TEST_CASE("sample and hold is deterministic per seed", "[lfo]")
 {
     CHECK(render(LfoShape::SampleHold, 10.0f, 9600, 7) == render(LfoShape::SampleHold, 10.0f, 9600, 7));

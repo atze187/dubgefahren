@@ -11,7 +11,11 @@ void Lfo::prepare(double sampleRate)
 
 void Lfo::reset(std::uint32_t seed)
 {
-    rng_ = seed == 0 ? 1u : seed;
+    std::uint32_t z = seed + 0x9E3779B9u;
+    z = (z ^ (z >> 16)) * 0x85EBCA6Bu;
+    z = (z ^ (z >> 13)) * 0xC2B2AE35u;
+    z ^= z >> 16;
+    rng_ = z == 0 ? 1u : z;
     phase_ = 0.0f;
     holdValue_ = nextRandom();
 }
