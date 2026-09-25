@@ -209,3 +209,20 @@ TEST_CASE("UI preview starts a slot and moves the focus", "[plugin]")
     p.previewRelease(4);
     processBlocks(p, 1);
 }
+
+TEST_CASE("preview release is never dropped", "[plugin]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    DubgefahrenProcessor p;
+    prepare(p);
+
+    // Slot 0 ("Classic") gaten und halten, dann die FIFO mit Presses auf Slot 5
+    // überfüllen, damit ein per FIFO gepushtes PreviewOff für Slot 0 verworfen würde.
+    p.previewPress(0);
+    for (int i = 0; i < 200; ++i)
+        p.previewPress(5);
+    p.previewRelease(0);
+
+    processBlocks(p, 60);
+    CHECK((p.activeMask() & 1u) == 0u);
+}

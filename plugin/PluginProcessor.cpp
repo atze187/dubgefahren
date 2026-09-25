@@ -59,7 +59,13 @@ void DubgefahrenProcessor::pushUiEvent(EngineEvent::Type type, int slot)
 }
 
 void DubgefahrenProcessor::previewPress(int slot) { pushUiEvent(EngineEvent::Type::PreviewOn, slot); }
-void DubgefahrenProcessor::previewRelease(int slot) { pushUiEvent(EngineEvent::Type::PreviewOff, slot); }
+
+void DubgefahrenProcessor::previewRelease(int slot)
+{
+    pushUiEvent(EngineEvent::Type::PreviewOff, slot);
+    if (slot >= 0 && slot < kNumSlots)
+        pendingRelease_[static_cast<std::size_t>(slot)].store(true, std::memory_order_relaxed);
+}
 
 void DubgefahrenProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi)
 {
@@ -85,6 +91,13 @@ void DubgefahrenProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::
         for (int i = 0; i < scope.blockSize2; ++i)
             push(uiEvents_[static_cast<std::size_t>(scope.startIndex2 + i)]);
     }
+
+    // Eine previewRelease() darf nie verloren gehen, auch wenn die FIFO oben voll war:
+    // für jeden Slot mit gesetztem Flag zusätzlich ein PreviewOff erzeugen. Ein doppeltes
+    // PreviewOff ist harmlos (PadRouter::previewOff ignoriert nicht gehaltene Slots).
+    for (int s = 0; s < kNumSlots; ++s)
+        if (pendingRelease_[static_cast<std::size_t>(s)].exchange(false, std::memory_order_relaxed))
+            push(EngineEvent { EngineEvent::Type::PreviewOff, 0, s });
 
     const bool panic = cache_.panicPressed();
     if (panic && !lastPanic_)

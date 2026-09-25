@@ -77,6 +77,9 @@ private:
     std::vector<EngineEvent> events_;
     juce::AbstractFifo uiFifo_ { kUiFifoSize };
     std::array<EngineEvent, kUiFifoSize> uiEvents_ {};
+    // Fängt eine previewRelease() auf, die eine volle FIFO verwirft: processBlock erzeugt
+    // nach dem Leeren der FIFO für jeden gesetzten Slot zusätzlich ein PreviewOff.
+    std::array<std::atomic<bool>, kNumSlots> pendingRelease_ {};
     bool lastPanic_ = false;
     KitFolderInfo kitFolder_;
     std::atomic<int> stateGeneration_ { 0 };

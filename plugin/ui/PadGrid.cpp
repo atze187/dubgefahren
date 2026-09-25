@@ -10,6 +10,12 @@ class PadGrid::Pad final : public juce::Component
 public:
     Pad(PadGrid& owner, int slot) : owner_(owner), slot_(slot) {}
 
+    ~Pad() override
+    {
+        if (held_)
+            owner_.proc_.previewRelease(slot_);
+    }
+
     void setState(bool active, bool latched, bool focus, bool selected)
     {
         if (active == active_ && latched == latched_ && focus == focus_ && selected == selected_)
@@ -53,6 +59,11 @@ public:
     {
         if (e.mods.isPopupMenu())
         {
+            if (held_)
+            {
+                owner_.proc_.previewRelease(slot_);
+                held_ = false;
+            }
             if (owner_.onContextMenu)
                 owner_.onContextMenu(slot_);
             return;
