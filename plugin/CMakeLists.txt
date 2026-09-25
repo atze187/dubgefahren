@@ -50,3 +50,22 @@ juce_add_plugin(Dubgefahren
     COPY_PLUGIN_AFTER_BUILD FALSE
     VST3_CATEGORIES Instrument Synth)
 target_link_libraries(Dubgefahren PRIVATE dg_plugin_shared)
+
+set(DG_VST3_INSTALL_DIR "$ENV{CommonProgramFiles}/VST3" CACHE PATH "Zielordner für die VST3-Installation")
+get_target_property(DG_VST3_BUNDLE Dubgefahren_VST3 JUCE_PLUGIN_ARTEFACT_FILE)
+
+add_custom_command(TARGET Dubgefahren_VST3 POST_BUILD
+    COMMAND ${CMAKE_COMMAND}
+        -DBUNDLE=${DG_VST3_BUNDLE}
+        -DSOURCE=${PROJECT_SOURCE_DIR}/resources/Dubgefahren.config.json
+        -P ${PROJECT_SOURCE_DIR}/cmake/CopyExampleConfig.cmake
+    VERBATIM)
+
+install(CODE "execute_process(COMMAND \"${CMAKE_COMMAND}\"
+    \"-DBUNDLE=${DG_VST3_BUNDLE}\"
+    \"-DDEST=${DG_VST3_INSTALL_DIR}\"
+    -P \"${PROJECT_SOURCE_DIR}/cmake/InstallBundle.cmake\"
+    RESULT_VARIABLE rc)
+if(NOT rc EQUAL 0)
+    message(FATAL_ERROR \"Installation fehlgeschlagen (Adminrechte?)\")
+endif()")

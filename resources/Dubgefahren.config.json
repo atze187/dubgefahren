@@ -1,0 +1,4 @@
+{
+  "_hinweis": "kitFolder auf den gewünschten Ordner setzen, z. B. \"D:\\\\Musik\\\\Dubgefahren\\\\Kits\". Umgebungsvariablen wie %USERPROFILE% sind erlaubt. Leer = Dokumente\\Dubgefahren\\Kits. Bearbeiten erfordert Adminrechte, wenn das Plugin unter Program Files liegt.",
+  "kitFolder": ""
+}

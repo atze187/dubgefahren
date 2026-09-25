@@ -21,3 +21,9 @@ juce_add_console_app(DubgefahrenPluginTests PRODUCT_NAME "DubgefahrenPluginTests
 target_sources(DubgefahrenPluginTests PRIVATE plugin/test_PluginProcessor.cpp plugin/test_KitFile.cpp plugin/test_Config.cpp plugin/test_Editor.cpp)
 target_link_libraries(DubgefahrenPluginTests PRIVATE dg_plugin_shared Catch2::Catch2WithMain)
 catch_discover_tests(DubgefahrenPluginTests)
+
+add_test(NAME install_keeps_existing_config
+    COMMAND ${CMAKE_COMMAND}
+        -DSCRIPT=${PROJECT_SOURCE_DIR}/cmake/InstallBundle.cmake
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/install_test
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/InstallBundleTest.cmake)

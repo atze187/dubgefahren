@@ -1,4 +1,4 @@
-param(
+﻿param(
     [Parameter(Position = 0)]
     [ValidateSet('configure', 'build', 'test', 'install', 'validate', 'all')]
     [string]$Command = 'all',
@@ -37,10 +37,29 @@ function Do-Build {
 function Do-Test { Invoke-Checked 'test' { & $ctest --test-dir $buildDir -C $Config --output-on-failure } }
 function Do-Install { Invoke-Checked 'install' { & $cmake --install $buildDir --config $Config } }
 
+function Do-Validate {
+    $bundle = Join-Path $buildDir "plugin\Dubgefahren_artefacts\$Config\VST3\Dubgefahren.vst3"
+    if (-not (Test-Path $bundle)) { Do-Build }
+    $vDir = Join-Path $buildDir 'vst3validator'
+    Invoke-Checked 'validator configure' { & $cmake -S (Join-Path $root 'tools\vst3validator') -B $vDir -A x64 }
+    Invoke-Checked 'validator build' { & $cmake --build $vDir --config Release --target validator --parallel }
+    $validator = Get-ChildItem -Path $vDir -Recurse -Filter 'validator.exe' | Select-Object -First 1
+    if (-not $validator) { throw 'validator.exe nicht gefunden' }
+    Invoke-Checked 'VST3 validator' { & $validator.FullName $bundle }
+
+    $pluginval = Join-Path $root 'tools\bin\pluginval.exe'
+    if (Test-Path $pluginval) {
+        Invoke-Checked 'pluginval' { & $pluginval --strictness-level 5 --validate-in-process --validate $bundle }
+    } else {
+        Write-Host "pluginval nicht gefunden ($pluginval) – übersprungen. Siehe README."
+    }
+}
+
 switch ($Command) {
     'configure' { Do-Configure }
     'build'     { Do-Build }
     'test'      { Do-Build; Do-Test }
     'install'   { Do-Build; Do-Install }
+    'validate'  { Do-Validate }
     'all'       { Do-Configure; Do-Build; Do-Test }
 }
