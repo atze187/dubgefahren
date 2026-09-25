@@ -3,7 +3,11 @@ target_sources(dg_plugin_shared INTERFACE
     ${CMAKE_CURRENT_SOURCE_DIR}/ParameterLayout.h
     ${CMAKE_CURRENT_SOURCE_DIR}/ParameterLayout.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/PluginProcessor.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/PluginProcessor.cpp)
+    ${CMAKE_CURRENT_SOURCE_DIR}/PluginProcessor.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/KitFile.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/KitFile.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/Config.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/Config.cpp)
 target_include_directories(dg_plugin_shared INTERFACE ${PROJECT_SOURCE_DIR})
 target_compile_definitions(dg_plugin_shared INTERFACE
     JUCE_WEB_BROWSER=0

@@ -19,6 +19,7 @@ DubgefahrenProcessor::DubgefahrenProcessor()
 {
     events_.reserve(2048);
     ensureStateChildren();
+    kitFolder_ = resolveKitFolder(pluginConfigFile(), defaultKitFolder());
     engine_.prepare(44100.0, 512); // gültiger Zustand schon vor prepareToPlay
 }
 

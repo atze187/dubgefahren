@@ -4,6 +4,7 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "engine/Engine.h"
 #include "engine/Kit.h"
+#include "plugin/Config.h"
 #include "plugin/ParameterLayout.h"
 
 namespace dg {
@@ -54,6 +55,7 @@ public:
     void setUiScale(float scale);
     bool editorFollowsFocus() const;
     void setEditorFollowsFocus(bool follow);
+    const KitFolderInfo& kitFolder() const { return kitFolder_; }
 
 private:
     static constexpr int kStateVersion = 1;
@@ -71,6 +73,7 @@ private:
     juce::AbstractFifo uiFifo_ { kUiFifoSize };
     std::array<EngineEvent, kUiFifoSize> uiEvents_ {};
     bool lastPanic_ = false;
+    KitFolderInfo kitFolder_;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DubgefahrenProcessor)
 };
