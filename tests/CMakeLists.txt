@@ -16,3 +16,8 @@ add_executable(DubgefahrenTests
 target_link_libraries(DubgefahrenTests PRIVATE dg_engine Catch2::Catch2WithMain)
 include(Catch)
 catch_discover_tests(DubgefahrenTests)
+
+juce_add_console_app(DubgefahrenPluginTests PRODUCT_NAME "DubgefahrenPluginTests")
+target_sources(DubgefahrenPluginTests PRIVATE plugin/test_PluginProcessor.cpp)
+target_link_libraries(DubgefahrenPluginTests PRIVATE dg_plugin_shared Catch2::Catch2WithMain)
+catch_discover_tests(DubgefahrenPluginTests)

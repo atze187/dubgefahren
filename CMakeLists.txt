@@ -21,4 +21,5 @@ list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
 
 enable_testing()
 add_subdirectory(engine)
+add_subdirectory(plugin)
 add_subdirectory(tests)
