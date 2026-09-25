@@ -1,0 +1,30 @@
+# Aufruf: cmake -DSCRIPT=<InstallBundle.cmake> -DWORK=<leerer Ordner> -P InstallBundleTest.cmake
+set(bundle "${WORK}/src/Dubgefahren.vst3")
+set(dest "${WORK}/dest")
+file(REMOVE_RECURSE "${WORK}")
+file(WRITE "${bundle}/Contents/x86_64-win/Dubgefahren.vst3" "binary-v1")
+file(WRITE "${bundle}/Contents/Resources/Dubgefahren.config.json" "{ \"kitFolder\": \"\" }")
+
+# Erste Installation: alles wird kopiert.
+execute_process(COMMAND ${CMAKE_COMMAND} -DBUNDLE=${bundle} -DDEST=${dest} -P ${SCRIPT} RESULT_VARIABLE rc)
+if(NOT rc EQUAL 0)
+    message(FATAL_ERROR "Install-Skript fehlgeschlagen")
+endif()
+file(READ "${dest}/Dubgefahren.vst3/Contents/Resources/Dubgefahren.config.json" cfg)
+if(NOT cfg MATCHES "kitFolder")
+    message(FATAL_ERROR "Config wurde bei Erstinstallation nicht kopiert")
+endif()
+
+# Nutzer ändert die Config, neue Plugin-Version wird installiert.
+file(WRITE "${dest}/Dubgefahren.vst3/Contents/Resources/Dubgefahren.config.json" "USER-CONFIG")
+file(WRITE "${bundle}/Contents/x86_64-win/Dubgefahren.vst3" "binary-v2")
+execute_process(COMMAND ${CMAKE_COMMAND} -DBUNDLE=${bundle} -DDEST=${dest} -P ${SCRIPT} RESULT_VARIABLE rc)
+file(READ "${dest}/Dubgefahren.vst3/Contents/Resources/Dubgefahren.config.json" cfg)
+file(READ "${dest}/Dubgefahren.vst3/Contents/x86_64-win/Dubgefahren.vst3" bin)
+if(NOT cfg STREQUAL "USER-CONFIG")
+    message(FATAL_ERROR "Vorhandene Config wurde überschrieben")
+endif()
+if(NOT bin STREQUAL "binary-v2")
+    message(FATAL_ERROR "Plugin-Binary wurde nicht aktualisiert")
+endif()
+file(REMOVE_RECURSE "${WORK}")
