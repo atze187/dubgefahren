@@ -105,7 +105,8 @@ dubgefahren/
 
 Hinweis: Gegenüber der Diskussion (15 Parameter) wurden Pulsbreite sowie getrennte
 Parameter für freie und synchronisierte LFO-Rate explizit aufgeführt; damit ergeben
-sich 19 Parameter pro Slot, 304 Slot-Parameter insgesamt.
+sich 18 Parameter pro Slot, 288 Slot-Parameter insgesamt. Der Wert −60 dB bei der
+Lautstärke bedeutet −inf (stumm).
 
 **Klangliche Festlegungen:**
 
