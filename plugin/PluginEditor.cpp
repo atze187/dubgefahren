@@ -125,6 +125,13 @@ void DubgefahrenEditor::timerCallback()
     if (juce::ModifierKeys::currentModifiers.isAnyMouseButtonDown())
         return;
 
+    // Bei offenem ComboBox-Popup (oder einem anderen modalen Component) ebenfalls keinen
+    // Slot wechseln: sonst würde der Editor unter dem Popup weggezogen. PopupMenu zeigt sein
+    // Fenster als aktuell modale Component an; ein eigenes getNumCurrentlyModalMenus() gibt
+    // es in JUCE 8.0.15 nicht, daher genügt die Prüfung auf getCurrentlyModalComponent().
+    if (juce::Component::getCurrentlyModalComponent() != nullptr)
+        return;
+
     if (focus != lastFocus_)
     {
         lastFocus_ = focus;
