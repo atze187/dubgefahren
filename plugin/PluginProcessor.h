@@ -1,5 +1,6 @@
 #pragma once
 #include <array>
+#include <atomic>
 #include <vector>
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "engine/Engine.h"
@@ -56,6 +57,10 @@ public:
     bool editorFollowsFocus() const;
     void setEditorFollowsFocus(bool follow);
     const KitFolderInfo& kitFolder() const { return kitFolder_; }
+    // Erhöht sich, wenn sich Slot-Namen/-Parameter oder Editor-Settings von außerhalb des
+    // Editors ändern (Host-Restore, applyKit, setSlot, setSlotName), damit der Editor per
+    // Timer erkennen kann, dass er seine Anzeige neu einlesen muss.
+    int stateGeneration() const { return stateGeneration_.load(); }
 
 private:
     static constexpr int kStateVersion = 1;
@@ -74,6 +79,7 @@ private:
     std::array<EngineEvent, kUiFifoSize> uiEvents_ {};
     bool lastPanic_ = false;
     KitFolderInfo kitFolder_;
+    std::atomic<int> stateGeneration_ { 0 };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DubgefahrenProcessor)
 };

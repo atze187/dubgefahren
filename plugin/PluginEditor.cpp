@@ -34,6 +34,7 @@ DubgefahrenEditor::DubgefahrenEditor(DubgefahrenProcessor& proc)
     content_.setSize(kBaseWidth, kBaseHeight);
     layoutContent();
     selectSlot(proc_.focusSlot());
+    lastStateGeneration_ = proc_.stateGeneration();
 
     // uiScale() wird vorab gelesen: setResizeLimits() zwingt die noch 0x0 große
     // Editor-Bounds sofort auf die Mindestgröße, was über resized() einen Zwischenwert
@@ -75,7 +76,7 @@ void DubgefahrenEditor::layoutContent()
     kitButton_.setBounds(header.removeFromRight(110).reduced(2));
     followFocus_.setBounds(header.removeFromRight(170));
 
-    perf_.setBounds(r.removeFromBottom(60));
+    perf_.setBounds(r.removeFromBottom(84));
     r.removeFromBottom(8);
     fx_.setBounds(r.removeFromBottom(96));
     r.removeFromBottom(8);
@@ -99,10 +100,31 @@ void DubgefahrenEditor::refreshAll()
     slotEditor_.refreshName();
 }
 
+void DubgefahrenEditor::pollProcessorState()
+{
+    const int gen = proc_.stateGeneration();
+    if (gen != lastStateGeneration_)
+    {
+        lastStateGeneration_ = gen;
+        refreshAll();
+        followFocus_.setToggleState(proc_.editorFollowsFocus(), juce::dontSendNotification);
+    }
+}
+
 void DubgefahrenEditor::timerCallback()
 {
+    pollProcessorState();
+
     const int focus = proc_.focusSlot();
     pads_.setPadStates(proc_.activeMask(), proc_.latchedMask(), focus);
+
+    // Während der Nutzer einen Knopf zieht, keinen Slot wechseln: SlotEditor::setSlot()
+    // würde die gerade aktive SliderAttachment zerstören und die Geste würde auf dem
+    // falschen Slot weiterlaufen (und beim Host offen bleiben). lastFocus_ bleibt
+    // unverändert, damit der Wechsel im ersten Tick nach dem Loslassen nachgeholt wird.
+    if (juce::ModifierKeys::currentModifiers.isAnyMouseButtonDown())
+        return;
+
     if (focus != lastFocus_)
     {
         lastFocus_ = focus;

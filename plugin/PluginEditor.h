@@ -30,6 +30,10 @@ public:
     void selectSlot(int slot);
     int selectedSlot() const { return selectedSlot_; }
 
+    // Für Tests: pollt den Processor-Zustand, den timerCallback() sonst auf dem Message-Timer tut.
+    void pollProcessorState();
+    bool followFocusToggleState() const { return followFocus_.getToggleState(); }
+
 private:
     void timerCallback() override;
     void layoutContent();
@@ -61,6 +65,7 @@ private:
     std::optional<std::pair<SlotParams, juce::String>> clipboard_;
     int selectedSlot_ = 0;
     int lastFocus_ = -1;
+    int lastStateGeneration_ = -1;
     bool configWarningShown_ = false;
 };
 

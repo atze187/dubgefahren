@@ -51,7 +51,8 @@ void DgLookAndFeel::drawRotarySlider(juce::Graphics& g, int x, int y, int width,
     g.setColour(slider.isEnabled() ? colours::accent : colours::textDim);
     g.strokePath(value, stroke);
 
-    const juce::Point<float> tip(centre.x + (arcR - 6.0f) * std::sin(angle), centre.y - (arcR - 6.0f) * std::cos(angle));
+    const float pointerLen = std::max(0.0f, arcR * 0.7f);
+    const juce::Point<float> tip(centre.x + pointerLen * std::sin(angle), centre.y - pointerLen * std::cos(angle));
     g.setColour(colours::text);
     g.drawLine({ centre, tip }, 2.0f);
 }

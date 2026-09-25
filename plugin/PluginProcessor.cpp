@@ -147,6 +147,7 @@ void DubgefahrenProcessor::setStateInformation(const void* data, int sizeInBytes
     // Versionsfeld: ältere Stände werden hier bei Bedarf migriert (Version 1: nichts zu tun).
     apvts_.replaceState(juce::ValueTree::fromXml(*xml));
     ensureStateChildren();
+    ++stateGeneration_;
 }
 
 juce::String DubgefahrenProcessor::slotName(int slot) const
@@ -158,12 +159,14 @@ void DubgefahrenProcessor::setSlotName(int slot, const juce::String& name)
 {
     auto names = apvts_.state.getOrCreateChildWithName(kNamesId, nullptr);
     names.setProperty(nameKey(slot), name.substring(0, 32), nullptr);
+    ++stateGeneration_;
 }
 
 void DubgefahrenProcessor::setSlot(int slot, const SlotParams& params, const juce::String& name)
 {
     writeSlotToParameters(apvts_, slot, params);
     setSlotName(slot, name);
+    ++stateGeneration_;
 }
 
 Kit DubgefahrenProcessor::currentKit()
@@ -182,6 +185,7 @@ void DubgefahrenProcessor::applyKit(const Kit& kit)
     for (int s = 0; s < kNumSlots; ++s)
         setSlot(s, kit.slots[static_cast<std::size_t>(s)],
                 juce::String::fromUTF8(kit.names[static_cast<std::size_t>(s)].c_str()));
+    ++stateGeneration_;
 }
 
 float DubgefahrenProcessor::uiScale() const

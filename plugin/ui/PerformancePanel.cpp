@@ -35,8 +35,10 @@ void PerformancePanel::resized()
         c->setBounds(x, 4, 72, getHeight() - 8);
         x += 76;
     }
-    target_.setBounds(x + 20, 8, 120, 44);
-    latchStop_.setBounds(x + 160, 8, 170, 44);
+    constexpr int kChoiceHeight = 44;
+    const int choiceY = (getHeight() - kChoiceHeight) / 2;
+    target_.setBounds(x + 20, choiceY, 120, kChoiceHeight);
+    latchStop_.setBounds(x + 160, choiceY, 170, kChoiceHeight);
 }
 
 } // namespace dg::ui
