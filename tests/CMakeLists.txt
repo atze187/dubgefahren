@@ -6,7 +6,8 @@ add_executable(DubgefahrenTests
     test_Lfo.cpp
     test_Envelope.cpp
     test_SirenVoice.cpp
-    test_PadRouter.cpp)
+    test_PadRouter.cpp
+    test_FxUnits.cpp)
 target_link_libraries(DubgefahrenTests PRIVATE dg_engine Catch2::Catch2WithMain)
 include(Catch)
 catch_discover_tests(DubgefahrenTests)
