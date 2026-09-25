@@ -66,6 +66,14 @@ TEST_CASE("the plugin exposes 308 uniquely named parameters", "[plugin]")
     CHECK(slotParamId(15, SlotField::FxSend) == "s16_send");
 }
 
+TEST_CASE("default program is named for VST3 hosts and validators", "[plugin]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    DubgefahrenProcessor p;
+    CHECK(p.getProgramName(0) == "Default");
+    CHECK(p.getNumPrograms() == 1);
+}
+
 TEST_CASE("slot parameters and names default to the factory kit", "[plugin]")
 {
     juce::ScopedJuceInitialiser_GUI gui;
