@@ -9,6 +9,8 @@ public:
     void prepare(double sampleRate);
     void reset();
     void setParams(float cutoffHz, float resonance, float type);
+    // Nur die LP/BP/HP-Mischgewichte (kein tan()); günstig genug für pro-Sample-Aufrufe.
+    void setTypeWeights(float type);
     float process(float x, int channel);
 
 private:

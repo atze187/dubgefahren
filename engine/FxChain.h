@@ -26,6 +26,14 @@ private:
     float cutoff_ = 20000.0f;
     bool cutoffInit_ = false;
     bool needsReset_ = false;
+
+    // 20 ms Ein-Pol-Glättung gegen Zipper-Rauschen bei Live-Reglern.
+    float smMaster_ = 1.0f;
+    float smDelayMix_ = 0.0f;
+    float smReverbMix_ = 0.0f;
+    float smDrive_ = 0.0f;
+    float smFilterType_ = 0.0f;
+    bool smoothInit_ = false;
 };
 
 } // namespace dg

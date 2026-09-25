@@ -80,6 +80,12 @@ private:
     int maxBlock_ = 512;
     std::array<SirenVoice, kNumSlots> voices_ {};
     std::array<PerfOffsets, kNumSlots> applied_ {};
+    // 20 ms Ein-Pol-Glättung der Slot-Mischwerte gegen Zipper-Rauschen; springt auf das
+    // Ziel, wenn eine Stimme aus dem Leerlauf startet.
+    std::array<float, kNumSlots> smGl_ {};
+    std::array<float, kNumSlots> smGr_ {};
+    std::array<float, kNumSlots> smSend_ {};
+    std::array<bool, kNumSlots> smInit_ {};
     PadRouter router_;
     Bank bank_ { *this };
     FxChain fx_;

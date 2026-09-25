@@ -25,6 +25,7 @@ void FxChain::reset()
     reverb_.reset();
     limiter_.reset();
     cutoffInit_ = false;
+    smoothInit_ = false;
 }
 
 void FxChain::process(float* mainL, float* mainR, float* sendL, float* sendR, int numSamples,
@@ -49,10 +50,34 @@ void FxChain::process(float* mainL, float* mainR, float* sendL, float* sendR, in
     filterSend_.setParams(cutoff_, p.resonance, p.filterType);
     delay_.setParams(static_cast<float>(delayDivisionSeconds(p.delayDiv, bpm)), p.delayFeedback, p.delayTone, p.delayWow);
     reverb_.setParams(p.reverbDecay, p.reverbTone);
-    const float master = volumeDbToGain(p.masterDb);
+
+    const float targetMaster = volumeDbToGain(p.masterDb);
+    const float targetDelayMix = p.delayMix;
+    const float targetReverbMix = p.reverbMix;
+    const float targetDrive = p.drive;
+    const float targetFilterType = std::clamp(p.filterType, 0.0f, 1.0f);
+
+    if (!smoothInit_)
+    {
+        smMaster_ = targetMaster;
+        smDelayMix_ = targetDelayMix;
+        smReverbMix_ = targetReverbMix;
+        smDrive_ = targetDrive;
+        smFilterType_ = targetFilterType;
+        smoothInit_ = true;
+    }
+    const float smCoeff = onePoleCoeff(0.02f, sampleRate_);
 
     for (int i = 0; i < numSamples; ++i)
     {
+        smMaster_ += smCoeff * (targetMaster - smMaster_);
+        smDelayMix_ += smCoeff * (targetDelayMix - smDelayMix_);
+        smReverbMix_ += smCoeff * (targetReverbMix - smReverbMix_);
+        smDrive_ += smCoeff * (targetDrive - smDrive_);
+        smFilterType_ += smCoeff * (targetFilterType - smFilterType_);
+        filterMain_.setTypeWeights(smFilterType_);
+        filterSend_.setTypeWeights(smFilterType_);
+
         if (needsReset_)
         {
             mainL[i] = 0.0f;
@@ -62,23 +87,23 @@ void FxChain::process(float* mainL, float* mainR, float* sendL, float* sendR, in
             continue;
         }
 
-        const float ml = filterMain_.process(driveSample(mainL[i], p.drive), 0);
-        const float mr = filterMain_.process(driveSample(mainR[i], p.drive), 1);
-        float sl = filterSend_.process(driveSample(sendL[i], p.drive), 0);
-        float sr = filterSend_.process(driveSample(sendR[i], p.drive), 1);
+        const float ml = filterMain_.process(driveSample(mainL[i], smDrive_), 0);
+        const float mr = filterMain_.process(driveSample(mainR[i], smDrive_), 1);
+        float sl = filterSend_.process(driveSample(sendL[i], smDrive_), 0);
+        float sr = filterSend_.process(driveSample(sendR[i], smDrive_), 1);
 
         float dl = 0.0f, dr = 0.0f;
         delay_.process(sl, sr, dl, dr);
-        sl += p.delayMix * dl;
-        sr += p.delayMix * dr;
+        sl += smDelayMix_ * dl;
+        sr += smDelayMix_ * dr;
 
         float rl = 0.0f, rr = 0.0f;
         reverb_.process(sl, sr, rl, rr);
-        sl += p.reverbMix * rl;
-        sr += p.reverbMix * rr;
+        sl += smReverbMix_ * rl;
+        sr += smReverbMix_ * rr;
 
-        float outL = (ml + sl) * master;
-        float outR = (mr + sr) * master;
+        float outL = (ml + sl) * smMaster_;
+        float outR = (mr + sr) * smMaster_;
         if (!std::isfinite(outL) || !std::isfinite(outR))
         {
             needsReset_ = true;

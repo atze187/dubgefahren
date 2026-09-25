@@ -135,6 +135,34 @@ TEST_CASE("master at -60 dB is silent", "[fxchain]")
     CHECK(dgtest::peakAbs(b.ml) == 0.0f);
 }
 
+TEST_CASE("master changes are smoothed", "[fxchain]")
+{
+    auto p = neutral();
+    FxChain fx;
+    fx.prepare(kSr);
+
+    // Erster Block bei masterDb 0, dann ein Block bei masterDb -60 direkt anschließend
+    // im selben Puffer, damit der Übergang zwischen den Blöcken erfasst wird.
+    Buses combined(1024);
+    const auto sineFull = dgtest::sine(440.0f, kSr, 1024, 0.5f);
+    combined.ml = sineFull;
+    combined.mr = sineFull;
+
+    fx.process(combined.ml.data(), combined.mr.data(), combined.sl.data(), combined.sr.data(), 512, p, 120.0);
+    p.masterDb = -60.0f;
+    fx.process(combined.ml.data() + 512, combined.mr.data() + 512, combined.sl.data() + 512, combined.sr.data() + 512,
+               512, p, 120.0);
+    CHECK(dgtest::maxStep(combined.ml, 500) < 0.05f);
+
+    // Der 20-ms-Einpol-Filter braucht rund 6 Zeitkonstanten, um auf < 1e-3 abzuklingen;
+    // ein grosszuegiges weiteres Fenster stellt sicher, dass wirklich abgeklungen wurde.
+    Buses tail(9600);
+    tail.ml = dgtest::sine(440.0f, kSr, 9600, 0.5f);
+    tail.mr = tail.ml;
+    run(fx, tail, p, 512);
+    CHECK(dgtest::peakAbs(tail.ml, 9500) < 1.0e-3f);
+}
+
 TEST_CASE("persistent NaN input is contained without per-sample resets", "[fxchain]")
 {
     FxChain fx;

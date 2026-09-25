@@ -270,3 +270,24 @@ TEST_CASE("the whole factory kit renders finite and below the ceiling", "[engine
     CHECK(dgtest::peakAbs(all) <= kLimiterCeiling + 1.0e-6f);
     CHECK(dgtest::rms(all) > 0.01f);
 }
+
+TEST_CASE("slot volume changes are smoothed", "[engine]")
+{
+    Engine e;
+    e.prepare(kSr, 512);
+    auto p = testParams();
+    p.slots[0].pitchHz = 200.0f;
+
+    // Beide Segmente landen im selben Puffer, damit der Übergang an der Blockgrenze
+    // (wo ein ungeglätteter Gain-Sprung passieren würde) erfasst wird.
+    std::vector<float> l(4800 + 512), r(4800 + 512);
+    // Kleiner Offset, damit die Blockgrenze nicht zufällig auf einen Nulldurchgang der
+    // 200-Hz-Sinuswelle (Periode 240 Samples, Teiler von 4800) fällt.
+    auto ev = std::vector<EngineEvent> { noteOn(36, 5) };
+    e.process(l.data(), r.data(), 4800, p, ev.data(), static_cast<int>(ev.size()), {});
+
+    p.slots[0].volumeDb = -60.0f;
+    e.process(l.data() + 4800, r.data() + 4800, 512, p, nullptr, 0, {});
+
+    CHECK(dgtest::maxStep(l, 4790) < 0.03f);
+}

@@ -29,6 +29,11 @@ void SvFilter::setParams(float cutoffHz, float resonance, float type)
     a2_ = g_ * a1_;
     a3_ = g_ * a2_;
 
+    setTypeWeights(type);
+}
+
+void SvFilter::setTypeWeights(float type)
+{
     const float t = std::clamp(type, 0.0f, 1.0f);
     if (t < 0.5f)
     {

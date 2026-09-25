@@ -33,6 +33,10 @@ void Engine::prepare(double sampleRate, int maxBlockSize)
     for (auto& v : voices_)
         v.prepare(sampleRate);
     applied_.fill(PerfOffsets {});
+    smGl_.fill(0.0f);
+    smGr_.fill(0.0f);
+    smSend_.fill(0.0f);
+    smInit_.fill(false);
     router_.prepare(sampleRate);
     fx_.prepare(sampleRate);
     for (auto* b : { &mainL_, &mainR_, &sendL_, &sendR_, &voiceBuf_ })
@@ -149,6 +153,7 @@ void Engine::renderSubSegment(int start, int len)
         if (!voice.isActive())
         {
             applied_[s] = PerfOffsets {};
+            smInit_[s] = false;
             continue;
         }
         if (g.perfTarget == PerfTarget::All || slot == focus)
@@ -159,19 +164,32 @@ void Engine::renderSubSegment(int start, int len)
         const SlotParams& sp = params_->slots[s];
         const float gain = volumeDbToGain(sp.volumeDb);
         const float angle = (std::clamp(sp.pan, -1.0f, 1.0f) + 1.0f) * kPi * 0.25f;
-        const float gl = std::cos(angle) * gain;
-        const float gr = std::sin(angle) * gain;
-        const float send = std::clamp(sp.fxSend, 0.0f, 1.0f);
-        const float dry = 1.0f - send;
+        const float targetGl = std::cos(angle) * gain;
+        const float targetGr = std::sin(angle) * gain;
+        const float targetSend = std::clamp(sp.fxSend, 0.0f, 1.0f);
+
+        if (!smInit_[s])
+        {
+            smGl_[s] = targetGl;
+            smGr_[s] = targetGr;
+            smSend_[s] = targetSend;
+            smInit_[s] = true;
+        }
+        const float coeff = onePoleCoeff(0.02f, sampleRate_);
 
         for (int i = 0; i < len; ++i)
         {
+            smGl_[s] += coeff * (targetGl - smGl_[s]);
+            smGr_[s] += coeff * (targetGr - smGr_[s]);
+            smSend_[s] += coeff * (targetSend - smSend_[s]);
+            const float dry = 1.0f - smSend_[s];
+
             const float v = voiceBuf_[static_cast<std::size_t>(i)];
             const auto o = static_cast<std::size_t>(start + i);
-            mainL_[o] += v * gl * dry;
-            mainR_[o] += v * gr * dry;
-            sendL_[o] += v * gl * send;
-            sendR_[o] += v * gr * send;
+            mainL_[o] += v * smGl_[s] * dry;
+            mainR_[o] += v * smGr_[s] * dry;
+            sendL_[o] += v * smGl_[s] * smSend_[s];
+            sendR_[o] += v * smGr_[s] * smSend_[s];
         }
     }
 }
