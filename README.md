@@ -44,17 +44,6 @@ Datei: `%CommonProgramFiles%\VST3\Dubgefahren.vst3\Contents\Resources\Dubgefahre
 Umgebungsvariablen wie `%USERPROFILE%` sind erlaubt. Leer, fehlend oder ungültig → `Dokumente\Dubgefahren\Kits`.
 Bei einer fehlerhaften Config zeigt das Plugin beim Öffnen von Kit-Menü, Import oder Export einen Hinweis.
 
-## Ableton Live einrichten
-
-1. Dubgefahren als Instrument auf einen MIDI-Track legen (ersetzt das Effekt-Drumrack).
-2. **BU16:** Pads senden Noten 36–51 (C1–D#2) → Slots 1–16. Pad 1 liegt unten links, wie im Plugin.
-3. **PO16 (Effekte):** Im Plugin-Gerät „Konfigurieren" bzw. MIDI-Map-Modus (Strg+M) die Parameter
-   `Drive`, `Filter Cutoff`, `Filter Resonanz`, `Filter Typ`, `Delay Zeit`, `Delay Feedback`, `Delay Tone`,
-   `Delay Wow`, `Delay Mix`, `Hall Decay`, `Hall Tone`, `Hall Mix`, `Master` auf die Potis legen.
-   Die globalen Parameter stehen in der Liste ganz oben.
-4. **TEK2 (Performance):** `Perf Pitch`, `Perf Rate`, `Perf Tiefe`, `Perf Sweep`. Mittelstellung = keine Änderung.
-5. **PFB4 (Schalter):** `Perf Ziel` (Fokus/Alle), `Panic` (Taster), `Latch bei Stopp`.
-
 ## Kits
 
 Kit-Menü → Werks-Kit oder Kits aus dem Kit-Ordner. Import/Export als `.dgkit` (JSON, 16 Slots, ohne Effekte).
