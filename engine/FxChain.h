@@ -25,6 +25,7 @@ private:
     Limiter limiter_;
     float cutoff_ = 20000.0f;
     bool cutoffInit_ = false;
+    bool needsReset_ = false;
 };
 
 } // namespace dg

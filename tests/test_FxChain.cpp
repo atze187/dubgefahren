@@ -117,6 +117,9 @@ TEST_CASE("NaN input is contained and processing recovers", "[fxchain]")
     b.ml[100] = std::numeric_limits<float>::quiet_NaN();
     run(fx, b, neutral());
     CHECK(dgtest::allFinite(b.ml));
+    CHECK(dgtest::allFinite(b.mr));
+    CHECK(dgtest::allFinite(b.sl));
+    CHECK(dgtest::allFinite(b.sr));
     CHECK(dgtest::peakAbs(b.ml, 4800) > 0.4f);
 }
 
@@ -130,4 +133,31 @@ TEST_CASE("master at -60 dB is silent", "[fxchain]")
     b.ml = dgtest::sine(440.0f, kSr, 4800, 0.5f);
     run(fx, b, p);
     CHECK(dgtest::peakAbs(b.ml) == 0.0f);
+}
+
+TEST_CASE("persistent NaN input is contained without per-sample resets", "[fxchain]")
+{
+    FxChain fx;
+    fx.prepare(kSr);
+    Buses b(48000 + 48000);
+
+    // First 48000 samples: NaN on main bus
+    for (int i = 0; i < 48000; ++i)
+    {
+        b.ml[i] = std::numeric_limits<float>::quiet_NaN();
+        b.mr[i] = std::numeric_limits<float>::quiet_NaN();
+    }
+
+    // Next 48000 samples: 440 Hz sine
+    auto sine = dgtest::sine(440.0f, kSr, 48000, 0.5f);
+    std::copy(sine.begin(), sine.end(), b.ml.begin() + 48000);
+    std::copy(sine.begin(), sine.end(), b.mr.begin() + 48000);
+
+    run(fx, b, neutral());
+
+    CHECK(dgtest::allFinite(b.ml));
+    CHECK(dgtest::allFinite(b.mr));
+    CHECK(dgtest::allFinite(b.sl));
+    CHECK(dgtest::allFinite(b.sr));
+    CHECK(dgtest::peakAbs(b.ml, 48000 + 24000) > 0.4f);
 }

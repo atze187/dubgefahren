@@ -30,6 +30,12 @@ void FxChain::reset()
 void FxChain::process(float* mainL, float* mainR, float* sendL, float* sendR, int numSamples,
                       const FxParams& p, double bpm)
 {
+    if (needsReset_)
+    {
+        reset();
+        needsReset_ = false;
+    }
+
     const float target = std::clamp(p.cutoffHz, 20.0f, 20000.0f);
     if (!cutoffInit_)
     {
@@ -47,6 +53,15 @@ void FxChain::process(float* mainL, float* mainR, float* sendL, float* sendR, in
 
     for (int i = 0; i < numSamples; ++i)
     {
+        if (needsReset_)
+        {
+            mainL[i] = 0.0f;
+            mainR[i] = 0.0f;
+            sendL[i] = 0.0f;
+            sendR[i] = 0.0f;
+            continue;
+        }
+
         const float ml = filterMain_.process(driveSample(mainL[i], p.drive), 0);
         const float mr = filterMain_.process(driveSample(mainR[i], p.drive), 1);
         float sl = filterSend_.process(driveSample(sendL[i], p.drive), 0);
@@ -66,8 +81,9 @@ void FxChain::process(float* mainL, float* mainR, float* sendL, float* sendR, in
         float outR = (mr + sr) * master;
         if (!std::isfinite(outL) || !std::isfinite(outR))
         {
-            reset();
+            needsReset_ = true;
             outL = outR = 0.0f;
+            sl = sr = 0.0f;
         }
         limiter_.process(outL, outR);
         mainL[i] = outL;
