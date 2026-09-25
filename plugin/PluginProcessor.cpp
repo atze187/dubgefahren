@@ -91,12 +91,19 @@ void DubgefahrenProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::
 
     for (const auto meta : midi)
     {
-        const auto m = meta.getMessage();
+        // Keine juce::MidiMessage konstruieren: das würde bei SysEx (> 8 Bytes) im
+        // Audio-Thread allozieren. Stattdessen die rohen Bytes direkt auswerten.
+        if (meta.numBytes != 3)
+            continue;
+        const auto* d = meta.data;
+        const int status = d[0] & 0xF0;
+        const int note = d[1] & 0x7F;
+        const int vel = d[2] & 0x7F;
         const int offset = std::clamp(meta.samplePosition, 0, std::max(0, numSamples - 1));
-        if (m.isNoteOn())
-            push(EngineEvent { EngineEvent::Type::NoteOn, offset, m.getNoteNumber() });
-        else if (m.isNoteOff()) // enthält Note-On mit Velocity 0
-            push(EngineEvent { EngineEvent::Type::NoteOff, offset, m.getNoteNumber() });
+        if (status == 0x90 && vel > 0)
+            push(EngineEvent { EngineEvent::Type::NoteOn, offset, note });
+        else if (status == 0x80 || (status == 0x90 && vel == 0)) // Note-On mit Velocity 0 = Note-Off
+            push(EngineEvent { EngineEvent::Type::NoteOff, offset, note });
     }
 
     TransportInfo transport;

@@ -1,5 +1,6 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
+#include <array>
 #include <cmath>
 #include <set>
 #include "engine/Kit.h"
@@ -142,6 +143,31 @@ TEST_CASE("processBlock plays note 36 and treats velocity 0 as note off", "[plug
     off.addEvent(juce::MidiMessage::noteOn(1, 36, static_cast<juce::uint8>(0)), 0);
     processBlocks(p, 60, off); // Classic: Release 0,4 s
     CHECK(p.activeMask() == 0u);
+}
+
+TEST_CASE("non-note MIDI and out-of-range notes are ignored", "[plugin]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    DubgefahrenProcessor p;
+    prepare(p);
+
+    juce::MidiBuffer midi;
+    midi.addEvent(juce::MidiMessage::controllerEvent(1, 7, 100), 0);
+    std::array<juce::uint8, 20> sysExData {};
+    midi.addEvent(juce::MidiMessage::createSysExMessage(sysExData.data(), static_cast<int>(sysExData.size())), 0);
+    midi.addEvent(juce::MidiMessage::noteOn(1, 60, static_cast<juce::uint8>(100)), 0);
+
+    juce::AudioBuffer<float> buf(2, 512);
+    buf.clear();
+    p.processBlock(buf, midi);
+    CHECK(p.activeMask() == 0u);
+    CHECK(buf.getMagnitude(0, 0, 512) == 0.0f);
+
+    juce::MidiBuffer on;
+    on.addEvent(juce::MidiMessage::noteOn(1, 36, static_cast<juce::uint8>(100)), 0);
+    buf.clear();
+    p.processBlock(buf, on);
+    CHECK(p.activeMask() == 1u);
 }
 
 TEST_CASE("panic parameter stops latched voices on its rising edge", "[plugin]")
