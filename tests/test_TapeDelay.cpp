@@ -94,3 +94,19 @@ TEST_CASE("channels are independent", "[delay]")
     }
     CHECK(maxRight == 0.0f);
 }
+
+TEST_CASE("no buffer overflow with edge case delay", "[delay]")
+{
+    TapeDelay d;
+    d.prepare(kSr);
+    d.setParams(0.250000089f, 0.3f, 0.5f, 0.0f);
+    const auto x = dgtest::noise(48000 * 11, 0.5f);
+    bool finite = true;
+    for (float v : x)
+    {
+        float l = 0.0f, r = 0.0f;
+        d.process(v, v, l, r);
+        finite = finite && std::isfinite(l) && std::isfinite(r);
+    }
+    CHECK(finite);
+}

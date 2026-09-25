@@ -74,5 +74,23 @@ TEST_CASE("reverb stays stable at maximum decay", "[reverb]")
         peak = std::max({ peak, std::abs(l), std::abs(r) });
     }
     CHECK(finite);
-    CHECK(peak < 100.0f);
+    CHECK(peak < 10.0f);
+}
+
+TEST_CASE("wet level is comparable to the input", "[reverb]")
+{
+    SpringReverb rv;
+    rv.prepare(kSr);
+    rv.setParams(0.5f, 0.5f);
+    const auto x = dgtest::noise(48000 * 5, 0.5f);
+    std::vector<float> wet_l(x.size()), wet_r(x.size());
+    for (std::size_t i = 0; i < x.size(); ++i)
+    {
+        rv.process(x[i], x[i], wet_l[i], wet_r[i]);
+    }
+    const float input_rms = dgtest::rms(x);
+    const float wet_rms = dgtest::rms(wet_l, 48000, 240000);
+    const float ratio = wet_rms / input_rms;
+    CHECK(ratio >= 0.5f);
+    CHECK(ratio <= 2.0f);
 }

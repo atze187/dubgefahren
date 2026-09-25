@@ -19,8 +19,9 @@ void SpringReverb::Line::clear()
 float SpringReverb::Allpass::process(float x)
 {
     const float b = line.buf[line.idx];
-    const float y = -x + b;
-    line.buf[line.idx] = x + b * g;
+    const float w = x + g * b;
+    const float y = b - g * w;
+    line.buf[line.idx] = w;
     if (++line.idx >= line.buf.size())
         line.idx = 0;
     return y;
@@ -92,7 +93,7 @@ float SpringReverb::processChannel(Channel& c, float x)
         d = a.process(d);
     float s = 0.0f;
     for (auto& cb : c.combs)
-        s += cb.process(d * 0.08f, feedback_, damp_); // Eingangspegel so gewählt, dass Wet ≈ Dry-Pegel
+        s += cb.process(d * 0.4f, feedback_, damp_); // Eingangspegel so gewählt, dass Wet ≈ Dry-Pegel
     for (auto& a : c.diffusers)
         s = a.process(s);
     return s;

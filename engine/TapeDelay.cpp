@@ -42,13 +42,11 @@ void TapeDelay::setParams(float timeSeconds, float feedback, float tone, float w
 
 float TapeDelay::read(const std::vector<float>& buf, float delaySamples) const
 {
-    const float size = static_cast<float>(buf.size());
-    float pos = static_cast<float>(write_) - delaySamples;
-    while (pos < 0.0f)
-        pos += size;
-    const auto i0 = static_cast<std::size_t>(pos);
-    const float frac = pos - static_cast<float>(i0);
-    const std::size_t i1 = (i0 + 1) % buf.size();
+    const std::size_t size = buf.size();
+    const auto di = static_cast<std::size_t>(delaySamples);
+    const float frac = delaySamples - static_cast<float>(di);
+    const std::size_t i0 = (write_ + size - (di % size)) % size;      // sample at integer delay
+    const std::size_t i1 = (i0 + size - 1) % size;                    // one sample older
     return buf[i0] + frac * (buf[i1] - buf[i0]);
 }
 
