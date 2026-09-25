@@ -236,6 +236,19 @@ TEST_CASE("preview events start and release a slot", "[engine]")
     CHECK(e.activeMask() == 0u);
 }
 
+TEST_CASE("one-shot release is sample accurate regardless of block size", "[engine]")
+{
+    Engine e;
+    e.prepare(kSr, 8192);
+    auto p = testParams();
+    p.slots[0].trigMode = TriggerMode::OneShot;
+    p.slots[0].oneShotS = 0.1f;
+    p.slots[0].releaseS = 0.0f; // 1 ms Minimum = 48 Samples bei 48 kHz
+    const auto o = run(e, p, 8192, { noteOn(36) });
+    CHECK(dgtest::peakAbs(o.l, 0, 4700) > 0.5f);
+    CHECK(dgtest::peakAbs(o.l, 4800 + 48 + 16) < 1.0e-4f);
+}
+
 TEST_CASE("the whole factory kit renders finite and below the ceiling", "[engine]")
 {
     Engine e;

@@ -45,6 +45,8 @@ public:
     void setFocusSlot(int slot);
     bool isLatched(int slot) const;
     std::uint32_t latchedMask() const;
+    // Kleinste positive verbleibende One-Shot-Zeit über alle Slots, oder INT_MAX ohne laufenden Timer.
+    int samplesUntilNextExpiry() const;
 
 private:
     void start(int slot, TriggerMode mode, const TriggerSettingsArray& settings, VoiceControl& voices);

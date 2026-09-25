@@ -1,5 +1,6 @@
 #include <catch2/catch_test_macros.hpp>
 #include <array>
+#include <climits>
 #include <string>
 #include <vector>
 #include "engine/PadRouter.h"
@@ -252,4 +253,23 @@ TEST_CASE("note off uses the mode the voice was started with", "[router]")
     s[0].mode = TriggerMode::Latch; // Automation, während das Pad gehalten wird
     r.noteOff(36, v);
     CHECK(v.log == Log { "start 0", "release 0" });
+}
+
+TEST_CASE("samplesUntilNextExpiry reports the nearest one-shot", "[router]")
+{
+    auto r = makeRouter();
+    FakeVoices v;
+    CHECK(r.samplesUntilNextExpiry() == INT_MAX);
+
+    auto s = allMode(TriggerMode::OneShot);
+    s[0].oneShotS = 0.5f;
+    r.noteOn(36, s, v);
+    CHECK(r.samplesUntilNextExpiry() == 24000);
+
+    r.advance(1000, v);
+    CHECK(r.samplesUntilNextExpiry() == 23000);
+
+    s[1].oneShotS = 0.1f;
+    r.noteOn(37, s, v);
+    CHECK(r.samplesUntilNextExpiry() == 4800);
 }

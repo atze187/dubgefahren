@@ -1,6 +1,7 @@
 #include "engine/PadRouter.h"
 #include <algorithm>
 #include <cmath>
+#include <limits>
 
 namespace dg {
 
@@ -157,6 +158,20 @@ std::uint32_t PadRouter::latchedMask() const
         if (latched_[s])
             m |= 1u << s;
     return m;
+}
+
+int PadRouter::samplesUntilNextExpiry() const
+{
+    std::int64_t best = -1;
+    for (int s = 0; s < kNumSlots; ++s)
+    {
+        const std::int64_t r = oneShotRemaining_[s];
+        if (r > 0 && (best < 0 || r < best))
+            best = r;
+    }
+    if (best < 0)
+        return std::numeric_limits<int>::max();
+    return static_cast<int>(std::min<std::int64_t>(best, std::numeric_limits<int>::max()));
 }
 
 } // namespace dg

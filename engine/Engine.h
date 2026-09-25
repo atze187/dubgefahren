@@ -73,6 +73,7 @@ private:
     void processChunk(float* outL, float* outR, int n, const EngineEvent* events, int numEvents, int base);
     void handleEvent(const EngineEvent& ev);
     void renderSegment(int start, int len);
+    void renderSubSegment(int start, int len);
     VoiceContext contextFor(int slot) const;
 
     double sampleRate_ = 44100.0;

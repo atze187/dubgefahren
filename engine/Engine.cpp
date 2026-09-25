@@ -124,6 +124,19 @@ void Engine::handleEvent(const EngineEvent& ev)
 
 void Engine::renderSegment(int start, int len)
 {
+    // Ein Segment darf keinen One-Shot-Ablauf überschreiten, sonst wird zu spät released.
+    while (len > 0)
+    {
+        const int n = std::min(len, std::max(1, router_.samplesUntilNextExpiry()));
+        renderSubSegment(start, n);
+        router_.advance(n, bank_);
+        start += n;
+        len -= n;
+    }
+}
+
+void Engine::renderSubSegment(int start, int len)
+{
     if (len <= 0)
         return;
     const GlobalParams& g = params_->global;
@@ -161,7 +174,6 @@ void Engine::renderSegment(int start, int len)
             sendR_[o] += v * gr * send;
         }
     }
-    router_.advance(len, bank_);
 }
 
 } // namespace dg
