@@ -11,7 +11,8 @@ add_executable(DubgefahrenTests
     test_TapeDelay.cpp
     test_SpringReverb.cpp
     test_FxChain.cpp
-    test_Kit.cpp)
+    test_Kit.cpp
+    test_Engine.cpp)
 target_link_libraries(DubgefahrenTests PRIVATE dg_engine Catch2::Catch2WithMain)
 include(Catch)
 catch_discover_tests(DubgefahrenTests)
