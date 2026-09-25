@@ -44,7 +44,7 @@ KitParseResult kitFromJsonString(const juce::String& text)
 {
     juce::var root;
     if (juce::JSON::parse(text, root).failed() || !root.isObject())
-        return fail("Die Datei ist kein gültiges JSON.");
+        return fail(juce::String::fromUTF8("Die Datei ist kein gültiges JSON."));
     if (root["format"].toString() != kFormat)
         return fail("Die Datei ist kein Dubgefahren-Kit.");
     if (!isNumber(root["version"]))
@@ -61,7 +61,7 @@ KitParseResult kitFromJsonString(const juce::String& text)
     {
         const juce::var& slot = (*slots)[s];
         if (!slot.isObject())
-            return fail(slotLabel(s) + " ist ungültig.");
+            return fail(slotLabel(s) + juce::String::fromUTF8(" ist ungültig."));
         if (!slot["name"].isString())
             return fail(slotLabel(s) + " hat keinen Namen.");
         const auto* params = slot["params"].getDynamicObject();
@@ -75,7 +75,7 @@ KitParseResult kitFromJsonString(const juce::String& text)
             if (!field)
                 continue; // unbekannte Schlüssel (neuere Versionen) ignorieren
             if (!isNumber(prop.value))
-                return fail(slotLabel(s) + ": Wert für \"" + prop.name.toString() + "\" ist keine Zahl.");
+                return fail(slotLabel(s) + juce::String::fromUTF8(": Wert für \"") + prop.name.toString() + juce::String::fromUTF8("\" ist keine Zahl."));
             setSlotField(p, *field, static_cast<float>(static_cast<double>(prop.value)));
         }
         kit.slots[static_cast<std::size_t>(s)] = p;
@@ -104,7 +104,7 @@ KitParseResult loadKitFile(const juce::File& file)
     if (!file.existsAsFile())
         return fail("Datei nicht gefunden: " + file.getFullPathName());
     if (file.getSize() > kMaxFileBytes)
-        return fail("Die Datei ist zu groß für ein Kit.");
+        return fail(juce::String::fromUTF8("Die Datei ist zu groß für ein Kit."));
     return kitFromJsonString(file.loadFileAsString());
 }
 

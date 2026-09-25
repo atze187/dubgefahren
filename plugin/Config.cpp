@@ -33,7 +33,7 @@ KitFolderInfo resolveKitFolder(const juce::File& configFile, const juce::File& d
         juce::var root;
         if (juce::JSON::parse(configFile.loadFileAsString(), root).failed() || !root.isObject())
         {
-            info.warning = "Die Config-Datei ist ungültig und wird ignoriert: " + configFile.getFullPathName();
+            info.warning = juce::String::fromUTF8("Die Config-Datei ist ungültig und wird ignoriert: ") + configFile.getFullPathName();
         }
         else
         {

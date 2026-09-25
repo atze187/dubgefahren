@@ -63,6 +63,7 @@ TEST_CASE("invalid config, missing folder and relative path fall back with a war
     auto info = resolveKitFolder(cfg, def);
     CHECK(info.folder == def);
     CHECK(info.warning.isNotEmpty());
+    CHECK(info.warning.contains(juce::String::fromUTF8("ungültig")));
 
     writeConfig(cfg, tmp.dir.getChildFile("gibtsnicht").getFullPathName());
     info = resolveKitFolder(cfg, def);
