@@ -1,0 +1,63 @@
+name: Build and release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build and test
+        shell: pwsh
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File build.ps1 all -Config Release
+
+      - name: Download pluginval
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "https://github.com/Tracktion/pluginval/releases/download/v1.0.4/pluginval_Windows.zip" -OutFile pluginval.zip
+          Expand-Archive pluginval.zip -DestinationPath pluginval-extract -Force
+          New-Item -ItemType Directory -Force tools\bin | Out-Null
+          $exe = Get-ChildItem -Path pluginval-extract -Recurse -Filter pluginval.exe | Select-Object -First 1
+          Copy-Item $exe.FullName tools\bin\pluginval.exe
+
+      - name: Validate (Steinberg validator + pluginval)
+        shell: pwsh
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File build.ps1 validate -Config Release
+
+      - name: Package
+        id: package
+        shell: pwsh
+        run: |
+          $version = if ($env:GITHUB_REF_TYPE -eq 'tag') { $env:GITHUB_REF_NAME } else { "dev-$($env:GITHUB_SHA.Substring(0,7))" }
+          $name = "Dubgefahren-$version-win64"
+          $staging = Join-Path $env:RUNNER_TEMP $name
+          New-Item -ItemType Directory -Force $staging | Out-Null
+          Copy-Item -Recurse "build\plugin\Dubgefahren_artefacts\Release\VST3\Dubgefahren.vst3" $staging
+          Copy-Item README.md, LICENSE $staging
+          $zip = Join-Path $env:RUNNER_TEMP "$name.zip"
+          Compress-Archive -Path "$staging\*" -DestinationPath $zip -Force
+          "zip=$zip" >> $env:GITHUB_OUTPUT
+          "name=$name" >> $env:GITHUB_OUTPUT
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.package.outputs.name }}
+          path: ${{ steps.package.outputs.zip }}
+
+      - name: Publish GitHub release
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.package.outputs.zip }}
+          generate_release_notes: true
