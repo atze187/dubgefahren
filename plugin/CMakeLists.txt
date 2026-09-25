@@ -7,7 +7,21 @@ target_sources(dg_plugin_shared INTERFACE
     ${CMAKE_CURRENT_SOURCE_DIR}/KitFile.h
     ${CMAKE_CURRENT_SOURCE_DIR}/KitFile.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/Config.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/Config.cpp)
+    ${CMAKE_CURRENT_SOURCE_DIR}/Config.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/PluginEditor.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/PluginEditor.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/ui/DgLookAndFeel.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/ui/DgLookAndFeel.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/ui/Controls.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/ui/Controls.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/ui/PadGrid.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/ui/PadGrid.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/ui/SlotEditor.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/ui/SlotEditor.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/ui/FxPanel.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/ui/FxPanel.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/ui/PerformancePanel.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/ui/PerformancePanel.cpp)
 target_include_directories(dg_plugin_shared INTERFACE ${PROJECT_SOURCE_DIR})
 target_compile_definitions(dg_plugin_shared INTERFACE
     JUCE_WEB_BROWSER=0

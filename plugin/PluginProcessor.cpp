@@ -1,5 +1,6 @@
 #include "plugin/PluginProcessor.h"
 #include <algorithm>
+#include "plugin/PluginEditor.h"
 
 namespace dg {
 
@@ -127,7 +128,7 @@ void DubgefahrenProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::
 
 juce::AudioProcessorEditor* DubgefahrenProcessor::createEditor()
 {
-    return new juce::GenericAudioProcessorEditor(*this); // wird in Task 16 ersetzt
+    return new DubgefahrenEditor(*this);
 }
 
 void DubgefahrenProcessor::getStateInformation(juce::MemoryBlock& destData)
