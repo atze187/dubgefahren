@@ -2,7 +2,8 @@ add_library(dg_engine STATIC
     DspMath.h DspMath.cpp
     SlotParams.h SlotParams.cpp SlotFields.h SlotFields.cpp
     Oscillator.h Oscillator.cpp
-    Lfo.h Lfo.cpp)
+    Lfo.h Lfo.cpp
+    Envelope.h Envelope.cpp)
 target_include_directories(dg_engine PUBLIC ${PROJECT_SOURCE_DIR})
 target_compile_features(dg_engine PUBLIC cxx_std_20)
 if(MSVC)
