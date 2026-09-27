@@ -130,11 +130,11 @@ void PadGrid::paint(juce::Graphics& g)
     auto legend = getLocalBounds().removeFromBottom(20).toFloat();
     g.setFont(juce::FontOptions(11.0f));
     g.setColour(colours::playing);
-    g.drawText(u8("● spielt"), legend.removeFromLeft(80.0f), juce::Justification::centredLeft);
+    g.drawText(u8("● playing"), legend.removeFromLeft(80.0f), juce::Justification::centredLeft);
     g.setColour(colours::accent);
-    g.drawText(u8("◆ Fokus"), legend.removeFromLeft(80.0f), juce::Justification::centredLeft);
+    g.drawText(u8("◆ focus"), legend.removeFromLeft(80.0f), juce::Justification::centredLeft);
     g.setColour(colours::latched);
-    g.drawText(u8("● gelatcht"), legend.removeFromLeft(90.0f), juce::Justification::centredLeft);
+    g.drawText(u8("● latched"), legend.removeFromLeft(90.0f), juce::Justification::centredLeft);
 }
 
 void PadGrid::resized()

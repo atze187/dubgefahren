@@ -44,29 +44,29 @@ KitParseResult kitFromJsonString(const juce::String& text)
 {
     juce::var root;
     if (juce::JSON::parse(text, root).failed() || !root.isObject())
-        return fail(juce::String::fromUTF8("Die Datei ist kein gültiges JSON."));
+        return fail("The file is not valid JSON.");
     if (root["format"].toString() != kFormat)
-        return fail("Die Datei ist kein Dubgefahren-Kit.");
+        return fail("The file is not a Dubgefahren kit.");
     if (!isNumber(root["version"]))
-        return fail("Die Kit-Version fehlt.");
+        return fail("The kit version is missing.");
     if (static_cast<int>(root["version"]) > kVersion)
-        return fail("Das Kit stammt aus einer neueren Dubgefahren-Version.");
+        return fail("The kit was created with a newer version of Dubgefahren.");
 
     const auto* slots = root["slots"].getArray();
     if (slots == nullptr || slots->size() != kNumSlots)
-        return fail("Das Kit muss genau 16 Slots enthalten.");
+        return fail("The kit must contain exactly 16 slots.");
 
     Kit kit;
     for (int s = 0; s < kNumSlots; ++s)
     {
         const juce::var& slot = (*slots)[s];
         if (!slot.isObject())
-            return fail(slotLabel(s) + juce::String::fromUTF8(" ist ungültig."));
+            return fail(slotLabel(s) + " is invalid.");
         if (!slot["name"].isString())
-            return fail(slotLabel(s) + " hat keinen Namen.");
+            return fail(slotLabel(s) + " has no name.");
         const auto* params = slot["params"].getDynamicObject();
         if (params == nullptr)
-            return fail(slotLabel(s) + " hat keine Parameter.");
+            return fail(slotLabel(s) + " has no parameters.");
 
         SlotParams p = makeDefaultSlotParams();
         for (const auto& prop : params->getProperties())
@@ -75,7 +75,7 @@ KitParseResult kitFromJsonString(const juce::String& text)
             if (!field)
                 continue; // unbekannte Schlüssel (neuere Versionen) ignorieren
             if (!isNumber(prop.value))
-                return fail(slotLabel(s) + juce::String::fromUTF8(": Wert für \"") + prop.name.toString() + juce::String::fromUTF8("\" ist keine Zahl."));
+                return fail(slotLabel(s) + ": value for \"" + prop.name.toString() + "\" is not a number.");
             setSlotField(p, *field, static_cast<float>(static_cast<double>(prop.value)));
         }
         kit.slots[static_cast<std::size_t>(s)] = p;
@@ -88,12 +88,12 @@ bool saveKitFile(const Kit& kit, const juce::File& file, juce::String& error)
 {
     if (!file.getParentDirectory().createDirectory())
     {
-        error = "Ordner konnte nicht angelegt werden: " + file.getParentDirectory().getFullPathName();
+        error = "Could not create folder: " + file.getParentDirectory().getFullPathName();
         return false;
     }
     if (!file.replaceWithText(kitToJsonString(kit), false, false, "\n"))
     {
-        error = "Datei konnte nicht geschrieben werden: " + file.getFullPathName();
+        error = "Could not write file: " + file.getFullPathName();
         return false;
     }
     return true;
@@ -102,9 +102,9 @@ bool saveKitFile(const Kit& kit, const juce::File& file, juce::String& error)
 KitParseResult loadKitFile(const juce::File& file)
 {
     if (!file.existsAsFile())
-        return fail("Datei nicht gefunden: " + file.getFullPathName());
+        return fail("File not found: " + file.getFullPathName());
     if (file.getSize() > kMaxFileBytes)
-        return fail(juce::String::fromUTF8("Die Datei ist zu groß für ein Kit."));
+        return fail("The file is too large for a kit.");
     return kitFromJsonString(file.loadFileAsString());
 }
 

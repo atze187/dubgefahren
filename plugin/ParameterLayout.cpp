@@ -67,26 +67,26 @@ juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout(const 
 
     layout.add(makeFloat(pid::drive, "Drive", 0.0f, 1.0f, fx.drive, 0.0f, ""));
     layout.add(makeFloat(pid::cutoff, "Filter Cutoff", 20.0f, 20000.0f, fx.cutoffHz, 1000.0f, "Hz"));
-    layout.add(makeFloat(pid::resonance, "Filter Resonanz", 0.0f, 1.0f, fx.resonance, 0.0f, ""));
-    layout.add(makeFloat(pid::filterType, "Filter Typ", 0.0f, 1.0f, fx.filterType, 0.0f, ""));
-    layout.add(makeChoice(pid::delayTime, "Delay Zeit",
+    layout.add(makeFloat(pid::resonance, "Filter Resonance", 0.0f, 1.0f, fx.resonance, 0.0f, ""));
+    layout.add(makeFloat(pid::filterType, "Filter Type", 0.0f, 1.0f, fx.filterType, 0.0f, ""));
+    layout.add(makeChoice(pid::delayTime, "Delay Time",
                           { "1/16T", "1/16", "1/16D", "1/8T", "1/8", "1/8D", "1/4T", "1/4", "1/4D", "1/2T", "1/2", "1/2D", "1/1" },
                           static_cast<int>(fx.delayDiv)));
     layout.add(makeFloat(pid::delayFeedback, "Delay Feedback", 0.0f, 1.1f, fx.delayFeedback, 0.0f, ""));
     layout.add(makeFloat(pid::delayTone, "Delay Tone", 0.0f, 1.0f, fx.delayTone, 0.0f, ""));
     layout.add(makeFloat(pid::delayWow, "Delay Wow", 0.0f, 1.0f, fx.delayWow, 0.0f, ""));
     layout.add(makeFloat(pid::delayMix, "Delay Mix", 0.0f, 1.0f, fx.delayMix, 0.0f, ""));
-    layout.add(makeFloat(pid::reverbDecay, "Hall Decay", 0.0f, 1.0f, fx.reverbDecay, 0.0f, ""));
-    layout.add(makeFloat(pid::reverbTone, "Hall Tone", 0.0f, 1.0f, fx.reverbTone, 0.0f, ""));
-    layout.add(makeFloat(pid::reverbMix, "Hall Mix", 0.0f, 1.0f, fx.reverbMix, 0.0f, ""));
+    layout.add(makeFloat(pid::reverbDecay, "Reverb Decay", 0.0f, 1.0f, fx.reverbDecay, 0.0f, ""));
+    layout.add(makeFloat(pid::reverbTone, "Reverb Tone", 0.0f, 1.0f, fx.reverbTone, 0.0f, ""));
+    layout.add(makeFloat(pid::reverbMix, "Reverb Mix", 0.0f, 1.0f, fx.reverbMix, 0.0f, ""));
     layout.add(makeFloat(pid::masterVol, "Master", -60.0f, 6.0f, fx.masterDb, 0.0f, "dB"));
 
     layout.add(makeFloat(pid::perfPitch, "Perf Pitch", -24.0f, 24.0f, 0.0f, 0.0f, "st"));
     layout.add(makeFloat(pid::perfRate, "Perf Rate", 0.25f, 4.0f, 1.0f, 1.0f, "x"));
-    layout.add(makeFloat(pid::perfDepth, "Perf Tiefe", -24.0f, 24.0f, 0.0f, 0.0f, "st"));
+    layout.add(makeFloat(pid::perfDepth, "Perf Depth", -24.0f, 24.0f, 0.0f, 0.0f, "st"));
     layout.add(makeFloat(pid::perfSweep, "Perf Sweep", -24.0f, 24.0f, 0.0f, 0.0f, "st"));
-    layout.add(makeChoice(pid::perfTarget, "Perf Ziel", { "Fokus", "Alle" }, 0));
-    layout.add(makeChoice(pid::latchStop, "Latch bei Stopp", { "Weiterlaufen", "Ausklingen", "Sofort stoppen" }, 1));
+    layout.add(makeChoice(pid::perfTarget, "Perf Target", { "Focus", "All" }, 0));
+    layout.add(makeChoice(pid::latchStop, "Latch on Stop", { "Keep Playing", "Release", "Stop Immediately" }, 1));
     layout.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID { pid::panic, kParameterVersion }, "Panic", false));
 
     for (int s = 0; s < kNumSlots; ++s)

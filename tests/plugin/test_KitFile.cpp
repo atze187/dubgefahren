@@ -48,7 +48,7 @@ TEST_CASE("invalid kit files are rejected with a message", "[kitfile]")
 
     const auto badJson = kitFromJsonString("{ not json");
     CHECK_FALSE(badJson.kit.has_value());
-    CHECK(badJson.error == juce::String::fromUTF8("Die Datei ist kein gültiges JSON."));
+    CHECK(badJson.error == juce::String("The file is not valid JSON."));
 
     auto wrongFormat = parsed(k);
     wrongFormat.getDynamicObject()->setProperty("format", "something-else");

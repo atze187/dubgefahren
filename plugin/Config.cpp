@@ -33,7 +33,7 @@ KitFolderInfo resolveKitFolder(const juce::File& configFile, const juce::File& d
         juce::var root;
         if (juce::JSON::parse(configFile.loadFileAsString(), root).failed() || !root.isObject())
         {
-            info.warning = juce::String::fromUTF8("Die Config-Datei ist ungültig und wird ignoriert: ") + configFile.getFullPathName();
+            info.warning = juce::String("The config file is invalid and will be ignored: ") + configFile.getFullPathName();
         }
         else
         {
@@ -42,9 +42,9 @@ KitFolderInfo resolveKitFolder(const juce::File& configFile, const juce::File& d
             {
                 const auto expanded = expandEnvironmentVariables(raw);
                 if (!juce::File::isAbsolutePath(expanded))
-                    info.warning = "kitFolder in der Config ist kein absoluter Pfad: " + expanded;
+                    info.warning = "kitFolder in the config is not an absolute path: " + expanded;
                 else if (!juce::File(expanded).isDirectory())
-                    info.warning = "Der Kit-Ordner aus der Config existiert nicht: " + expanded;
+                    info.warning = "The kit folder from the config does not exist: " + expanded;
                 else
                     info.folder = juce::File(expanded);
             }
