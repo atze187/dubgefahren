@@ -171,12 +171,12 @@ void DubgefahrenEditor::showKitMenu()
 {
     maybeShowConfigWarning();
     juce::PopupMenu menu;
-    menu.addItem(1, "Werks-Kit laden");
+    menu.addItem(1, "Load Factory Kit");
     menu.addSeparator();
     auto files = proc_.kitFolder().folder.findChildFiles(juce::File::findFiles, false, juce::String("*") + kKitExtension);
     files.sort();
     if (files.isEmpty())
-        menu.addItem(2, "(keine Kits im Ordner)", false);
+        menu.addItem(2, "(no kits in folder)", false);
     for (int i = 0; i < files.size(); ++i)
         menu.addItem(100 + i, files[i].getFileNameWithoutExtension());
 
@@ -197,7 +197,7 @@ void DubgefahrenEditor::loadKit(const juce::File& file)
     const auto result = loadKitFile(file);
     if (!result.kit)
     {
-        showMessage("Kit konnte nicht geladen werden", result.error);
+        showMessage("Could not load kit", result.error);
         return;
     }
     proc_.applyKit(*result.kit);
@@ -207,7 +207,7 @@ void DubgefahrenEditor::loadKit(const juce::File& file)
 void DubgefahrenEditor::importKit()
 {
     maybeShowConfigWarning();
-    chooser_ = std::make_unique<juce::FileChooser>("Kit importieren", proc_.kitFolder().folder,
+    chooser_ = std::make_unique<juce::FileChooser>("Import Kit", proc_.kitFolder().folder,
                                                    juce::String("*") + kKitExtension);
     chooser_->launchAsync(juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
                           [safe = juce::Component::SafePointer<DubgefahrenEditor>(this)](const juce::FileChooser& fc) {
@@ -220,8 +220,8 @@ void DubgefahrenEditor::importKit()
 void DubgefahrenEditor::exportKit()
 {
     maybeShowConfigWarning();
-    chooser_ = std::make_unique<juce::FileChooser>("Kit exportieren",
-                                                   proc_.kitFolder().folder.getChildFile(juce::String("Mein Kit") + kKitExtension),
+    chooser_ = std::make_unique<juce::FileChooser>("Export Kit",
+                                                   proc_.kitFolder().folder.getChildFile(juce::String("My Kit") + kKitExtension),
                                                    juce::String("*") + kKitExtension);
     chooser_->launchAsync(juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles
                               | juce::FileBrowserComponent::warnAboutOverwriting,
@@ -231,17 +231,17 @@ void DubgefahrenEditor::exportKit()
                               const auto file = fc.getResult().withFileExtension(kKitExtension);
                               juce::String error;
                               if (!saveKitFile(safe->proc_.currentKit(), file, error))
-                                  safe->showMessage("Kit konnte nicht gespeichert werden", error);
+                                  safe->showMessage("Could not save kit", error);
                           });
 }
 
 void DubgefahrenEditor::showPadMenu(int slot)
 {
     juce::PopupMenu menu;
-    menu.addItem(1, "Kopieren");
-    menu.addItem(2, juce::String::fromUTF8("Einfügen"), clipboard_.has_value());
-    menu.addItem(3, juce::String::fromUTF8("Auf Werkseinstellung zurücksetzen"));
-    menu.addItem(4, "Umbenennen");
+    menu.addItem(1, "Copy");
+    menu.addItem(2, "Paste", clipboard_.has_value());
+    menu.addItem(3, "Reset to Factory Default");
+    menu.addItem(4, "Rename");
     menu.showMenuAsync(juce::PopupMenu::Options(),
                        [safe = juce::Component::SafePointer<DubgefahrenEditor>(this), slot](int result) {
                            if (safe == nullptr)
@@ -276,10 +276,10 @@ void DubgefahrenEditor::showPadMenu(int slot)
 
 void DubgefahrenEditor::renameSlot(int slot)
 {
-    auto* window = new juce::AlertWindow("Slot umbenennen", "Neuer Name:", juce::MessageBoxIconType::NoIcon);
+    auto* window = new juce::AlertWindow("Rename Slot", "New name:", juce::MessageBoxIconType::NoIcon);
     window->addTextEditor("name", proc_.slotName(slot));
     window->addButton("OK", 1, juce::KeyPress(juce::KeyPress::returnKey));
-    window->addButton("Abbrechen", 0, juce::KeyPress(juce::KeyPress::escapeKey));
+    window->addButton("Cancel", 0, juce::KeyPress(juce::KeyPress::escapeKey));
     window->enterModalState(true,
                             juce::ModalCallbackFunction::create(
                                 [safe = juce::Component::SafePointer<DubgefahrenEditor>(this), window, slot](int result) {

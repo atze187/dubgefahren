@@ -14,7 +14,7 @@ constexpr int kTopOffset = 40;
 constexpr int kRowHeight = 84;
 constexpr int kRowLabelWidth = 64;
 constexpr int kCellWidth = 104;
-const char* const kRowNames[kNumRows] = { "OSZ\nAMP", "LFO", "SWEEP\nTRIG", "MIX" };
+const char* const kRowNames[kNumRows] = { "OSC\nAMP", "LFO", "SWEEP\nTRIG", "MIX" };
 } // namespace
 
 SlotEditor::SlotEditor(DubgefahrenProcessor& proc) : proc_(proc)

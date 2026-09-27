@@ -20,7 +20,7 @@ private:
     Knob cutoff_ { u8("Cutoff") };
     Knob resonance_ { u8("Reso") };
     Knob filterType_ { u8("LP·BP·HP") };
-    Choice delayTime_ { u8("Zeit") };
+    Choice delayTime_ { u8("Time") };
     Knob delayFeedback_ { u8("Feedback") };
     Knob delayTone_ { u8("Tone") };
     Knob delayWow_ { u8("Wow") };

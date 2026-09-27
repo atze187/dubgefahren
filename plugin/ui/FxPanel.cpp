@@ -8,7 +8,7 @@ namespace dg::ui {
 namespace {
 constexpr int kCell = 72;
 struct Group { const char* title; int firstCell; int cells; };
-constexpr Group kGroups[] = { { "DRIVE", 0, 1 }, { "FILTER", 1, 3 }, { "DELAY", 4, 5 }, { "HALL", 9, 3 }, { "MASTER", 12, 1 } };
+constexpr Group kGroups[] = { { "DRIVE", 0, 1 }, { "FILTER", 1, 3 }, { "DELAY", 4, 5 }, { "REVERB", 9, 3 }, { "MASTER", 12, 1 } };
 } // namespace
 
 FxPanel::FxPanel(DubgefahrenProcessor& proc)

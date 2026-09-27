@@ -56,7 +56,7 @@ private:
     juce::TextButton importButton_ { "Import" };
     juce::TextButton exportButton_ { "Export" };
     juce::TextButton panicButton_ { "PANIC" };
-    juce::ToggleButton followFocus_ { "Editor folgt Fokus" };
+    juce::ToggleButton followFocus_ { "Editor follows focus" };
     ui::PadGrid pads_;
     ui::SlotEditor slotEditor_;
     ui::FxPanel fx_;

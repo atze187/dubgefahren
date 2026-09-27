@@ -7,33 +7,33 @@ namespace dg {
 
 namespace {
 
-constexpr const char* kWaveChoices[] = { "Sinus", "Dreieck", "Sägezahn", "Rechteck" };
-constexpr const char* kLfoShapeChoices[] = { "Rechteck", "Dreieck", "Sägezahn auf", "Sägezahn ab", "Sample & Hold" };
+constexpr const char* kWaveChoices[] = { "Sine", "Triangle", "Saw", "Square" };
+constexpr const char* kLfoShapeChoices[] = { "Square", "Triangle", "Saw Up", "Saw Down", "Sample & Hold" };
 constexpr const char* kSyncDivChoices[] = { "1/32", "1/16T", "1/16", "1/8T", "1/8", "1/4T", "1/4", "1/2",
-                                            "1 Takt", "2 Takte", "4 Takte" };
+                                            "1 Bar", "2 Bars", "4 Bars" };
 constexpr const char* kTrigModeChoices[] = { "Gate", "Latch", "One-Shot" };
-constexpr const char* kChokeChoices[] = { "Keine", "1", "2", "3", "4" };
+constexpr const char* kChokeChoices[] = { "None", "1", "2", "3", "4" };
 
 using C = std::span<const char* const>;
 
 const std::array<FieldSpec, kNumSlotFields> kSpecs { {
-    { "wave",       "Welle",          FieldKind::Choice, 0.0f, 3.0f, 3.0f, 0.0f, "", C(kWaveChoices) },
-    { "pw",         "Pulsbreite",     FieldKind::Float, 0.05f, 0.95f, 0.5f, 0.0f, "", {} },
-    { "pitch",      "Tonhöhe",        FieldKind::Float, 20.0f, 5000.0f, 440.0f, 400.0f, "Hz", {} },
-    { "lfoShape",   "LFO-Form",       FieldKind::Choice, 0.0f, 4.0f, 0.0f, 0.0f, "", C(kLfoShapeChoices) },
-    { "lfoRate",    "LFO-Rate",       FieldKind::Float, 0.05f, 40.0f, 2.0f, 2.0f, "Hz", {} },
-    { "lfoSync",    "LFO-Sync",       FieldKind::Bool, 0.0f, 1.0f, 0.0f, 0.0f, "", {} },
-    { "lfoSyncDiv", "LFO-Sync-Rate",  FieldKind::Choice, 0.0f, 10.0f, 4.0f, 0.0f, "", C(kSyncDivChoices) },
-    { "lfoDepth",   "LFO-Tiefe",      FieldKind::Float, 0.0f, 48.0f, 12.0f, 0.0f, "st", {} },
-    { "sweepAmt",   "Sweep-Betrag",   FieldKind::Float, -48.0f, 48.0f, 0.0f, 0.0f, "st", {} },
-    { "sweepTime",  "Sweep-Zeit",     FieldKind::Float, 0.01f, 10.0f, 0.5f, 0.5f, "s", {} },
+    { "wave",       "Wave",           FieldKind::Choice, 0.0f, 3.0f, 3.0f, 0.0f, "", C(kWaveChoices) },
+    { "pw",         "Pulse Width",    FieldKind::Float, 0.05f, 0.95f, 0.5f, 0.0f, "", {} },
+    { "pitch",      "Pitch",          FieldKind::Float, 20.0f, 5000.0f, 440.0f, 400.0f, "Hz", {} },
+    { "lfoShape",   "LFO Shape",      FieldKind::Choice, 0.0f, 4.0f, 0.0f, 0.0f, "", C(kLfoShapeChoices) },
+    { "lfoRate",    "LFO Rate",       FieldKind::Float, 0.05f, 40.0f, 2.0f, 2.0f, "Hz", {} },
+    { "lfoSync",    "LFO Sync",       FieldKind::Bool, 0.0f, 1.0f, 0.0f, 0.0f, "", {} },
+    { "lfoSyncDiv", "LFO Sync Rate",  FieldKind::Choice, 0.0f, 10.0f, 4.0f, 0.0f, "", C(kSyncDivChoices) },
+    { "lfoDepth",   "LFO Depth",      FieldKind::Float, 0.0f, 48.0f, 12.0f, 0.0f, "st", {} },
+    { "sweepAmt",   "Sweep Amount",   FieldKind::Float, -48.0f, 48.0f, 0.0f, 0.0f, "st", {} },
+    { "sweepTime",  "Sweep Time",     FieldKind::Float, 0.01f, 10.0f, 0.5f, 0.5f, "s", {} },
     { "attack",     "Attack",         FieldKind::Float, 0.0f, 5.0f, 0.005f, 0.2f, "s", {} },
     { "release",    "Release",        FieldKind::Float, 0.0f, 10.0f, 0.3f, 0.5f, "s", {} },
-    { "trigMode",   "Trigger-Modus",  FieldKind::Choice, 0.0f, 2.0f, 0.0f, 0.0f, "", C(kTrigModeChoices) },
-    { "oneShot",    "One-Shot-Länge", FieldKind::Float, 0.05f, 10.0f, 1.0f, 1.0f, "s", {} },
-    { "choke",      "Choke-Gruppe",   FieldKind::Choice, 0.0f, 4.0f, 0.0f, 0.0f, "", C(kChokeChoices) },
-    { "vol",        "Lautstärke",     FieldKind::Float, -60.0f, 6.0f, -6.0f, 0.0f, "dB", {} },
-    { "pan",        "Panorama",       FieldKind::Float, -1.0f, 1.0f, 0.0f, 0.0f, "", {} },
+    { "trigMode",   "Trigger Mode",   FieldKind::Choice, 0.0f, 2.0f, 0.0f, 0.0f, "", C(kTrigModeChoices) },
+    { "oneShot",    "One-Shot Length", FieldKind::Float, 0.05f, 10.0f, 1.0f, 1.0f, "s", {} },
+    { "choke",      "Choke Group",    FieldKind::Choice, 0.0f, 4.0f, 0.0f, 0.0f, "", C(kChokeChoices) },
+    { "vol",        "Volume",         FieldKind::Float, -60.0f, 6.0f, -6.0f, 0.0f, "dB", {} },
+    { "pan",        "Pan",            FieldKind::Float, -1.0f, 1.0f, 0.0f, 0.0f, "", {} },
     { "send",       "FX-Send",        FieldKind::Float, 0.0f, 1.0f, 0.3f, 0.0f, "", {} },
 } };
 

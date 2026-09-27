@@ -53,7 +53,7 @@ If the config is invalid, the plugin shows a notice when the kit menu, import or
 
 ## Kits
 
-Kit menu → factory kit ("Werks-Kit") or kits from the kit folder. Import/export as `.dgkit` (JSON, 16 slots, without effects).
+Kit menu → factory kit or kits from the kit folder. Import/export as `.dgkit` (JSON, 16 slots, without effects).
 Right-click a pad: copy, paste, reset to factory settings, rename.
 
 ## Validation
@@ -87,8 +87,8 @@ Third-party components:
 - [ ] Gate: sounds only while held. Latch: on/off per tap. One-shot: fixed length.
 - [ ] Choke: Laser, Riser, Faller, Bleep, Zap and Drop cut each other off without clicks.
 - [ ] Several sirens can sound at the same time.
-- [ ] PO16 controls the effects, TEK2 the performance controls; focus/all ("Fokus"/"Alle") behaves as expected.
-- [ ] Transport stop tested with all three "latch on stop" ("Latch bei Stopp") settings.
+- [ ] PO16 controls the effects, TEK2 the performance controls; "Perf Target" focus/all behaves as expected.
+- [ ] Transport stop tested with all three "Latch on Stop" settings.
 - [ ] Panic stops everything; delay/reverb tails ring out.
 - [ ] Save the set, restart Live, load the set: settings and slot names are restored.
 - [ ] Export a kit, change slots, import the kit: slots restored, effects unchanged.
