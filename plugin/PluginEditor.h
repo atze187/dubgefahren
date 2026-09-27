@@ -5,6 +5,7 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_gui_basics/juce_gui_basics.h>
 #include "engine/SlotParams.h"
+#include "plugin/ui/CpuMeter.h"
 #include "plugin/ui/DgLookAndFeel.h"
 #include "plugin/ui/FxPanel.h"
 #include "plugin/ui/PadGrid.h"
@@ -33,6 +34,7 @@ public:
     // Für Tests: pollt den Processor-Zustand, den timerCallback() sonst auf dem Message-Timer tut.
     void pollProcessorState();
     bool followFocusToggleState() const { return followFocus_.getToggleState(); }
+    juce::String cpuMeterText() const { return cpuMeter_.getText(); }
 
 private:
     void timerCallback() override;
@@ -52,6 +54,7 @@ private:
     ui::DgLookAndFeel lnf_;
     juce::Component content_;
     juce::Label title_;
+    ui::CpuMeter cpuMeter_;
     juce::TextButton kitButton_ { juce::String::fromUTF8("Kit ▾") };
     juce::TextButton importButton_ { "Import" };
     juce::TextButton exportButton_ { "Export" };

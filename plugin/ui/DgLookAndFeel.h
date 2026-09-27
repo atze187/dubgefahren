@@ -12,6 +12,8 @@ inline const juce::Colour textDim { 0xff8a939e };
 inline const juce::Colour accent { 0xfff2b134 };
 inline const juce::Colour playing { 0xff4cd07d };
 inline const juce::Colour latched { 0xff3aa0ff };
+inline const juce::Colour warning { 0xffff8c2a };
+inline const juce::Colour danger { 0xffff4d4d };
 } // namespace colours
 
 class DgLookAndFeel final : public juce::LookAndFeel_V4

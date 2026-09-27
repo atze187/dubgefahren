@@ -43,6 +43,7 @@ void DubgefahrenProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
 {
     engine_.prepare(sampleRate, samplesPerBlock);
     lastPanic_ = false;
+    loadMeasurer_.reset(sampleRate, samplesPerBlock);
 }
 
 bool DubgefahrenProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const
@@ -70,6 +71,7 @@ void DubgefahrenProcessor::previewRelease(int slot)
 void DubgefahrenProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi)
 {
     juce::ScopedNoDenormals noDenormals;
+    juce::AudioProcessLoadMeasurer::ScopedTimer loadTimer(loadMeasurer_, buffer.getNumSamples());
     const int numSamples = buffer.getNumSamples();
     if (buffer.getNumChannels() < 2)
     {

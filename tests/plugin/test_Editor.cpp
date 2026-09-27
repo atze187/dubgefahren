@@ -41,3 +41,12 @@ TEST_CASE("editor refreshes after the host restores state", "[editor]")
     CHECK(b.slotName(1) == "Alpha");
     CHECK(e->followFocusToggleState() == false);
 }
+
+TEST_CASE("editor shows the cpu meter in the header", "[editor]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    DubgefahrenProcessor p;
+    std::unique_ptr<juce::AudioProcessorEditor> editor(p.createEditor());
+    auto* e = static_cast<DubgefahrenEditor*>(editor.get());
+    CHECK(e->cpuMeterText() == "CPU 0 %");
+}
