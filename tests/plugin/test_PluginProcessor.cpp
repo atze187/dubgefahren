@@ -226,3 +226,20 @@ TEST_CASE("preview release is never dropped", "[plugin]")
     processBlocks(p, 60);
     CHECK((p.activeMask() & 1u) == 0u);
 }
+
+TEST_CASE("cpu load is zero before processing and a sane proportion afterwards", "[plugin]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    DubgefahrenProcessor p;
+    CHECK(p.cpuLoad() == 0.0);
+
+    prepare(p);
+    juce::MidiBuffer on;
+    on.addEvent(juce::MidiMessage::noteOn(1, 36, static_cast<juce::uint8>(100)), 0);
+    processBlocks(p, 20, on);
+
+    const double load = p.cpuLoad();
+    CHECK(std::isfinite(load));
+    CHECK(load > 0.0);
+    CHECK(load < 1.0);
+}

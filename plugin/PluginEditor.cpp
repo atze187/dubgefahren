@@ -16,6 +16,8 @@ DubgefahrenEditor::DubgefahrenEditor(DubgefahrenProcessor& proc)
     title_.setFont(juce::FontOptions(22.0f, juce::Font::bold));
     title_.setColour(juce::Label::textColourId, ui::colours::accent);
 
+    cpuMeter_.setSource([this] { return proc_.cpuLoad(); });
+
     kitButton_.onClick = [this] { showKitMenu(); };
     importButton_.onClick = [this] { importKit(); };
     exportButton_.onClick = [this] { exportKit(); };
@@ -28,7 +30,7 @@ DubgefahrenEditor::DubgefahrenEditor(DubgefahrenProcessor& proc)
     slotEditor_.onRename = [this] { renameSlot(selectedSlot_); };
 
     for (juce::Component* c : std::initializer_list<juce::Component*> {
-             &title_, &kitButton_, &importButton_, &exportButton_, &panicButton_, &followFocus_, &pads_, &slotEditor_, &fx_, &perf_ })
+             &title_, &cpuMeter_, &kitButton_, &importButton_, &exportButton_, &panicButton_, &followFocus_, &pads_, &slotEditor_, &fx_, &perf_ })
         content_.addAndMakeVisible(*c);
 
     content_.setSize(kBaseWidth, kBaseHeight);
@@ -69,6 +71,7 @@ void DubgefahrenEditor::layoutContent()
     auto r = juce::Rectangle<int>(0, 0, kBaseWidth, kBaseHeight).reduced(12);
     auto header = r.removeFromTop(36);
     title_.setBounds(header.removeFromLeft(220));
+    cpuMeter_.setBounds(header.removeFromLeft(90));
     panicButton_.setBounds(header.removeFromRight(90).reduced(2));
     header.removeFromRight(12);
     exportButton_.setBounds(header.removeFromRight(80).reduced(2));

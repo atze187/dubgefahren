@@ -61,6 +61,8 @@ public:
     // Editors ändern (Host-Restore, applyKit, setSlot, setSlotName), damit der Editor per
     // Timer erkennen kann, dass er seine Anzeige neu einlesen muss.
     int stateGeneration() const { return stateGeneration_.load(); }
+    // Anteil der Rechenzeit von processBlock am Echtzeit-Budget eines Blocks (geglättet, 1 = 100 %).
+    double cpuLoad() const { return loadMeasurer_.getLoadAsProportion(); }
 
 private:
     static constexpr int kStateVersion = 1;
@@ -83,6 +85,7 @@ private:
     bool lastPanic_ = false;
     KitFolderInfo kitFolder_;
     std::atomic<int> stateGeneration_ { 0 };
+    juce::AudioProcessLoadMeasurer loadMeasurer_;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DubgefahrenProcessor)
 };

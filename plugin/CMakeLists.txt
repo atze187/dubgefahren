@@ -14,6 +14,8 @@ target_sources(dg_plugin_shared INTERFACE
     ${CMAKE_CURRENT_SOURCE_DIR}/ui/DgLookAndFeel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/ui/Controls.h
     ${CMAKE_CURRENT_SOURCE_DIR}/ui/Controls.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/ui/CpuMeter.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/ui/CpuMeter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/ui/PadGrid.h
     ${CMAKE_CURRENT_SOURCE_DIR}/ui/PadGrid.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/ui/SlotEditor.h
