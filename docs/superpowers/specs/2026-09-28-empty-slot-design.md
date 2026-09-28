@@ -56,9 +56,10 @@ auf „Synth“ werden sie mit der Factory-Sirene des Slots überschrieben.
 - Der `ParameterID`-Versionshinweis der neuen Parameter ist **2**, alle bestehenden
   behalten 1. `kParameterVersion` wird dazu in zwei Konstanten aufgeteilt
   (bestehende Parameter / seit Version 2).
-- Alte Host-Projekte kennen `sNN_source` nicht; APVTS setzt dann den Default „Synth“,
-  das Verhalten bleibt also unverändert. `kStateVersion` bleibt 1, weil keine Migration
-  nötig ist.
+- Alte Host-Projekte kennen `sNN_source` nicht. `replaceState()` ließe fehlende Parameter
+  auf ihrem **aktuellen** Wert stehen (ein altes Projekt würde in einer Instanz mit leeren
+  Slots also leer bleiben). Deshalb ergänzt `setStateInformation` vor `replaceState()`
+  fehlende `sNN_source`-Einträge explizit mit „Synth“. `kStateVersion` bleibt 1.
 - `readSlotFromParameters`, `writeSlotToParameters` und `ParamCache::read` lesen bzw.
   schreiben den Quellentyp mit.
 
@@ -148,7 +149,8 @@ auch nach einem Host-Restore.
   - Version 3 wird abgelehnt (der bestehende Test wird von 2 auf 3 angepasst).
 - **PluginProcessor:**
   - State-Roundtrip mit leeren Slots.
-  - Ein State ohne `sNN_source`-Eintrag (altes Projekt) ergibt Synth.
+  - Ein State ohne `sNN_source`-Eintrag (altes Projekt) ergibt Synth, auch wenn die
+    Instanz vorher leere Slots hatte.
   - `setSlot` bzw. `applyKit` setzen den Quellentyp.
 - **Editor:** leerer Slot zeigt den Hinweis und blendet die Regler aus; das Kit-Menü
   und das Pad-Kontextmenü enthalten die neuen Einträge, soweit sich das über die
