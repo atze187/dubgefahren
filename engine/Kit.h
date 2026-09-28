@@ -12,5 +12,7 @@ struct Kit
 };
 
 Kit makeFactoryKit();
+// Alle Slots leer und ohne Namen; die (unsichtbaren) Synth-Werte entsprechen dem Factory-Kit.
+Kit makeEmptyKit();
 
 } // namespace dg

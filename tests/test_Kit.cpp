@@ -58,3 +58,30 @@ TEST_CASE("factory kit trigger modes and choke groups follow the spec", "[kit]")
     CHECK(k.slots[4].sweepSemis < 0.0f);  // Riser steigt
     CHECK(k.slots[5].sweepSemis > 0.0f);  // Faller fällt
 }
+
+TEST_CASE("factory kit slots are synths", "[kit]")
+{
+    for (const auto& s : makeFactoryKit().slots)
+        CHECK(s.source == SourceType::Synth);
+}
+
+TEST_CASE("empty kit has 16 empty, unnamed slots with factory synth values", "[kit]")
+{
+    const Kit f = makeFactoryKit();
+    const Kit e = makeEmptyKit();
+    for (std::size_t s = 0; s < kNumSlots; ++s)
+    {
+        CHECK(e.slots[s].source == SourceType::Empty);
+        CHECK(e.names[s].empty());
+        SlotParams asSynth = e.slots[s];
+        asSynth.source = SourceType::Synth;
+        CHECK(asSynth == f.slots[s]);
+    }
+}
+
+TEST_CASE("only synth slots have sound until the sample player exists", "[kit]")
+{
+    CHECK(hasSound(SourceType::Synth));
+    CHECK_FALSE(hasSound(SourceType::Empty));
+    CHECK_FALSE(hasSound(SourceType::Sample));
+}

@@ -76,4 +76,15 @@ Kit makeFactoryKit()
     return k;
 }
 
+Kit makeEmptyKit()
+{
+    Kit k = makeFactoryKit();
+    for (std::size_t s = 0; s < kNumSlots; ++s)
+    {
+        k.slots[s].source = SourceType::Empty;
+        k.names[s].clear();
+    }
+    return k;
+}
+
 } // namespace dg
