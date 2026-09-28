@@ -119,3 +119,24 @@ TEST_CASE("kit menu offers a new empty kit", "[editor]")
     CHECK(items[0] == std::make_pair(juce::String("Load Factory Kit"), true));
     CHECK(items[1] == std::make_pair(juce::String("New Empty Kit"), true));
 }
+
+TEST_CASE("editor refreshes when the host changes a slot source directly", "[editor]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    DubgefahrenProcessor p;
+    std::unique_ptr<juce::AudioProcessorEditor> editor(p.createEditor());
+    auto* e = static_cast<DubgefahrenEditor*>(editor.get());
+    e->selectSlot(3);
+
+    // z. B. generischer Host-Editor oder Host-Undo: kein setSlot, keine stateGeneration-Änderung
+    auto* source = p.state().getParameter("s04_source");
+    source->setValueNotifyingHost(source->convertTo0to1(static_cast<float>(SourceType::Empty)));
+    e->pollProcessorState();
+    CHECK(e->padShowsEmpty(3));
+    CHECK(e->slotEditorShowsEmptyHint());
+
+    source->setValueNotifyingHost(source->convertTo0to1(static_cast<float>(SourceType::Synth)));
+    e->pollProcessorState();
+    CHECK_FALSE(e->padShowsEmpty(3));
+    CHECK_FALSE(e->slotEditorShowsEmptyHint());
+}

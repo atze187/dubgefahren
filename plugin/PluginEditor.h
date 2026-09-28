@@ -1,4 +1,5 @@
 #pragma once
+#include <cstdint>
 #include <memory>
 #include <optional>
 #include <utility>
@@ -57,6 +58,8 @@ private:
     void loadKit(const juce::File& file);
     void showMessage(const juce::String& title, const juce::String& text);
     void maybeShowConfigWarning();
+    // Bit s gesetzt = Slot s hat eine klingende Quelle.
+    std::uint32_t soundMask() const;
 
     DubgefahrenProcessor& proc_;
     ui::DgLookAndFeel lnf_;
@@ -77,6 +80,7 @@ private:
     int selectedSlot_ = 0;
     int lastFocus_ = -1;
     int lastStateGeneration_ = -1;
+    std::uint32_t lastSoundMask_ = 0;
     bool configWarningShown_ = false;
 };
 

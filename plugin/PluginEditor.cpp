@@ -44,6 +44,7 @@ DubgefahrenEditor::DubgefahrenEditor(DubgefahrenProcessor& proc)
     layoutContent();
     selectSlot(proc_.focusSlot());
     lastStateGeneration_ = proc_.stateGeneration();
+    lastSoundMask_ = soundMask();
 
     // uiScale() wird vorab gelesen: setResizeLimits() zwingt die noch 0x0 große
     // Editor-Bounds sofort auf die Mindestgröße, was über resized() einen Zwischenwert
@@ -112,13 +113,26 @@ void DubgefahrenEditor::refreshAll()
 
 void DubgefahrenEditor::pollProcessorState()
 {
+    // Der Quellentyp kann sich auch ohne setSlot ändern (generischer Host-Editor, Host-Undo),
+    // deshalb zusätzlich zur stateGeneration vergleichen.
     const int gen = proc_.stateGeneration();
-    if (gen != lastStateGeneration_)
+    const std::uint32_t sound = soundMask();
+    if (gen != lastStateGeneration_ || sound != lastSoundMask_)
     {
         lastStateGeneration_ = gen;
+        lastSoundMask_ = sound;
         refreshAll();
         followFocus_.setToggleState(proc_.editorFollowsFocus(), juce::dontSendNotification);
     }
+}
+
+std::uint32_t DubgefahrenEditor::soundMask() const
+{
+    std::uint32_t m = 0;
+    for (int s = 0; s < kNumSlots; ++s)
+        if (hasSound(proc_.slotSource(s)))
+            m |= 1u << s;
+    return m;
 }
 
 void DubgefahrenEditor::timerCallback()
