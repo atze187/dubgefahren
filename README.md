@@ -3,6 +3,9 @@
 VST3 instrument for Windows: 16 individually adjustable dub sirens, playable via MIDI notes 36–51
 (e.g. Intech Studio Grid BU16), with a shared dub effects chain (drive, filter, tape delay, spring reverb).
 
+*This is an experimental project to evaluate Claude. 
+I do not contribute to code while still reviewing Claude-written code. I do however propose features.*
+
 ## Download
 
 Prebuilt binaries are attached to the [GitHub releases](https://github.com/atze187/dubgefahren/releases)
