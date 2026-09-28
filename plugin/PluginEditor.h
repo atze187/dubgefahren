@@ -35,6 +35,13 @@ public:
     void pollProcessorState();
     bool followFocusToggleState() const { return followFocus_.getToggleState(); }
     juce::String cpuMeterText() const { return cpuMeter_.getText(); }
+    bool slotEditorShowsEmptyHint() const { return slotEditor_.showsEmptyHint(); }
+    bool padShowsEmpty(int slot) const { return pads_.isEmpty(slot); }
+
+    // Für Tests öffentlich: bauen die Popup-Menüs von Kit-Button, Pad-Rechtsklick und leerem Pad.
+    juce::PopupMenu buildKitMenu(const juce::Array<juce::File>& kitFiles) const;
+    juce::PopupMenu buildPadMenu(int slot) const;
+    static juce::PopupMenu buildSourceMenu();
 
 private:
     void timerCallback() override;
@@ -43,6 +50,7 @@ private:
     void setPanic(bool down);
     void showKitMenu();
     void showPadMenu(int slot);
+    void showSourceMenu(int slot);
     void renameSlot(int slot);
     void importKit();
     void exportKit();

@@ -1,5 +1,6 @@
 #pragma once
 #include <functional>
+#include <vector>
 #include <juce_gui_basics/juce_gui_basics.h>
 #include "plugin/ui/Controls.h"
 
@@ -15,7 +16,8 @@ public:
     explicit SlotEditor(DubgefahrenProcessor& proc);
     void setSlot(int slot);
     int slot() const { return slot_; }
-    void refreshName();
+    void refresh();
+    bool showsEmptyHint() const { return emptyHint_.isVisible(); }
 
     std::function<void()> onRename;
 
@@ -46,6 +48,9 @@ private:
     Knob vol_ { u8("Volume") };
     Knob pan_ { u8("Pan") };
     Knob send_ { u8("FX-Send") };
+
+    juce::Label emptyHint_;
+    std::vector<juce::Component*> controls_;
 };
 
 } // namespace dg::ui

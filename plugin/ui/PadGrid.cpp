@@ -27,26 +27,30 @@ public:
         repaint();
     }
 
-    void setName(const juce::String& n)
+    void setContent(const juce::String& n, bool empty)
     {
         name_ = n;
+        empty_ = empty;
         repaint();
     }
+
+    bool isEmpty() const { return empty_; }
 
     void paint(juce::Graphics& g) override
     {
         const auto r = getLocalBounds().toFloat().reduced(3.0f);
         g.setColour(active_ ? colours::playing.withAlpha(0.35f) : colours::panel);
         g.fillRoundedRectangle(r, 6.0f);
-        g.setColour(focus_ ? colours::accent : colours::outline);
+        g.setColour(focus_ ? colours::accent : (empty_ ? colours::outline.withAlpha(0.5f) : colours::outline));
         g.drawRoundedRectangle(r, 6.0f, selected_ ? 3.0f : 1.5f);
 
         g.setColour(colours::textDim);
         g.setFont(juce::FontOptions(11.0f));
         g.drawText(juce::String(slot_ + 1), r.reduced(6.0f), juce::Justification::topLeft);
-        g.setColour(colours::text);
+        g.setColour(empty_ ? colours::textDim : colours::text);
         g.setFont(juce::FontOptions(13.0f));
-        g.drawFittedText(name_, r.reduced(6.0f).toNearestInt(), juce::Justification::centred, 2);
+        g.drawFittedText(empty_ ? juce::String("Empty") : name_, r.reduced(6.0f).toNearestInt(),
+                         juce::Justification::centred, 2);
 
         if (latched_)
         {
@@ -68,6 +72,15 @@ public:
                 owner_.onContextMenu(slot_);
             return;
         }
+        if (empty_)
+        {
+            // Leerer Slot: keine Vorschau, sondern Slot wählen und Quellen-Auswahl öffnen.
+            if (owner_.onSelect)
+                owner_.onSelect(slot_);
+            if (owner_.onEmptyClick)
+                owner_.onEmptyClick(slot_);
+            return;
+        }
         held_ = true;
         owner_.proc_.previewPress(slot_);
         if (owner_.onSelect)
@@ -85,7 +98,7 @@ private:
     PadGrid& owner_;
     const int slot_;
     juce::String name_;
-    bool active_ = false, latched_ = false, focus_ = false, selected_ = false, held_ = false;
+    bool active_ = false, latched_ = false, focus_ = false, selected_ = false, held_ = false, empty_ = false;
 };
 
 PadGrid::PadGrid(DubgefahrenProcessor& proc) : proc_(proc)
@@ -122,8 +135,12 @@ void PadGrid::setSelected(int slot)
 void PadGrid::refreshNames()
 {
     for (int s = 0; s < kNumSlots; ++s)
-        pads_[static_cast<std::size_t>(s)]->setName(proc_.slotName(s));
+        pads_[static_cast<std::size_t>(s)]->setContent(proc_.slotName(s), !hasSound(proc_.slotSource(s)));
 }
+
+juce::Component& PadGrid::pad(int slot) { return *pads_[static_cast<std::size_t>(slot)]; }
+
+bool PadGrid::isEmpty(int slot) const { return pads_[static_cast<std::size_t>(slot)]->isEmpty(); }
 
 void PadGrid::paint(juce::Graphics& g)
 {

@@ -28,10 +28,16 @@ SlotEditor::SlotEditor(DubgefahrenProcessor& proc) : proc_(proc)
     };
     addAndMakeVisible(renameButton_);
 
-    for (juce::Component* c : std::initializer_list<juce::Component*> {
-             &wave_, &pitch_, &pw_, &lfoShape_, &lfoRate_, &lfoSync_, &lfoSyncDiv_, &lfoDepth_, &sweepAmt_,
-             &sweepTime_, &attack_, &release_, &trigMode_, &oneShot_, &choke_, &vol_, &pan_, &send_ })
+    controls_ = { &wave_, &pitch_, &pw_, &lfoShape_, &lfoRate_, &lfoSync_, &lfoSyncDiv_, &lfoDepth_, &sweepAmt_,
+                  &sweepTime_, &attack_, &release_, &trigMode_, &oneShot_, &choke_, &vol_, &pan_, &send_ };
+    for (auto* c : controls_)
         addAndMakeVisible(*c);
+
+    emptyHint_.setText(u8("Empty slot – click the pad to choose a sound source"), juce::dontSendNotification);
+    emptyHint_.setJustificationType(juce::Justification::centred);
+    emptyHint_.setColour(juce::Label::textColourId, colours::textDim);
+    emptyHint_.setFont(juce::FontOptions(15.0f));
+    addChildComponent(emptyHint_);
 }
 
 void SlotEditor::setSlot(int slot)
@@ -58,18 +64,27 @@ void SlotEditor::setSlot(int slot)
     vol_.attach(s, slotParamId(slot, SlotField::Volume));
     pan_.attach(s, slotParamId(slot, SlotField::Pan));
     send_.attach(s, slotParamId(slot, SlotField::FxSend));
-    refreshName();
+    refresh();
 }
 
-void SlotEditor::refreshName()
+void SlotEditor::refresh()
 {
-    header_.setText("Slot " + juce::String(slot_ + 1) + u8(" · ") + proc_.slotName(slot_), juce::dontSendNotification);
+    const bool empty = !hasSound(proc_.slotSource(slot_));
+    const auto title = "Slot " + juce::String(slot_ + 1);
+    header_.setText(empty ? title : title + u8(" · ") + proc_.slotName(slot_), juce::dontSendNotification);
+    emptyHint_.setVisible(empty);
+    renameButton_.setVisible(!empty);
+    for (auto* c : controls_)
+        c->setVisible(!empty);
+    repaint(); // Zeilenbeschriftungen
 }
 
 void SlotEditor::paint(juce::Graphics& g)
 {
     g.setColour(colours::panel);
     g.fillRoundedRectangle(getLocalBounds().toFloat(), 8.0f);
+    if (emptyHint_.isVisible())
+        return;
     g.setColour(colours::textDim);
     g.setFont(juce::FontOptions(12.0f, juce::Font::bold));
     for (int row = 0; row < kNumRows; ++row)
@@ -90,6 +105,8 @@ void SlotEditor::resized()
     place(1, 0, lfoShape_); place(1, 1, lfoRate_);   place(1, 2, lfoSync_);  place(1, 3, lfoSyncDiv_); place(1, 4, lfoDepth_);
     place(2, 0, sweepAmt_); place(2, 1, sweepTime_); place(2, 2, trigMode_); place(2, 3, oneShot_);    place(2, 4, choke_);
     place(3, 0, vol_);      place(3, 1, pan_);       place(3, 2, send_);
+
+    emptyHint_.setBounds(getLocalBounds().withTrimmedTop(kTopOffset).reduced(24));
 }
 
 } // namespace dg::ui

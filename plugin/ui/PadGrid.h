@@ -23,6 +23,11 @@ public:
 
     std::function<void(int)> onSelect;
     std::function<void(int)> onContextMenu;
+    // Linksklick auf ein leeres Pad (statt Vorschau): Auswahl der Klangquelle öffnen.
+    std::function<void(int)> onEmptyClick;
+
+    juce::Component& pad(int slot);
+    bool isEmpty(int slot) const;
 
     void paint(juce::Graphics& g) override;
     void resized() override;
