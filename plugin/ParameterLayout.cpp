@@ -60,6 +60,11 @@ juce::String slotParamId(int slot, SlotField f)
     return juce::String::formatted("s%02d_", slot + 1) + fieldSpec(f).key;
 }
 
+juce::String slotSourceParamId(int slot)
+{
+    return juce::String::formatted("s%02d_source", slot + 1);
+}
+
 juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout(const Kit& defaults)
 {
     juce::AudioProcessorValueTreeState::ParameterLayout layout;
@@ -112,6 +117,11 @@ juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout(const 
                     break;
             }
         }
+        layout.add(std::make_unique<juce::AudioParameterChoice>(
+            juce::ParameterID { slotSourceParamId(s), kSourceParameterVersion }, prefix + "Source",
+            juce::StringArray { "Empty", "Synth", "Sample" },
+            static_cast<int>(defaults.slots[static_cast<std::size_t>(s)].source),
+            juce::AudioParameterChoiceAttributes().withAutomatable(false)));
     }
     return layout;
 }
@@ -124,6 +134,7 @@ SlotParams readSlotFromParameters(juce::AudioProcessorValueTreeState& apvts, int
         const auto f = static_cast<SlotField>(i);
         setSlotField(p, f, raw(apvts, slotParamId(slot, f))->load());
     }
+    p.source = static_cast<SourceType>(loadIndex(raw(apvts, slotSourceParamId(slot)), 2));
     return p;
 }
 
@@ -138,6 +149,11 @@ void writeSlotToParameters(juce::AudioProcessorValueTreeState& apvts, int slot, 
         param->setValueNotifyingHost(param->convertTo0to1(getSlotField(p, f)));
         param->endChangeGesture();
     }
+    auto* source = apvts.getParameter(slotSourceParamId(slot));
+    jassert(source != nullptr);
+    source->beginChangeGesture();
+    source->setValueNotifyingHost(source->convertTo0to1(static_cast<float>(p.source)));
+    source->endChangeGesture();
 }
 
 ParamCache::ParamCache(juce::AudioProcessorValueTreeState& apvts)
@@ -153,16 +169,22 @@ ParamCache::ParamCache(juce::AudioProcessorValueTreeState& apvts)
       panic_(raw(apvts, pid::panic))
 {
     for (int s = 0; s < kNumSlots; ++s)
+    {
         for (int i = 0; i < kNumSlotFields; ++i)
             slots_[static_cast<std::size_t>(s)][static_cast<std::size_t>(i)] =
                 raw(apvts, slotParamId(s, static_cast<SlotField>(i)));
+        sources_[static_cast<std::size_t>(s)] = raw(apvts, slotSourceParamId(s));
+    }
 }
 
 void ParamCache::read(EngineParams& out) const
 {
     for (std::size_t s = 0; s < slots_.size(); ++s)
+    {
         for (std::size_t i = 0; i < slots_[s].size(); ++i)
             setSlotField(out.slots[s], static_cast<SlotField>(i), load(slots_[s][i]));
+        out.slots[s].source = static_cast<SourceType>(loadIndex(sources_[s], 2));
+    }
 
     FxParams& fx = out.global.fx;
     fx.drive = load(drive_);

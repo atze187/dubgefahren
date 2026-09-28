@@ -56,10 +56,10 @@ auf „Synth“ werden sie mit der Factory-Sirene des Slots überschrieben.
 - Der `ParameterID`-Versionshinweis der neuen Parameter ist **2**, alle bestehenden
   behalten 1. `kParameterVersion` wird dazu in zwei Konstanten aufgeteilt
   (bestehende Parameter / seit Version 2).
-- Alte Host-Projekte kennen `sNN_source` nicht. `replaceState()` ließe fehlende Parameter
-  auf ihrem **aktuellen** Wert stehen (ein altes Projekt würde in einer Instanz mit leeren
-  Slots also leer bleiben). Deshalb ergänzt `setStateInformation` vor `replaceState()`
-  fehlende `sNN_source`-Einträge explizit mit „Synth“. `kStateVersion` bleibt 1.
+- Alte Host-Projekte kennen `sNN_source` nicht. APVTS legt fehlende Parameter bei
+  `replaceState()` neu an und setzt sie dabei auf ihren Default „Synth“ – auch in einer
+  Instanz, die vorher leere Slots hatte (`valueTreeChildAdded` → `setNewState`). Eine eigene
+  Migration ist nicht nötig; ein Test sichert das Verhalten ab. `kStateVersion` bleibt 1.
 - `readSlotFromParameters`, `writeSlotToParameters` und `ParamCache::read` lesen bzw.
   schreiben den Quellentyp mit.
 
