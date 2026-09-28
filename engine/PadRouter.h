@@ -40,6 +40,8 @@ public:
     void advance(int numSamples, VoiceControl& voices);
     void transportStopped(LatchStopAction action, VoiceControl& voices);
     void panic(VoiceControl& voices);
+    // Stoppt die Stimme des Slots sofort und vergisst Latch-, Halte- und One-Shot-Zustand.
+    void killSlot(int slot, VoiceControl& voices);
 
     int focusSlot() const { return focus_; }
     void setFocusSlot(int slot);

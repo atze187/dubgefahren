@@ -80,6 +80,8 @@ private:
     int maxBlock_ = 512;
     std::array<SirenVoice, kNumSlots> voices_ {};
     std::array<PerfOffsets, kNumSlots> applied_ {};
+    // Quellentyp-Zustand des vorigen Blocks: erkennt, wann ein Slot stumm geschaltet wird.
+    std::array<bool, kNumSlots> hasSound_ {};
     // 20 ms Ein-Pol-Glättung der Slot-Mischwerte gegen Zipper-Rauschen; springt auf das
     // Ziel, wenn eine Stimme aus dem Leerlauf startet.
     std::array<float, kNumSlots> smGl_ {};

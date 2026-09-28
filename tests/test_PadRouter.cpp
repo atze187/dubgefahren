@@ -273,3 +273,27 @@ TEST_CASE("samplesUntilNextExpiry reports the nearest one-shot", "[router]")
     r.noteOn(37, s, v);
     CHECK(r.samplesUntilNextExpiry() == 4800);
 }
+
+TEST_CASE("killSlot stops the voice and forgets latch and one-shot state", "[router]")
+{
+    auto r = makeRouter();
+    FakeVoices v;
+    auto s = allMode(TriggerMode::Latch);
+    s[1].mode = TriggerMode::OneShot;
+    r.noteOn(36, s, v);
+    r.noteOn(37, s, v);
+    CHECK(r.isLatched(0));
+
+    r.killSlot(0, v);
+    r.killSlot(1, v);
+    CHECK_FALSE(v.active[0]);
+    CHECK_FALSE(v.active[1]);
+    CHECK_FALSE(r.isLatched(0));
+    CHECK(r.samplesUntilNextExpiry() == INT_MAX);
+
+    v.log.clear();
+    r.killSlot(0, v); // Stimme schon aus: kein weiteres kill
+    r.killSlot(-1, v);
+    r.killSlot(16, v);
+    CHECK(v.log.empty());
+}

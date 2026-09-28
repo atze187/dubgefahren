@@ -33,6 +33,7 @@ void Engine::prepare(double sampleRate, int maxBlockSize)
     for (auto& v : voices_)
         v.prepare(sampleRate);
     applied_.fill(PerfOffsets {});
+    hasSound_.fill(true);
     smGl_.fill(0.0f);
     smGr_.fill(0.0f);
     smSend_.fill(0.0f);
@@ -60,6 +61,16 @@ void Engine::process(float* outL, float* outR, int numSamples, const EngineParam
     bpm_ = transport.bpm > 0.0 ? transport.bpm : 120.0;
     for (std::size_t s = 0; s < trig_.size(); ++s)
         trig_[s] = { params.slots[s].trigMode, params.slots[s].oneShotS, params.slots[s].chokeGroup };
+
+    // Ein Slot, der leer wird, verstummt sofort und vergisst Latch/One-Shot.
+    for (int s = 0; s < kNumSlots; ++s)
+    {
+        const auto i = static_cast<std::size_t>(s);
+        const bool has = hasSound(params.slots[i].source);
+        if (!has && hasSound_[i])
+            router_.killSlot(s, bank_);
+        hasSound_[i] = has;
+    }
 
     if (wasPlaying_ && !transport.isPlaying)
         router_.transportStopped(params.global.latchStop, bank_);
@@ -116,11 +127,21 @@ void Engine::processChunk(float* outL, float* outR, int n, const EngineEvent* ev
 
 void Engine::handleEvent(const EngineEvent& ev)
 {
+    // Leere Slots starten keine Stimme, lösen keinen Choke aus und werden nicht gelatcht.
+    const auto startable = [this](int slot) {
+        return slot >= 0 && slot < kNumSlots && hasSound_[static_cast<std::size_t>(slot)];
+    };
     switch (ev.type)
     {
-        case EngineEvent::Type::NoteOn:     router_.noteOn(ev.value, trig_, bank_); break;
+        case EngineEvent::Type::NoteOn:
+            if (startable(slotForNote(ev.value)))
+                router_.noteOn(ev.value, trig_, bank_);
+            break;
         case EngineEvent::Type::NoteOff:    router_.noteOff(ev.value, bank_); break;
-        case EngineEvent::Type::PreviewOn:  router_.previewOn(ev.value, trig_, bank_); break;
+        case EngineEvent::Type::PreviewOn:
+            if (startable(ev.value))
+                router_.previewOn(ev.value, trig_, bank_);
+            break;
         case EngineEvent::Type::PreviewOff: router_.previewOff(ev.value, bank_); break;
         case EngineEvent::Type::Panic:      router_.panic(bank_); break;
     }

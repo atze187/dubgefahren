@@ -140,6 +140,15 @@ void PadRouter::panic(VoiceControl& voices)
     }
 }
 
+void PadRouter::killSlot(int slot, VoiceControl& voices)
+{
+    if (slot < 0 || slot >= kNumSlots)
+        return;
+    if (voices.isVoiceActive(slot))
+        voices.killVoice(slot);
+    clearSlot(slot);
+}
+
 void PadRouter::setFocusSlot(int slot)
 {
     if (slot >= 0 && slot < kNumSlots)
