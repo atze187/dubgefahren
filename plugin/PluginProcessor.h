@@ -1,23 +1,27 @@
 #pragma once
 #include <array>
 #include <atomic>
+#include <memory>
+#include <utility>
 #include <vector>
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "engine/Engine.h"
 #include "engine/Kit.h"
+#include "engine/SampleData.h"
 #include "plugin/Config.h"
 #include "plugin/ParameterLayout.h"
+#include "plugin/SampleLoader.h"
 
 namespace dg {
 
-class DubgefahrenProcessor final : public juce::AudioProcessor
+class DubgefahrenProcessor final : public juce::AudioProcessor, private juce::Timer
 {
 public:
     DubgefahrenProcessor();
-    ~DubgefahrenProcessor() override = default;
+    ~DubgefahrenProcessor() override;
 
     void prepareToPlay(double sampleRate, int samplesPerBlock) override;
-    void releaseResources() override {}
+    void releaseResources() override;
     bool isBusesLayoutSupported(const BusesLayout& layouts) const override;
     void processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi) override;
     using AudioProcessor::processBlock;
@@ -44,14 +48,27 @@ public:
     juce::AudioProcessorValueTreeState& state() { return apvts_; }
     juce::String slotName(int slot) const;
     void setSlotName(int slot, const juce::String& name);
-    void setSlot(int slot, const SlotParams& params, const juce::String& name);
+    void setSlot(int slot, const SlotParams& params, const juce::String& name, const juce::String& sample = {});
     SourceType slotSource(int slot) const;
     // Leert den Slot: Quelle Empty, Name leer; die Synth-Parameter bleiben erhalten.
     void clearSlot(int slot);
     // Setzt den Slot auf die Factory-Sirene dieses Slots (Quelle Synth, Factory-Name).
     void resetSlotToFactory(int slot);
+    juce::File kitFile() const;
+    void setKitFile(const juce::File& file); // nach einem Export
+    juce::File sampleFolder() const;
+    juce::String slotSample(int slot) const;
+    // Wählt ein Sample aus dem Kit-Ordner (Quelle Sample, Name = Dateiname ohne Endung).
+    void setSlotSample(int slot, const juce::String& fileName);
+    bool isSampleLoaded(int slot) const;
+    // Liefert die gesammelten Ladeprobleme ("Slot N: datei – grund") und leert die Liste.
+    juce::StringArray takeSampleProblems();
+    // Wartet auf alle Ladeaufträge und übernimmt die Ergebnisse (Tests).
+    void waitForSampleLoads();
+    std::size_t pendingSampleGarbage() const { return garbage_.size(); }
     Kit currentKit();
-    void applyKit(const Kit& kit);
+    // Übernimmt ein Kit samt zugehöriger Kit-Datei (leer = keine Kit-Datei, z. B. Factory-Kit).
+    void applyKit(const Kit& kit, const juce::File& kitFile = {});
     void previewPress(int slot);
     void previewRelease(int slot);
     std::uint32_t activeMask() const { return engine_.activeMask(); }
@@ -76,6 +93,13 @@ private:
     void pushUiEvent(EngineEvent::Type type, int slot);
     void ensureStateChildren();
     juce::ValueTree namesTree() const;
+    void timerCallback() override;
+    void handleSampleResults();
+    void requestSampleLoad(int slot);
+    void releaseSample(int slot);
+    void sampleLoadFailed(int slot, const juce::String& name, const juce::String& reason);
+    void setSlotSampleRef(int slot, const juce::String& name);
+    void collectGarbage();
 
     juce::AudioProcessorValueTreeState apvts_;
     ParamCache cache_;
@@ -91,6 +115,15 @@ private:
     KitFolderInfo kitFolder_;
     std::atomic<int> stateGeneration_ { 0 };
     juce::AudioProcessLoadMeasurer loadMeasurer_;
+    SampleLoader loader_;
+    std::array<std::shared_ptr<const SampleData>, kNumSlots> sampleData_ {};
+    std::array<std::atomic<const SampleData*>, kNumSlots> samplePtrs_ {};
+    std::array<std::uint64_t, kNumSlots> sampleTickets_ {};
+    // Ersetzte Daten mit dem Blockzähler beim Tausch; frei, sobald danach ein Block fertig ist.
+    std::vector<std::pair<std::shared_ptr<const SampleData>, std::uint64_t>> garbage_;
+    std::atomic<std::uint64_t> blocksProcessed_ { 0 };
+    std::atomic<bool> audioActive_ { false };
+    juce::StringArray sampleProblems_;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DubgefahrenProcessor)
 };
