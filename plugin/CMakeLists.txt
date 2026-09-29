@@ -6,6 +6,8 @@ target_sources(dg_plugin_shared INTERFACE
     ${CMAKE_CURRENT_SOURCE_DIR}/PluginProcessor.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/KitFile.h
     ${CMAKE_CURRENT_SOURCE_DIR}/KitFile.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/SampleFiles.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/SampleFiles.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/Config.h
     ${CMAKE_CURRENT_SOURCE_DIR}/Config.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/PluginEditor.h
