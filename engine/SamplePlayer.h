@@ -23,6 +23,9 @@ private:
     double sampleRate_ = 44100.0;
     Envelope env_;
     double pos_ = 0.0;
+    // Zweiter Lesekopf: blendet beim Retrigger die alte Position aus (Klick-Vermeidung).
+    double fadePos_ = 0.0;
+    float fadeGain_ = 0.0f;
     float perfCoeff_ = 1.0f;
     float smPitch_ = 0.0f;
 };

@@ -1,5 +1,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
+#include <algorithm>
+#include <cmath>
 #include <vector>
 #include "engine/SamplePlayer.h"
 #include "TestHelpers.h"
@@ -147,4 +149,73 @@ TEST_CASE("losing the data while playing stops the voice", "[sampler]")
     const auto out = renderN(v, ctx, 480);
     CHECK_FALSE(v.isActive());
     CHECK(dgtest::peakAbs(out) == 0.0f);
+}
+
+namespace {
+SampleData dcData(double seconds)
+{
+    SampleData d;
+    d.sampleRate = kSr;
+    d.samples.assign(static_cast<std::size_t>(seconds * kSr), 1.0f);
+    return d;
+}
+
+float maxStep(const std::vector<float>& x, std::size_t from, std::size_t to)
+{
+    float m = 0.0f;
+    for (std::size_t i = from + 1; i < to; ++i)
+        m = std::max(m, std::abs(x[i] - x[i - 1]));
+    return m;
+}
+} // namespace
+
+TEST_CASE("sample end ramps down without a click", "[sampler]")
+{
+    const auto d = dcData(0.1); // 4800 Samples
+    SamplePlayer v;
+    v.prepare(kSr);
+    SlotParams p = sampleParams();
+    VoiceContext ctx { &p, 120.0, {}, &d };
+    v.start(ctx, 1);
+    const auto out = renderN(v, ctx, 4900);
+    CHECK_FALSE(v.isActive());
+    CHECK(maxStep(out, 4000, 4900) < 0.05f);
+    for (std::size_t i = 4704 + 1; i < 4800; ++i)
+        CHECK(out[i] <= out[i - 1]);
+    CHECK(out[4799] < 0.05f);
+}
+
+TEST_CASE("retrigger crossfades the old read head", "[sampler]")
+{
+    const auto d = dcData(1.0);
+    SamplePlayer v;
+    v.prepare(kSr);
+    SlotParams p = sampleParams();
+    VoiceContext ctx { &p, 120.0, {}, &d };
+    v.start(ctx, 1);
+    auto out = renderN(v, ctx, 2400);
+    v.start(ctx, 2);
+    const auto out2 = renderN(v, ctx, 480);
+    out.insert(out.end(), out2.begin(), out2.end());
+    CHECK(maxStep(out, 0, out.size()) < 0.05f);
+    CHECK(v.isActive());
+}
+
+TEST_CASE("retrigger of a tone has no jump at the restart", "[sampler]")
+{
+    // Sinus: ohne Überblendung springt der Ausgang beim Neustart.
+    SampleData d;
+    d.sampleRate = kSr;
+    d.samples = dgtest::sine(200.0f, kSr, 48000, 0.9f);
+    SamplePlayer v;
+    v.prepare(kSr);
+    SlotParams p = sampleParams();
+    VoiceContext ctx { &p, 120.0, {}, &d };
+    v.start(ctx, 1);
+    auto out = renderN(v, ctx, 300); // Periode 240 Samples: Position 300 liegt am Maximum
+    v.start(ctx, 2); // Position 300 (Peak), Neustart bei Phase 0
+    // Ohne Fade: Sprung von ~0.9 auf 0. Der Ausgang muss stetig bleiben.
+    const auto more = renderN(v, ctx, 480);
+    out.insert(out.end(), more.begin(), more.end());
+    CHECK(maxStep(out, 0, out.size()) < 0.1f);
 }

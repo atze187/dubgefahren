@@ -7,6 +7,8 @@ namespace dg {
 
 namespace {
 constexpr float kPerfSmoothingS = 0.02f;
+constexpr double kEndRampS = 0.002;    // lineare Ausblendung am Sample-Ende
+constexpr double kRetrigFadeS = 0.005; // Ausblendzeit des alten Lesekopfs beim Retrigger
 
 bool usable(const SampleData* d) { return d != nullptr && !d->samples.empty() && d->sampleRate > 0.0; }
 
@@ -28,12 +30,21 @@ void SamplePlayer::prepare(double sampleRate)
     env_.prepare(sampleRate);
     perfCoeff_ = onePoleCoeff(kPerfSmoothingS, sampleRate);
     pos_ = 0.0;
+    fadeGain_ = 0.0f;
 }
 
 void SamplePlayer::start(const VoiceContext& ctx, std::uint32_t)
 {
     if (!usable(ctx.sample))
         return;
+    // Retrigger: alte Position als auslaufenden Lesekopf weiterlaufen lassen.
+    if (env_.isActive() && pos_ < static_cast<double>(ctx.sample->samples.size()))
+    {
+        fadePos_ = pos_;
+        fadeGain_ = 1.0f;
+    }
+    else
+        fadeGain_ = 0.0f;
     pos_ = 0.0;
     smPitch_ = ctx.perf.pitchSemis;
     env_.noteOn(ctx.params->attackS);
@@ -43,7 +54,11 @@ void SamplePlayer::release(const VoiceContext& ctx) { env_.noteOff(ctx.params->r
 
 void SamplePlayer::kill() { env_.kill(); }
 
-void SamplePlayer::stop() { env_.prepare(sampleRate_); }
+void SamplePlayer::stop()
+{
+    env_.prepare(sampleRate_);
+    fadeGain_ = 0.0f;
+}
 
 void SamplePlayer::render(float* out, int numSamples, const VoiceContext& ctx)
 {
@@ -58,6 +73,8 @@ void SamplePlayer::render(float* out, int numSamples, const VoiceContext& ctx)
 
     const double length = static_cast<double>(d->samples.size());
     const double baseStep = d->sampleRate / sampleRate_;
+    const double endRampLen = kEndRampS * sampleRate_;
+    const float fadeDec = static_cast<float>(1.0 / (kRetrigFadeS * sampleRate_));
     for (int i = 0; i < numSamples; ++i)
     {
         if (pos_ >= length || !env_.isActive())
@@ -67,8 +84,27 @@ void SamplePlayer::render(float* out, int numSamples, const VoiceContext& ctx)
             return;
         }
         smPitch_ += perfCoeff_ * (ctx.perf.pitchSemis - smPitch_);
-        out[i] = cubicAt(d->samples, pos_) * env_.process();
-        pos_ += baseStep * semitonesToRatio(ctx.params->tuneSemis + smPitch_);
+        const double step = baseStep * semitonesToRatio(ctx.params->tuneSemis + smPitch_);
+        // Am Sample-Ende linear auf 0 ausblenden (Restlänge in Ausgabesamples / Rampenlänge).
+        const auto endGain = [&](double pos) {
+            const double remaining = (length - pos) / step;
+            return remaining < endRampLen ? static_cast<float>(remaining / endRampLen) : 1.0f;
+        };
+        // Beim Retrigger Überblendung: neuer Kopf blendet ein, alter aus (Summe der Gewichte = 1).
+        float y = cubicAt(d->samples, pos_) * endGain(pos_) * (1.0f - fadeGain_);
+        pos_ += step;
+        if (fadeGain_ > 0.0f)
+        {
+            if (fadePos_ < length)
+            {
+                y += cubicAt(d->samples, fadePos_) * endGain(fadePos_) * fadeGain_;
+                fadePos_ += step;
+                fadeGain_ = std::max(0.0f, fadeGain_ - fadeDec);
+            }
+            else
+                fadeGain_ = 0.0f;
+        }
+        out[i] = y * env_.process();
     }
 }
 
