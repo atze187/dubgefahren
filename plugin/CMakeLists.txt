@@ -8,6 +8,8 @@ target_sources(dg_plugin_shared INTERFACE
     ${CMAKE_CURRENT_SOURCE_DIR}/KitFile.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/SampleFiles.h
     ${CMAKE_CURRENT_SOURCE_DIR}/SampleFiles.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/SampleLoader.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/SampleLoader.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/Config.h
     ${CMAKE_CURRENT_SOURCE_DIR}/Config.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/PluginEditor.h
@@ -34,6 +36,7 @@ target_compile_definitions(dg_plugin_shared INTERFACE
 target_link_libraries(dg_plugin_shared INTERFACE
     dg_engine
     juce::juce_audio_utils
+    juce::juce_audio_formats
     juce::juce_audio_processors
     juce::juce_gui_basics
     juce::juce_recommended_config_flags
