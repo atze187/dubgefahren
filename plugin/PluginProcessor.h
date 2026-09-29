@@ -65,6 +65,8 @@ public:
     bool isSampleLoaded(int slot) const;
     // Liefert die gesammelten Ladeprobleme ("Slot N: datei – grund") und leert die Liste.
     juce::StringArray takeSampleProblems();
+    // True, solange ein Ladeauftrag läuft, dessen Ergebnis noch nicht übernommen wurde (oder ein Reload ansteht).
+    bool hasPendingSampleLoads() const;
     // Wartet auf alle Ladeaufträge und übernimmt die Ergebnisse (Tests).
     void waitForSampleLoads();
     std::size_t pendingSampleGarbage() const { return garbage_.size(); }
@@ -122,6 +124,7 @@ private:
     std::array<std::shared_ptr<const SampleData>, kNumSlots> sampleData_ {};
     std::array<std::atomic<const SampleData*>, kNumSlots> samplePtrs_ {};
     std::array<std::uint64_t, kNumSlots> sampleTickets_ {};
+    std::array<std::uint64_t, kNumSlots> pendingTickets_ {}; // 0 = kein offener Auftrag
     // Ersetzte Daten mit dem Blockzähler beim Tausch; frei, sobald danach ein Block fertig ist.
     std::vector<std::pair<std::shared_ptr<const SampleData>, std::uint64_t>> garbage_;
     std::atomic<std::uint64_t> blocksProcessed_ { 0 };

@@ -314,6 +314,13 @@ juce::StringArray DubgefahrenProcessor::takeSampleProblems()
     return problems;
 }
 
+bool DubgefahrenProcessor::hasPendingSampleLoads() const
+{
+    if (reloadPending_.load())
+        return true;
+    return std::any_of(pendingTickets_.begin(), pendingTickets_.end(), [](std::uint64_t t) { return t != 0; });
+}
+
 void DubgefahrenProcessor::requestSampleLoad(int slot)
 {
     releaseSample(slot);
@@ -330,6 +337,7 @@ void DubgefahrenProcessor::requestSampleLoad(int slot)
         sampleLoadFailed(slot, name, "invalid file name");
         return;
     }
+    pendingTickets_[static_cast<std::size_t>(slot)] = ticket;
     loader_.request(slot, ticket, folder.getChildFile(name));
 }
 
@@ -337,6 +345,7 @@ void DubgefahrenProcessor::releaseSample(int slot)
 {
     const auto s = static_cast<std::size_t>(slot);
     ++sampleTickets_[s]; // offene Ladeaufträge für diesen Slot werden ungültig
+    pendingTickets_[s] = 0;
     if (sampleData_[s] == nullptr)
         return;
     samplePtrs_[s].store(nullptr, std::memory_order_seq_cst);
@@ -364,6 +373,7 @@ void DubgefahrenProcessor::handleSampleResults()
         const auto s = static_cast<std::size_t>(r.slot);
         if (r.ticket != sampleTickets_[s])
             continue; // veraltet: Slot wurde inzwischen geändert
+        pendingTickets_[s] = 0; // Ergebnis wird jetzt übernommen
         if (r.data == nullptr)
         {
             sampleLoadFailed(r.slot, slotSample(r.slot), r.error);

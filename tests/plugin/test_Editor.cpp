@@ -164,6 +164,26 @@ TEST_CASE("sample load problems are shown once as a message", "[editor]")
     CHECK(p.takeSampleProblems().isEmpty());
 }
 
+
+TEST_CASE("several failing samples produce one message listing all of them", "[editor]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    dgtest::TempDir tmp;
+    DubgefahrenProcessor p;
+    p.applyKit(makeFactoryKit(), tmp.dir.getChildFile("Dub.dgkit"));
+    std::unique_ptr<juce::AudioProcessorEditor> editor(p.createEditor());
+    auto* e = static_cast<DubgefahrenEditor*>(editor.get());
+
+    p.setSlotSample(1, "missing1.wav");
+    p.setSlotSample(3, "missing3.wav");
+    e->pollProcessorState(); // Aufträge laufen noch: keine (Teil-)Meldung
+    CHECK(e->lastMessage().isEmpty());
+    p.waitForSampleLoads();
+    e->pollProcessorState();
+    CHECK(e->lastMessage().contains("Slot 2"));
+    CHECK(e->lastMessage().contains("Slot 4"));
+}
+
 TEST_CASE("exporting to a new kit copies the samples and switches the kit file", "[editor]")
 {
     juce::ScopedJuceInitialiser_GUI gui;

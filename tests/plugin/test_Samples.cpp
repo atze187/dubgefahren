@@ -244,3 +244,28 @@ TEST_CASE("setStateInformation from another thread defers the sample reload", "[
     CHECK(b.slotSource(4) == SourceType::Sample);
     CHECK(b.isSampleLoaded(4));
 }
+
+TEST_CASE("pending sample loads are reported until the results are handled", "[plugin][samples]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    SampleKit kit;
+    DubgefahrenProcessor p;
+    p.applyKit(makeFactoryKit(), kit.kitFile);
+    CHECK_FALSE(p.hasPendingSampleLoads());
+
+    p.setSlotSample(1, "missing1.wav");
+    p.setSlotSample(2, "horn.wav");
+    p.setSlotSample(3, "missing3.wav");
+    CHECK(p.hasPendingSampleLoads()); // bleibt wahr, bis die Ergebnisse übernommen sind
+    p.waitForSampleLoads();
+    CHECK_FALSE(p.hasPendingSampleLoads());
+    CHECK(p.isSampleLoaded(2));
+
+    // Ein veralteter Auftrag zählt nicht als offen: Slot sofort wieder leeren.
+    p.setSlotSample(2, "horn.wav");
+    CHECK(p.hasPendingSampleLoads());
+    p.clearSlot(2);
+    CHECK_FALSE(p.hasPendingSampleLoads());
+    p.waitForSampleLoads();
+    CHECK_FALSE(p.hasPendingSampleLoads());
+}

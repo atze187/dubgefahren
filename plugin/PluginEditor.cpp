@@ -127,6 +127,9 @@ void DubgefahrenEditor::pollProcessorState()
         followFocus_.setToggleState(proc_.editorFollowsFocus(), juce::dontSendNotification);
     }
 
+    // Erst melden, wenn alle Ladeaufträge erledigt sind: so entsteht pro Ladevorgang nur ein Hinweis.
+    if (proc_.hasPendingSampleLoads())
+        return;
     const auto problems = proc_.takeSampleProblems();
     if (!problems.isEmpty())
         showMessage("Some samples could not be loaded", problems.joinIntoString("\n"));
