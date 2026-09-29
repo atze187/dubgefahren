@@ -35,7 +35,7 @@ juce::StringArray listSampleFiles(const juce::File& folder)
     if (folder == juce::File() || !folder.isDirectory())
         return names;
     for (const auto& f : folder.findChildFiles(juce::File::findFiles, false))
-        if (isSampleFile(f))
+        if (isSampleFile(f) && isValidSampleFileName(f.getFileName()))
             names.add(f.getFileName());
     names.sort(true);
     return names;
@@ -43,6 +43,13 @@ juce::StringArray listSampleFiles(const juce::File& folder)
 
 juce::File importSampleFile(const juce::File& source, const juce::File& folder, juce::String& error)
 {
+    error = {};
+    if (!isValidSampleFileName(source.getFileName()))
+    {
+        error = "Unsupported file name: " + source.getFileName()
+                + " (rename the file without \"..\", \":\" or leading/trailing spaces)";
+        return {};
+    }
     if (!source.existsAsFile())
     {
         error = "File not found: " + source.getFullPathName();

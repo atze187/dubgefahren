@@ -81,3 +81,23 @@ TEST_CASE("exporting copies the used samples and reports missing ones", "[sample
 
     CHECK(copyKitSamples(k, from, from).isEmpty());
 }
+
+TEST_CASE("names rejected as sample file names are neither listed nor imported", "[samples]")
+{
+    dgtest::TempDir tmp;
+    writeText(tmp.dir.getChildFile("ok.wav"), "x");
+    writeText(tmp.dir.getChildFile("Dub..Siren.wav"), "x");
+    CHECK(listSampleFiles(tmp.dir) == juce::StringArray { "ok.wav" });
+
+    const auto folder = tmp.dir.getChildFile("Dub");
+    juce::String error = "stale";
+    const auto imported = importSampleFile(tmp.dir.getChildFile("Dub..Siren.wav"), folder, error);
+    CHECK(imported == juce::File());
+    CHECK(error.startsWith("Unsupported file name: Dub..Siren.wav"));
+    CHECK_FALSE(folder.exists());
+
+    // Fehlertext wird bei Erfolg geleert.
+    const auto good = importSampleFile(tmp.dir.getChildFile("ok.wav"), folder, error);
+    CHECK(good.existsAsFile());
+    CHECK(error.isEmpty());
+}
