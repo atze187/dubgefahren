@@ -1,3 +1,4 @@
+#include <thread>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 #include "engine/Kit.h"
@@ -221,4 +222,25 @@ TEST_CASE("a stale load result is ignored", "[plugin][samples]")
     CHECK(p.slotSource(4) == SourceType::Synth);
     CHECK_FALSE(p.isSampleLoaded(4));
     CHECK(p.takeSampleProblems().isEmpty());
+}
+
+TEST_CASE("setStateInformation from another thread defers the sample reload", "[plugin][samples]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    SampleKit kit;
+    juce::MemoryBlock mb;
+    {
+        DubgefahrenProcessor a;
+        a.applyKit(makeFactoryKit(), kit.kitFile);
+        a.setSlotSample(4, "horn.wav");
+        a.waitForSampleLoads();
+        a.getStateInformation(mb);
+    }
+
+    DubgefahrenProcessor b;
+    std::thread t([&] { b.setStateInformation(mb.getData(), static_cast<int>(mb.getSize())); });
+    t.join();
+    b.waitForSampleLoads();
+    CHECK(b.slotSource(4) == SourceType::Sample);
+    CHECK(b.isSampleLoaded(4));
 }

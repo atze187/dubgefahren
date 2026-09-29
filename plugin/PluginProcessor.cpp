@@ -96,7 +96,7 @@ void DubgefahrenProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::
     cache_.read(engineParams_);
     for (int s = 0; s < kNumSlots; ++s)
         engineParams_.samples[static_cast<std::size_t>(s)] =
-            samplePtrs_[static_cast<std::size_t>(s)].load(std::memory_order_acquire);
+            samplePtrs_[static_cast<std::size_t>(s)].load(std::memory_order_seq_cst);
     events_.clear();
     const auto push = [this](const EngineEvent& e) {
         if (events_.size() < events_.capacity())
@@ -155,7 +155,7 @@ void DubgefahrenProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::
         buffer.clear(ch, 0, numSamples);
     engine_.process(buffer.getWritePointer(0), buffer.getWritePointer(1), numSamples, engineParams_,
                     events_.data(), static_cast<int>(events_.size()), transport);
-    blocksProcessed_.fetch_add(1, std::memory_order_release);
+    blocksProcessed_.fetch_add(1, std::memory_order_seq_cst);
     midi.clear();
 }
 
@@ -182,13 +182,10 @@ void DubgefahrenProcessor::setStateInformation(const void* data, int sizeInBytes
     // replaceState() auf ihren Default zurück; eine eigene Migration ist nicht nötig.
     apvts_.replaceState(juce::ValueTree::fromXml(*xml));
     ensureStateChildren();
-    for (int s = 0; s < kNumSlots; ++s)
-    {
-        if (slotSource(s) == SourceType::Sample)
-            requestSampleLoad(s);
-        else
-            releaseSample(s);
-    }
+    if (juce::MessageManager::existsAndIsCurrentThread())
+        reloadAllSamples();
+    else
+        reloadPending_.store(true); // Timer lädt auf dem Message-Thread neu
     ++stateGeneration_;
 }
 
@@ -206,6 +203,7 @@ void DubgefahrenProcessor::setSlotName(int slot, const juce::String& name)
 
 void DubgefahrenProcessor::setSlot(int slot, const SlotParams& params, const juce::String& name, const juce::String& sample)
 {
+    JUCE_ASSERT_MESSAGE_THREAD
     writeSlotToParameters(apvts_, slot, params);
     setSlotName(slot, name);
     const bool isSample = params.source == SourceType::Sample;
@@ -253,6 +251,7 @@ Kit DubgefahrenProcessor::currentKit()
 
 void DubgefahrenProcessor::applyKit(const Kit& kit, const juce::File& kitFile)
 {
+    JUCE_ASSERT_MESSAGE_THREAD
     apvts_.state.setProperty(kKitFileId, kitFile.getFullPathName(), nullptr);
     for (int s = 0; s < kNumSlots; ++s)
     {
@@ -288,6 +287,7 @@ void DubgefahrenProcessor::setSlotSampleRef(int slot, const juce::String& name)
 
 void DubgefahrenProcessor::setSlotSample(int slot, const juce::String& fileName)
 {
+    JUCE_ASSERT_MESSAGE_THREAD
     SlotParams p = readSlotFromParameters(apvts_, slot);
     if (p.source != SourceType::Sample)
     {
@@ -339,8 +339,8 @@ void DubgefahrenProcessor::releaseSample(int slot)
     ++sampleTickets_[s]; // offene Ladeaufträge für diesen Slot werden ungültig
     if (sampleData_[s] == nullptr)
         return;
-    samplePtrs_[s].store(nullptr, std::memory_order_release);
-    garbage_.emplace_back(std::move(sampleData_[s]), blocksProcessed_.load(std::memory_order_acquire));
+    samplePtrs_[s].store(nullptr, std::memory_order_seq_cst);
+    garbage_.emplace_back(std::move(sampleData_[s]), blocksProcessed_.load(std::memory_order_seq_cst));
     sampleData_[s].reset();
 }
 
@@ -358,6 +358,7 @@ void DubgefahrenProcessor::sampleLoadFailed(int slot, const juce::String& name, 
 
 void DubgefahrenProcessor::handleSampleResults()
 {
+    JUCE_ASSERT_MESSAGE_THREAD
     for (auto& r : loader_.takeResults())
     {
         const auto s = static_cast<std::size_t>(r.slot);
@@ -377,17 +378,37 @@ void DubgefahrenProcessor::handleSampleResults()
 
 void DubgefahrenProcessor::collectGarbage()
 {
-    // Ein Block, der beim Tausch lief, kann den alten Zeiger noch lesen. Ist der Zähler seitdem
-    // weitergezählt, ist dieser Block fertig; spätere Blöcke sehen nur noch den neuen Zeiger.
+    // Alle Zugriffe (Nullsetzen, Zählerstand, Zeiger-Laden, Zähler-Inkrement) sind seq_cst: in der
+    // Gesamtordnung liegt jeder Block, der den alten Zeiger gelesen hat, vor dem Nullsetzen. Da Blöcke
+    // nacheinander laufen, ist das erste Inkrement nach dem Zählerstand das Ende des einzigen Blocks,
+    // der ihn noch halten kann.
     const bool active = audioActive_.load();
-    const auto done = blocksProcessed_.load(std::memory_order_acquire);
+    const auto done = blocksProcessed_.load(std::memory_order_seq_cst);
     std::erase_if(garbage_, [&](const auto& g) { return !active || done > g.second; });
 }
 
-void DubgefahrenProcessor::timerCallback() { handleSampleResults(); }
+void DubgefahrenProcessor::reloadAllSamples()
+{
+    for (int s = 0; s < kNumSlots; ++s)
+    {
+        if (slotSource(s) == SourceType::Sample)
+            requestSampleLoad(s);
+        else
+            releaseSample(s);
+    }
+}
+
+void DubgefahrenProcessor::timerCallback()
+{
+    if (reloadPending_.exchange(false))
+        reloadAllSamples();
+    handleSampleResults();
+}
 
 void DubgefahrenProcessor::waitForSampleLoads()
 {
+    if (reloadPending_.exchange(false))
+        reloadAllSamples();
     loader_.waitForAll();
     handleSampleResults();
 }

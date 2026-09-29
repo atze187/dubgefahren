@@ -45,6 +45,8 @@ public:
     void setStateInformation(const void* data, int sizeInBytes) override;
 
     // --- Message-Thread-API (Editor, Tests) ---
+    // Sample-Zustand (Slots, Tickets, Garbage, Probleme) gehört dem Message-Thread. setStateInformation
+    // kann von einem anderen Thread kommen und verschiebt das Neuladen der Samples dann auf den Timer.
     juce::AudioProcessorValueTreeState& state() { return apvts_; }
     juce::String slotName(int slot) const;
     void setSlotName(int slot, const juce::String& name);
@@ -95,6 +97,7 @@ private:
     juce::ValueTree namesTree() const;
     void timerCallback() override;
     void handleSampleResults();
+    void reloadAllSamples();
     void requestSampleLoad(int slot);
     void releaseSample(int slot);
     void sampleLoadFailed(int slot, const juce::String& name, const juce::String& reason);
@@ -123,6 +126,7 @@ private:
     std::vector<std::pair<std::shared_ptr<const SampleData>, std::uint64_t>> garbage_;
     std::atomic<std::uint64_t> blocksProcessed_ { 0 };
     std::atomic<bool> audioActive_ { false };
+    std::atomic<bool> reloadPending_ { false };
     juce::StringArray sampleProblems_;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DubgefahrenProcessor)
