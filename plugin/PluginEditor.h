@@ -38,11 +38,19 @@ public:
     juce::String cpuMeterText() const { return cpuMeter_.getText(); }
     bool slotEditorShowsEmptyHint() const { return slotEditor_.showsEmptyHint(); }
     bool padShowsEmpty(int slot) const { return pads_.isEmpty(slot); }
+    bool padShowsSample(int slot) const { return pads_.isSample(slot); }
+    bool slotEditorShowsSampleControls() const { return slotEditor_.showsSampleControls(); }
+    juce::String slotEditorSampleText() const { return slotEditor_.sampleButtonText(); }
+    bool slotEditorLatchSelectable() const { return slotEditor_.isLatchSelectable(); }
+    juce::String lastMessage() const { return lastMessage_; }
 
     // Für Tests öffentlich: bauen die Popup-Menüs von Kit-Button, Pad-Rechtsklick und leerem Pad.
     juce::PopupMenu buildKitMenu(const juce::Array<juce::File>& kitFiles) const;
     juce::PopupMenu buildPadMenu(int slot) const;
-    static juce::PopupMenu buildSourceMenu();
+    juce::PopupMenu buildSourceMenu(const juce::StringArray& sampleFiles) const;
+    static juce::PopupMenu buildSampleMenu(const juce::StringArray& sampleFiles);
+    // Schreibt das aktuelle Kit nach file, kopiert bei neuem Kit die Samples mit.
+    bool exportKitTo(const juce::File& file);
 
 private:
     void timerCallback() override;
@@ -52,6 +60,9 @@ private:
     void showKitMenu();
     void showPadMenu(int slot);
     void showSourceMenu(int slot);
+    void showSampleMenu(int slot);
+    void chooseSource(int slot, int result, const juce::StringArray& files);
+    void addSampleFile(int slot);
     void renameSlot(int slot);
     void importKit();
     void exportKit();
@@ -76,7 +87,14 @@ private:
     ui::FxPanel fx_;
     ui::PerformancePanel perf_;
     std::unique_ptr<juce::FileChooser> chooser_;
-    std::optional<std::pair<SlotParams, juce::String>> clipboard_;
+    struct ClipboardSlot
+    {
+        SlotParams params;
+        juce::String name;
+        juce::String sample;
+    };
+    std::optional<ClipboardSlot> clipboard_;
+    juce::String lastMessage_;
     int selectedSlot_ = 0;
     int lastFocus_ = -1;
     int lastStateGeneration_ = -1;

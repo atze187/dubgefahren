@@ -15,6 +15,8 @@ constexpr int kRowHeight = 84;
 constexpr int kRowLabelWidth = 64;
 constexpr int kCellWidth = 104;
 const char* const kRowNames[kNumRows] = { "OSC\nAMP", "LFO", "SWEEP\nTRIG", "MIX" };
+constexpr int kNumSampleRows = 3;
+const char* const kSampleRowNames[kNumSampleRows] = { "SAMPLE\nAMP", "TRIG", "MIX" };
 } // namespace
 
 SlotEditor::SlotEditor(DubgefahrenProcessor& proc) : proc_(proc)
@@ -38,6 +40,14 @@ SlotEditor::SlotEditor(DubgefahrenProcessor& proc) : proc_(proc)
     emptyHint_.setColour(juce::Label::textColourId, colours::textDim);
     emptyHint_.setFont(juce::FontOptions(15.0f));
     addChildComponent(emptyHint_);
+
+    sampleControls_ = { &tune_, &attack_, &release_, &trigMode_, &choke_, &vol_, &pan_, &send_ };
+    addChildComponent(tune_);
+    sampleButton_.onClick = [this] {
+        if (onChooseSample)
+            onChooseSample();
+    };
+    addChildComponent(sampleButton_);
 }
 
 void SlotEditor::setSlot(int slot)
@@ -64,18 +74,30 @@ void SlotEditor::setSlot(int slot)
     vol_.attach(s, slotParamId(slot, SlotField::Volume));
     pan_.attach(s, slotParamId(slot, SlotField::Pan));
     send_.attach(s, slotParamId(slot, SlotField::FxSend));
+    tune_.attach(s, slotParamId(slot, SlotField::Tune));
     refresh();
 }
 
 void SlotEditor::refresh()
 {
-    const bool empty = !hasSound(proc_.slotSource(slot_));
+    const auto source = proc_.slotSource(slot_);
+    mode_ = source == SourceType::Empty ? Mode::Empty : source == SourceType::Sample ? Mode::Sample : Mode::Synth;
+    const bool empty = mode_ == Mode::Empty;
     const auto title = "Slot " + juce::String(slot_ + 1);
     header_.setText(empty ? title : title + u8(" · ") + proc_.slotName(slot_), juce::dontSendNotification);
     emptyHint_.setVisible(empty);
     renameButton_.setVisible(!empty);
+
     for (auto* c : controls_)
-        c->setVisible(!empty);
+        c->setVisible(mode_ == Mode::Synth);
+    tune_.setVisible(false);
+    if (mode_ == Mode::Sample)
+        for (auto* c : sampleControls_)
+            c->setVisible(true);
+    sampleButton_.setVisible(mode_ == Mode::Sample);
+    sampleButton_.setButtonText(proc_.slotSample(slot_));
+    trigMode_.box.setItemEnabled(kLatchItemId, mode_ != Mode::Sample); // Latch wirkt bei Samples wie Gate
+    resized();
     repaint(); // Zeilenbeschriftungen
 }
 
@@ -87,24 +109,37 @@ void SlotEditor::paint(juce::Graphics& g)
         return;
     g.setColour(colours::textDim);
     g.setFont(juce::FontOptions(12.0f, juce::Font::bold));
-    for (int row = 0; row < kNumRows; ++row)
-        g.drawFittedText(kRowNames[row], 12, kTopOffset + row * kRowHeight, kRowLabelWidth - 12, kRowHeight,
-                         juce::Justification::centredLeft, 2);
+    const bool sample = mode_ == Mode::Sample;
+    const int rows = sample ? kNumSampleRows : kNumRows;
+    for (int row = 0; row < rows; ++row)
+        g.drawFittedText(sample ? kSampleRowNames[row] : kRowNames[row], 12, kTopOffset + row * kRowHeight,
+                         kRowLabelWidth - 12, kRowHeight, juce::Justification::centredLeft, 2);
 }
 
 void SlotEditor::resized()
 {
     auto top = getLocalBounds().reduced(12, 8).removeFromTop(32);
     renameButton_.setBounds(top.removeFromRight(110));
+    top.removeFromRight(8);
+    sampleButton_.setBounds(top.removeFromRight(180));
     header_.setBounds(top);
 
     const auto place = [this](int row, int col, juce::Component& c) {
         c.setBounds(kRowLabelWidth + col * kCellWidth, kTopOffset + row * kRowHeight, kCellWidth - 8, kRowHeight - 6);
     };
-    place(0, 0, wave_);     place(0, 1, pitch_);     place(0, 2, pw_);       place(0, 3, attack_);     place(0, 4, release_);
-    place(1, 0, lfoShape_); place(1, 1, lfoRate_);   place(1, 2, lfoSync_);  place(1, 3, lfoSyncDiv_); place(1, 4, lfoDepth_);
-    place(2, 0, sweepAmt_); place(2, 1, sweepTime_); place(2, 2, trigMode_); place(2, 3, oneShot_);    place(2, 4, choke_);
-    place(3, 0, vol_);      place(3, 1, pan_);       place(3, 2, send_);
+    if (mode_ == Mode::Sample)
+    {
+        place(0, 0, tune_);     place(0, 1, attack_); place(0, 2, release_);
+        place(1, 0, trigMode_); place(1, 1, choke_);
+        place(2, 0, vol_);      place(2, 1, pan_);    place(2, 2, send_);
+    }
+    else
+    {
+        place(0, 0, wave_);     place(0, 1, pitch_);     place(0, 2, pw_);       place(0, 3, attack_);     place(0, 4, release_);
+        place(1, 0, lfoShape_); place(1, 1, lfoRate_);   place(1, 2, lfoSync_);  place(1, 3, lfoSyncDiv_); place(1, 4, lfoDepth_);
+        place(2, 0, sweepAmt_); place(2, 1, sweepTime_); place(2, 2, trigMode_); place(2, 3, oneShot_);    place(2, 4, choke_);
+        place(3, 0, vol_);      place(3, 1, pan_);       place(3, 2, send_);
+    }
 
     emptyHint_.setBounds(getLocalBounds().withTrimmedTop(kTopOffset).reduced(24));
 }

@@ -20,11 +20,19 @@ public:
     bool showsEmptyHint() const { return emptyHint_.isVisible(); }
 
     std::function<void()> onRename;
+    std::function<void()> onChooseSample;
+    bool showsSampleControls() const { return sampleButton_.isVisible(); }
+    juce::String sampleButtonText() const { return sampleButton_.getButtonText(); }
+    bool isLatchSelectable() const { return trigMode_.box.isItemEnabled(kLatchItemId); }
+    juce::Component& sampleButton() { return sampleButton_; }
 
     void paint(juce::Graphics& g) override;
     void resized() override;
 
 private:
+    enum class Mode { Empty, Synth, Sample };
+    static constexpr int kLatchItemId = 2; // ComboBox-IDs 1..3 = Gate, Latch, One-Shot
+    Mode mode_ = Mode::Synth;
     DubgefahrenProcessor& proc_;
     int slot_ = -1;
     juce::Label header_;
@@ -48,6 +56,10 @@ private:
     Knob vol_ { u8("Volume") };
     Knob pan_ { u8("Pan") };
     Knob send_ { u8("FX-Send") };
+
+    Knob tune_ { u8("Tune") };
+    juce::TextButton sampleButton_;
+    std::vector<juce::Component*> sampleControls_;
 
     juce::Label emptyHint_;
     std::vector<juce::Component*> controls_;
