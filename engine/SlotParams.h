@@ -40,6 +40,8 @@ struct SlotParams
     float pan = 0.0f;              // -1 .. 1
     float fxSend = 0.3f;           // 0 .. 1
 
+    float tuneSemis = 0.0f;        // -24 .. 24, nur für Samples
+
     SourceType source = SourceType::Synth; // kein SlotField, wird gesondert gespeichert
 
     bool operator==(const SlotParams&) const = default;

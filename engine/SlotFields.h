@@ -14,6 +14,7 @@ enum class SlotField
     Attack, Release,
     TrigMode, OneShotLength, Choke,
     Volume, Pan, FxSend,
+    Tune,
     Count
 };
 constexpr int kNumSlotFields = static_cast<int>(SlotField::Count);
@@ -31,6 +32,7 @@ struct FieldSpec
     float skewCentre;     // 0 = linear, sonst Wert in Mittelstellung
     const char* unit;
     std::span<const char* const> choices; // nur bei Choice
+    int versionHint = 1;  // ParameterID-Versionshinweis (Version, in der das Feld dazukam)
 };
 
 const FieldSpec& fieldSpec(SlotField f);

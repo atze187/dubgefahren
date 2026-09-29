@@ -4,7 +4,7 @@ add_library(dg_engine STATIC
     Oscillator.h Oscillator.cpp
     Lfo.h Lfo.cpp
     Envelope.h Envelope.cpp
-    SoundSource.h SirenVoice.h SirenVoice.cpp
+    SoundSource.h SampleData.h SirenVoice.h SirenVoice.cpp
     PadRouter.h PadRouter.cpp
     Drive.h SvFilter.h SvFilter.cpp Limiter.h
     FxParams.h FxParams.cpp TapeDelay.h TapeDelay.cpp

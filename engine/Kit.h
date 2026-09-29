@@ -9,6 +9,7 @@ struct Kit
 {
     std::array<SlotParams, kNumSlots> slots {};
     std::array<std::string, kNumSlots> names {}; // UTF-8
+    std::array<std::string, kNumSlots> samples {}; // UTF-8, relativ zu <Kit>/, nur bei Sample-Slots
 };
 
 Kit makeFactoryKit();
