@@ -307,6 +307,12 @@ bool DubgefahrenProcessor::isSampleLoaded(int slot) const
     return samplePtrs_[static_cast<std::size_t>(slot)].load() != nullptr;
 }
 
+bool DubgefahrenProcessor::isSampleMissing(int slot) const
+{
+    const auto s = static_cast<std::size_t>(slot);
+    return slotSource(slot) == SourceType::Sample && !isSampleLoaded(slot) && pendingTickets_[s] == 0;
+}
+
 juce::StringArray DubgefahrenProcessor::takeSampleProblems()
 {
     auto problems = sampleProblems_;
@@ -355,10 +361,16 @@ void DubgefahrenProcessor::releaseSample(int slot)
 
 void DubgefahrenProcessor::sampleLoadFailed(int slot, const juce::String& name, const juce::String& reason)
 {
-    SlotParams p = readSlotFromParameters(apvts_, slot);
-    p.source = SourceType::Empty;
-    writeSlotToParameters(apvts_, slot, p);
-    setSlotSampleRef(slot, {});
+    // Fehlende oder unlesbare Datei: Verweis und Regler bleiben, der Slot ist nur stumm – so geht
+    // beim Speichern mit abgestecktem Sample-Laufwerk nichts verloren. Ein ungültiger Name kann nie
+    // laden (nur durch manipulierte Daten möglich): dieser Slot wird leer.
+    if (!isValidSampleFileName(name))
+    {
+        SlotParams p = readSlotFromParameters(apvts_, slot);
+        p.source = SourceType::Empty;
+        writeSlotToParameters(apvts_, slot, p);
+        setSlotSampleRef(slot, {});
+    }
     releaseSample(slot);
     sampleProblems_.add("Slot " + juce::String(slot + 1) + ": " + (name.isEmpty() ? juce::String("(no file)") : name)
                         + juce::String::fromUTF8(" – ") + reason);

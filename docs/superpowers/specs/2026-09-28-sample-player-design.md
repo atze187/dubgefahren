@@ -172,8 +172,14 @@ denselben Slot macht ältere Aufträge ungültig (Auftragsnummer).
 
 ### 5.4 Fehlerfälle
 
-- Scheitert das Laden, gilt: Der Slot wird leer (Quelle `Empty`), die Sample-Referenz wird
-  gelöscht, der Name bleibt. Der Fehler kommt als Eintrag
+- Scheitert das Laden (Datei fehlt, unlesbar, zu lang, keine Kit-Datei), bleibt der Slot ein
+  Sample-Slot: Quelle, Sample-Referenz, Name und Regler bleiben erhalten, der Slot ist nur
+  stumm (keine Daten) und gilt als „fehlend“ (`isSampleMissing`). So geht beim Speichern mit
+  abgestecktem Sample-Laufwerk nichts verloren. Erneut geladen wird beim Wiederherstellen des
+  Projekts, beim Laden/Importieren des Kits und beim erneuten Wählen der Datei. Pad (Name und
+  „∿“) und die Sample-Schaltfläche im Slot-Editor („horn.wav (missing)“) erscheinen in
+  `colours::warning`. Nur ein ungültiger Dateiname (manipulierte Daten) macht den Slot leer
+  (Quelle `Empty`, Referenz gelöscht, Name bleibt). Der Fehler kommt als Eintrag
   `"Slot N: horn.wav – <Grund>"` in eine Problemliste des Processors, und `stateGeneration`
   steigt.
 - Der Editor zeigt die Problemliste einmal als Meldung „Some samples could not be loaded“

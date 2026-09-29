@@ -254,3 +254,22 @@ TEST_CASE("editor refreshes when the host changes a slot source directly", "[edi
     CHECK_FALSE(e->padShowsEmpty(3));
     CHECK_FALSE(e->slotEditorShowsEmptyHint());
 }
+
+TEST_CASE("a sample slot whose file is missing is marked on the pad and in the slot editor", "[editor]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    dgtest::TempDir tmp;
+    DubgefahrenProcessor p;
+    p.applyKit(makeFactoryKit(), tmp.dir.getChildFile("Dub.dgkit"));
+    p.setSlotSample(2, "missing.wav");
+    p.waitForSampleLoads();
+    std::unique_ptr<juce::AudioProcessorEditor> editor(p.createEditor());
+    auto* e = static_cast<DubgefahrenEditor*>(editor.get());
+
+    CHECK(e->padShowsSample(2));
+    CHECK(e->padShowsMissing(2));
+    CHECK_FALSE(e->padShowsMissing(0));
+    e->selectSlot(2);
+    CHECK(e->slotEditorShowsSampleControls());
+    CHECK(e->slotEditorSampleText() == "missing.wav (missing)");
+}

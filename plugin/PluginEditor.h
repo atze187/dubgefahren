@@ -39,6 +39,7 @@ public:
     bool slotEditorShowsEmptyHint() const { return slotEditor_.showsEmptyHint(); }
     bool padShowsEmpty(int slot) const { return pads_.isEmpty(slot); }
     bool padShowsSample(int slot) const { return pads_.isSample(slot); }
+    bool padShowsMissing(int slot) const { return pads_.isMissing(slot); }
     bool slotEditorShowsSampleControls() const { return slotEditor_.showsSampleControls(); }
     juce::String slotEditorSampleText() const { return slotEditor_.sampleButtonText(); }
     bool slotEditorLatchSelectable() const { return slotEditor_.isLatchSelectable(); }

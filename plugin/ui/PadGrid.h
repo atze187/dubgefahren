@@ -29,6 +29,7 @@ public:
     juce::Component& pad(int slot);
     bool isEmpty(int slot) const;
     bool isSample(int slot) const;
+    bool isMissing(int slot) const;
 
     void paint(juce::Graphics& g) override;
     void resized() override;

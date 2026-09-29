@@ -63,6 +63,8 @@ public:
     // Wählt ein Sample aus dem Kit-Ordner (Quelle Sample, Name = Dateiname ohne Endung).
     void setSlotSample(int slot, const juce::String& fileName);
     bool isSampleLoaded(int slot) const;
+    // Sample-Slot, dessen Datei nicht geladen werden konnte: Verweis bleibt, der Slot ist stumm.
+    bool isSampleMissing(int slot) const;
     // Liefert die gesammelten Ladeprobleme ("Slot N: datei – grund") und leert die Liste.
     juce::StringArray takeSampleProblems();
     // True, solange ein Ladeauftrag läuft, dessen Ergebnis noch nicht übernommen wurde (oder ein Reload ansteht).

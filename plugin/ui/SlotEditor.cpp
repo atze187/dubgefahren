@@ -95,7 +95,12 @@ void SlotEditor::refresh()
         for (auto* c : sampleControls_)
             c->setVisible(true);
     sampleButton_.setVisible(mode_ == Mode::Sample);
-    sampleButton_.setButtonText(proc_.slotSample(slot_));
+    const bool missing = proc_.isSampleMissing(slot_);
+    sampleButton_.setButtonText(proc_.slotSample(slot_) + (missing ? " (missing)" : ""));
+    if (missing)
+        sampleButton_.setColour(juce::TextButton::textColourOffId, colours::warning);
+    else
+        sampleButton_.removeColour(juce::TextButton::textColourOffId);
     trigMode_.box.setItemEnabled(kLatchItemId, mode_ != Mode::Sample); // Latch wirkt bei Samples wie Gate
     resized();
     repaint(); // Zeilenbeschriftungen

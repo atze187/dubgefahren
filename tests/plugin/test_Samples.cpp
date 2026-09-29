@@ -67,31 +67,43 @@ TEST_CASE("choosing a sample sets sample defaults, loads it and plays it", "[plu
     CHECK((p.activeMask() & (1u << 3)) != 0u);
 }
 
-TEST_CASE("a missing sample empties the slot, keeps the name and reports it once", "[plugin][samples]")
+TEST_CASE("a missing sample keeps the slot and its reference, mutes it and reports it once", "[plugin][samples]")
 {
     juce::ScopedJuceInitialiser_GUI gui;
     SampleKit kit;
     DubgefahrenProcessor p;
     p.applyKit(makeFactoryKit(), kit.kitFile);
     p.setSlotSample(2, "missing.wav");
+    CHECK_FALSE(p.isSampleMissing(2)); // lädt noch
     p.waitForSampleLoads();
-    CHECK(p.slotSource(2) == SourceType::Empty);
+    CHECK(p.slotSource(2) == SourceType::Sample);
     CHECK(p.slotName(2) == "missing");
-    CHECK(p.slotSample(2).isEmpty());
+    CHECK(p.slotSample(2) == "missing.wav");
+    CHECK_FALSE(p.isSampleLoaded(2));
+    CHECK(p.isSampleMissing(2));
+    CHECK_FALSE(p.isSampleMissing(0)); // Synth-Slot
+    CHECK(p.currentKit().samples[2] == "missing.wav");
+
+    prepare(p);
+    CHECK(processNote(p, 38) == 0.0f); // stumm
+    CHECK((p.activeMask() & (1u << 2)) == 0u);
+
     const auto problems = p.takeSampleProblems();
     REQUIRE(problems.size() == 1);
     CHECK(problems[0] == juce::String::fromUTF8("Slot 3: missing.wav – file not found"));
     CHECK(p.takeSampleProblems().isEmpty());
 }
 
-TEST_CASE("without a kit file or with an unsafe name a sample slot fails", "[plugin][samples]")
+TEST_CASE("without a kit file a sample slot stays but is muted; an unsafe name empties it", "[plugin][samples]")
 {
     juce::ScopedJuceInitialiser_GUI gui;
     SampleKit kit;
     DubgefahrenProcessor p;
     p.setSlotSample(0, "horn.wav"); // Factory-Zustand: keine Kit-Datei
     p.waitForSampleLoads();
-    CHECK(p.slotSource(0) == SourceType::Empty);
+    CHECK(p.slotSource(0) == SourceType::Sample);
+    CHECK(p.slotSample(0) == "horn.wav");
+    CHECK(p.isSampleMissing(0));
 
     p.applyKit(makeFactoryKit(), kit.kitFile);
     SlotParams sp = readSlotFromParameters(p.state(), 1);
@@ -127,27 +139,48 @@ TEST_CASE("state round-trip keeps the kit file and sample slots", "[plugin][samp
     CHECK(b.takeSampleProblems().isEmpty());
 }
 
-TEST_CASE("restoring a state whose kit folder is gone empties the sample slots and reports them", "[plugin][samples]")
+TEST_CASE("a set restored while the kit folder is gone keeps its samples and loads them once it is back", "[plugin][samples]")
 {
     juce::ScopedJuceInitialiser_GUI gui;
+    SampleKit kit;
     juce::MemoryBlock mb;
     {
-        SampleKit kit;
         DubgefahrenProcessor a;
         a.applyKit(makeFactoryKit(), kit.kitFile);
         a.setSlotSample(4, "horn.wav");
         a.setSlotSample(6, "horn.wav");
         a.waitForSampleLoads();
         a.getStateInformation(mb);
-    } // Kit-Ordner gelöscht
+    }
+    const auto away = kit.tmp.dir.getChildFile("unplugged");
+    REQUIRE(kit.folder.moveFileTo(away)); // Sample-Laufwerk abgesteckt
 
     DubgefahrenProcessor b;
     b.setStateInformation(mb.getData(), static_cast<int>(mb.getSize()));
     b.waitForSampleLoads();
-    CHECK(b.slotSource(4) == SourceType::Empty);
-    CHECK(b.slotSource(6) == SourceType::Empty);
+    CHECK(b.slotSource(4) == SourceType::Sample);
+    CHECK(b.slotSource(6) == SourceType::Sample);
     CHECK(b.slotName(4) == "horn");
+    CHECK(b.isSampleMissing(4));
+    CHECK(b.isSampleMissing(6));
     CHECK(b.takeSampleProblems().size() == 2);
+
+    // Speichern im stummen Zustand verliert nichts.
+    juce::MemoryBlock saved;
+    b.getStateInformation(saved);
+
+    REQUIRE(away.moveFileTo(kit.folder)); // wieder angesteckt
+    DubgefahrenProcessor c;
+    c.setStateInformation(saved.getData(), static_cast<int>(saved.getSize()));
+    c.waitForSampleLoads();
+    CHECK(c.isSampleLoaded(4));
+    CHECK(c.isSampleLoaded(6));
+    CHECK(c.takeSampleProblems().isEmpty());
+
+    b.setSlotSample(4, "horn.wav"); // erneut wählen lädt nach
+    b.waitForSampleLoads();
+    CHECK(b.isSampleLoaded(4));
+    CHECK_FALSE(b.isSampleMissing(4));
 }
 
 TEST_CASE("loading the factory kit clears the kit file and sample slots", "[plugin][samples]")
