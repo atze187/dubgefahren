@@ -56,7 +56,11 @@ If the config is invalid, the plugin shows a notice when the kit menu, import or
 Kit menu → factory kit, a new empty kit, or kits from the kit folder. Import/export as `.dgkit`
 (JSON, 16 slots, without effects).
 Right-click a pad: copy, paste, reset to factory settings, rename, clear.
-An empty pad is silent; click it to choose a sound source (Synth; Sample follows in a later version).
+An empty pad is silent; click it to choose a sound source: Synth, or Sample.
+Samples (WAV, AIFF, MP3, FLAC, up to 60 s, played in mono) live in a folder named like the kit,
+next to the `.dgkit` file (`Kits\Dub.dgkit` → `Kits\Dub\`). "Add File…" copies a file into that
+folder; exporting to a new kit copies the used samples along. Samples need a kit file, so export
+a new kit once before adding samples. A missing sample empties its pad and shows a notice.
 
 ## Validation
 
