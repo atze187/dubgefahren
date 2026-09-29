@@ -6,6 +6,12 @@
 
 namespace dg {
 
+namespace {
+enum KitMenuId { kKitFactory = 1, kKitNone = 2, kKitEmpty = 3, kKitFileBase = 100 };
+enum PadMenuId { kPadCopy = 1, kPadPaste, kPadReset, kPadRename, kPadClear };
+enum SourceMenuId { kSourceSynth = 1, kSourceSample };
+} // namespace
+
 DubgefahrenEditor::DubgefahrenEditor(DubgefahrenProcessor& proc)
     : AudioProcessorEditor(proc), proc_(proc), pads_(proc), slotEditor_(proc), fx_(proc), perf_(proc)
 {
@@ -27,6 +33,7 @@ DubgefahrenEditor::DubgefahrenEditor(DubgefahrenProcessor& proc)
 
     pads_.onSelect = [this](int s) { selectSlot(s); };
     pads_.onContextMenu = [this](int s) { showPadMenu(s); };
+    pads_.onEmptyClick = [this](int s) { showSourceMenu(s); };
     slotEditor_.onRename = [this] { renameSlot(selectedSlot_); };
 
     for (juce::Component* c : std::initializer_list<juce::Component*> {
@@ -37,6 +44,7 @@ DubgefahrenEditor::DubgefahrenEditor(DubgefahrenProcessor& proc)
     layoutContent();
     selectSlot(proc_.focusSlot());
     lastStateGeneration_ = proc_.stateGeneration();
+    lastSoundMask_ = soundMask();
 
     // uiScale() wird vorab gelesen: setResizeLimits() zwingt die noch 0x0 große
     // Editor-Bounds sofort auf die Mindestgröße, was über resized() einen Zwischenwert
@@ -100,18 +108,31 @@ void DubgefahrenEditor::selectSlot(int slot)
 void DubgefahrenEditor::refreshAll()
 {
     pads_.refreshNames();
-    slotEditor_.refreshName();
+    slotEditor_.refresh();
 }
 
 void DubgefahrenEditor::pollProcessorState()
 {
+    // Der Quellentyp kann sich auch ohne setSlot ändern (generischer Host-Editor, Host-Undo),
+    // deshalb zusätzlich zur stateGeneration vergleichen.
     const int gen = proc_.stateGeneration();
-    if (gen != lastStateGeneration_)
+    const std::uint32_t sound = soundMask();
+    if (gen != lastStateGeneration_ || sound != lastSoundMask_)
     {
         lastStateGeneration_ = gen;
+        lastSoundMask_ = sound;
         refreshAll();
         followFocus_.setToggleState(proc_.editorFollowsFocus(), juce::dontSendNotification);
     }
+}
+
+std::uint32_t DubgefahrenEditor::soundMask() const
+{
+    std::uint32_t m = 0;
+    for (int s = 0; s < kNumSlots; ++s)
+        if (hasSound(proc_.slotSource(s)))
+            m |= 1u << s;
+    return m;
 }
 
 void DubgefahrenEditor::timerCallback()
@@ -170,29 +191,36 @@ void DubgefahrenEditor::maybeShowConfigWarning()
     showMessage("Hinweis zur Config", info.warning + "\n\nVerwendet wird: " + info.folder.getFullPathName());
 }
 
+juce::PopupMenu DubgefahrenEditor::buildKitMenu(const juce::Array<juce::File>& kitFiles) const
+{
+    juce::PopupMenu menu;
+    menu.addItem(kKitFactory, "Load Factory Kit");
+    menu.addItem(kKitEmpty, "New Empty Kit");
+    menu.addSeparator();
+    if (kitFiles.isEmpty())
+        menu.addItem(kKitNone, "(no kits in folder)", false);
+    for (int i = 0; i < kitFiles.size(); ++i)
+        menu.addItem(kKitFileBase + i, kitFiles[i].getFileNameWithoutExtension());
+    return menu;
+}
+
 void DubgefahrenEditor::showKitMenu()
 {
     maybeShowConfigWarning();
-    juce::PopupMenu menu;
-    menu.addItem(1, "Load Factory Kit");
-    menu.addSeparator();
     auto files = proc_.kitFolder().folder.findChildFiles(juce::File::findFiles, false, juce::String("*") + kKitExtension);
     files.sort();
-    if (files.isEmpty())
-        menu.addItem(2, "(no kits in folder)", false);
-    for (int i = 0; i < files.size(); ++i)
-        menu.addItem(100 + i, files[i].getFileNameWithoutExtension());
-
-    menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(kitButton_),
-                       [safe = juce::Component::SafePointer<DubgefahrenEditor>(this), files](int result) {
-                           if (safe == nullptr || result == 0)
-                               return;
-                           if (result == 1)
-                               safe->proc_.applyKit(makeFactoryKit());
-                           else if (result >= 100)
-                               safe->loadKit(files[result - 100]);
-                           safe->refreshAll();
-                       });
+    buildKitMenu(files).showMenuAsync(juce::PopupMenu::Options().withTargetComponent(kitButton_),
+                                      [safe = juce::Component::SafePointer<DubgefahrenEditor>(this), files](int result) {
+                                          if (safe == nullptr || result == 0)
+                                              return;
+                                          if (result == kKitFactory)
+                                              safe->proc_.applyKit(makeFactoryKit());
+                                          else if (result == kKitEmpty)
+                                              safe->proc_.applyKit(makeEmptyKit());
+                                          else if (result >= kKitFileBase)
+                                              safe->loadKit(files[result - kKitFileBase]);
+                                          safe->refreshAll();
+                                      });
 }
 
 void DubgefahrenEditor::loadKit(const juce::File& file)
@@ -238,43 +266,62 @@ void DubgefahrenEditor::exportKit()
                           });
 }
 
+juce::PopupMenu DubgefahrenEditor::buildPadMenu(int slot) const
+{
+    const bool empty = !hasSound(proc_.slotSource(slot));
+    juce::PopupMenu menu;
+    menu.addItem(kPadCopy, "Copy");
+    menu.addItem(kPadPaste, "Paste", clipboard_.has_value());
+    menu.addItem(kPadReset, "Reset to Factory Default");
+    menu.addItem(kPadRename, "Rename", !empty);
+    menu.addItem(kPadClear, "Clear Slot", !empty);
+    return menu;
+}
+
 void DubgefahrenEditor::showPadMenu(int slot)
 {
+    buildPadMenu(slot).showMenuAsync(juce::PopupMenu::Options(),
+                                     [safe = juce::Component::SafePointer<DubgefahrenEditor>(this), slot](int result) {
+                                         if (safe == nullptr)
+                                             return;
+                                         auto& self = *safe;
+                                         switch (result)
+                                         {
+                                             case kPadCopy:
+                                                 self.clipboard_ = std::make_pair(self.proc_.currentKit().slots[static_cast<std::size_t>(slot)],
+                                                                                  self.proc_.slotName(slot));
+                                                 break;
+                                             case kPadPaste:
+                                                 if (self.clipboard_)
+                                                     self.proc_.setSlot(slot, self.clipboard_->first, self.clipboard_->second);
+                                                 break;
+                                             case kPadReset:  self.proc_.resetSlotToFactory(slot); break;
+                                             case kPadRename: self.renameSlot(slot); break;
+                                             case kPadClear:  self.proc_.clearSlot(slot); break;
+                                             default: break;
+                                         }
+                                         self.refreshAll();
+                                     });
+}
+
+juce::PopupMenu DubgefahrenEditor::buildSourceMenu()
+{
     juce::PopupMenu menu;
-    menu.addItem(1, "Copy");
-    menu.addItem(2, "Paste", clipboard_.has_value());
-    menu.addItem(3, "Reset to Factory Default");
-    menu.addItem(4, "Rename");
-    menu.showMenuAsync(juce::PopupMenu::Options(),
-                       [safe = juce::Component::SafePointer<DubgefahrenEditor>(this), slot](int result) {
-                           if (safe == nullptr)
-                               return;
-                           auto& self = *safe;
-                           switch (result)
-                           {
-                               case 1:
-                                   self.clipboard_ = std::make_pair(self.proc_.currentKit().slots[static_cast<std::size_t>(slot)],
-                                                                    self.proc_.slotName(slot));
-                                   break;
-                               case 2:
-                                   if (self.clipboard_)
-                                       self.proc_.setSlot(slot, self.clipboard_->first, self.clipboard_->second);
-                                   break;
-                               case 3:
-                               {
-                                   const Kit factory = makeFactoryKit();
-                                   self.proc_.setSlot(slot, factory.slots[static_cast<std::size_t>(slot)],
-                                                      juce::String::fromUTF8(factory.names[static_cast<std::size_t>(slot)].c_str()));
-                                   break;
-                               }
-                               case 4:
-                                   self.renameSlot(slot);
-                                   break;
-                               default:
-                                   break;
-                           }
-                           self.refreshAll();
-                       });
+    menu.addItem(kSourceSynth, "Synth");
+    menu.addItem(kSourceSample, "Sample", false); // folgt mit dem Sample-Player (#8)
+    return menu;
+}
+
+void DubgefahrenEditor::showSourceMenu(int slot)
+{
+    // Gleiche Optionen wie das Kit-Menü, verankert am angeklickten Pad.
+    buildSourceMenu().showMenuAsync(juce::PopupMenu::Options().withTargetComponent(pads_.pad(slot)),
+                                    [safe = juce::Component::SafePointer<DubgefahrenEditor>(this), slot](int result) {
+                                        if (safe == nullptr || result != kSourceSynth)
+                                            return;
+                                        safe->proc_.resetSlotToFactory(slot);
+                                        safe->refreshAll();
+                                    });
 }
 
 void DubgefahrenEditor::renameSlot(int slot)

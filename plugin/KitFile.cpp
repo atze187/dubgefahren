@@ -5,7 +5,9 @@ namespace dg {
 
 namespace {
 constexpr const char* kFormat = "dubgefahren-kit";
-constexpr int kVersion = 1;
+constexpr int kVersion = 2;
+constexpr const char* kSourceSynth = "synth";
+constexpr const char* kSourceEmpty = "empty";
 constexpr juce::int64 kMaxFileBytes = 1024 * 1024;
 
 KitParseResult fail(const juce::String& message) { return { std::nullopt, message }; }
@@ -24,16 +26,22 @@ juce::String kitToJsonString(const Kit& kit)
     juce::Array<juce::var> slots;
     for (int s = 0; s < kNumSlots; ++s)
     {
+        const auto i = static_cast<std::size_t>(s);
+        const bool synth = kit.slots[i].source == SourceType::Synth;
         auto* slot = new juce::DynamicObject();
-        slot->setProperty("name", juce::String::fromUTF8(kit.names[static_cast<std::size_t>(s)].c_str()));
-        auto* params = new juce::DynamicObject();
-        for (int i = 0; i < kNumSlotFields; ++i)
+        slot->setProperty("source", synth ? kSourceSynth : kSourceEmpty);
+        slot->setProperty("name", juce::String::fromUTF8(kit.names[i].c_str()));
+        if (synth)
         {
-            const auto f = static_cast<SlotField>(i);
-            params->setProperty(juce::Identifier(fieldSpec(f).key),
-                                static_cast<double>(getSlotField(kit.slots[static_cast<std::size_t>(s)], f)));
+            auto* params = new juce::DynamicObject();
+            for (int f = 0; f < kNumSlotFields; ++f)
+            {
+                const auto field = static_cast<SlotField>(f);
+                params->setProperty(juce::Identifier(fieldSpec(field).key),
+                                    static_cast<double>(getSlotField(kit.slots[i], field)));
+            }
+            slot->setProperty("params", juce::var(params));
         }
-        slot->setProperty("params", juce::var(params));
         slots.add(juce::var(slot));
     }
     root->setProperty("slots", slots);
@@ -49,19 +57,42 @@ KitParseResult kitFromJsonString(const juce::String& text)
         return fail("The file is not a Dubgefahren kit.");
     if (!isNumber(root["version"]))
         return fail("The kit version is missing.");
-    if (static_cast<int>(root["version"]) > kVersion)
+    const int version = static_cast<int>(root["version"]);
+    if (version > kVersion)
         return fail("The kit was created with a newer version of Dubgefahren.");
 
     const auto* slots = root["slots"].getArray();
     if (slots == nullptr || slots->size() != kNumSlots)
         return fail("The kit must contain exactly 16 slots.");
 
+    const Kit factory = makeFactoryKit();
     Kit kit;
     for (int s = 0; s < kNumSlots; ++s)
     {
         const juce::var& slot = (*slots)[s];
         if (!slot.isObject())
             return fail(slotLabel(s) + " is invalid.");
+
+        SourceType source = SourceType::Synth; // Version 1 kennt nur Sirenen
+        if (version >= 2)
+        {
+            const auto src = slot["source"].toString();
+            if (src == kSourceEmpty)
+                source = SourceType::Empty;
+            else if (src != kSourceSynth)
+                return fail(slotLabel(s) + ": unknown sound source.");
+        }
+        if (source == SourceType::Empty)
+        {
+            // Parameter eines leeren Slots werden ignoriert; hinterlegt werden die Factory-Werte.
+            SlotParams p = factory.slots[static_cast<std::size_t>(s)];
+            p.source = SourceType::Empty;
+            kit.slots[static_cast<std::size_t>(s)] = p;
+            kit.names[static_cast<std::size_t>(s)] =
+                slot["name"].isString() ? slot["name"].toString().substring(0, 32).toStdString() : std::string();
+            continue;
+        }
+
         if (!slot["name"].isString())
             return fail(slotLabel(s) + " has no name.");
         const auto* params = slot["params"].getDynamicObject();

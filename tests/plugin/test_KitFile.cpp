@@ -55,7 +55,7 @@ TEST_CASE("invalid kit files are rejected with a message", "[kitfile]")
     CHECK_FALSE(reparse(wrongFormat).kit.has_value());
 
     auto newer = parsed(k);
-    newer.getDynamicObject()->setProperty("version", 2);
+    newer.getDynamicObject()->setProperty("version", 3);
     const auto rNewer = reparse(newer);
     CHECK_FALSE(rNewer.kit.has_value());
     CHECK(rNewer.error.isNotEmpty());
@@ -87,4 +87,67 @@ TEST_CASE("kit values are clamped, missing keys default and unknown keys are ign
     REQUIRE(r.kit.has_value());
     CHECK(r.kit->slots[0].pitchHz == fieldSpec(SlotField::Pitch).max);
     CHECK(r.kit->slots[0].pulseWidth == fieldSpec(SlotField::PulseWidth).def);
+}
+
+TEST_CASE("kits with empty slots are written as version 2 and survive a round-trip", "[kitfile]")
+{
+    Kit k = makeFactoryKit();
+    k.slots[2].source = SourceType::Empty;
+    k.names[2].clear();
+
+    const auto v = parsed(k);
+    CHECK(static_cast<int>(v["version"]) == 2);
+    CHECK(v["slots"][0]["source"].toString() == "synth");
+    CHECK(v["slots"][2]["source"].toString() == "empty");
+    CHECK_FALSE(v["slots"][2].getDynamicObject()->hasProperty("params"));
+
+    const auto r = kitFromJsonString(kitToJsonString(k));
+    REQUIRE(r.kit.has_value());
+    CHECK(r.kit->slots == k.slots);
+    CHECK(r.kit->names == k.names);
+
+    const Kit empty = makeEmptyKit();
+    const auto rEmpty = kitFromJsonString(kitToJsonString(empty));
+    REQUIRE(rEmpty.kit.has_value());
+    CHECK(rEmpty.kit->slots == empty.slots);
+}
+
+TEST_CASE("version 1 kits load as all synth", "[kitfile]")
+{
+    auto v = parsed(makeFactoryKit());
+    v.getDynamicObject()->setProperty("version", 1);
+    for (auto& slot : *v["slots"].getArray())
+        slot.getDynamicObject()->removeProperty("source");
+    const auto r = reparse(v);
+    REQUIRE(r.kit.has_value());
+    for (const auto& s : r.kit->slots)
+        CHECK(s.source == SourceType::Synth);
+}
+
+TEST_CASE("empty slots ignore params and may omit the name", "[kitfile]")
+{
+    auto v = parsed(makeFactoryKit());
+    auto* slot = v["slots"][4].getDynamicObject();
+    slot->setProperty("source", "empty");
+    slot->removeProperty("name");
+    v["slots"][4]["params"].getDynamicObject()->setProperty("pitch", 1234.0);
+    const auto r = reparse(v);
+    REQUIRE(r.kit.has_value());
+    SlotParams expected = makeFactoryKit().slots[4];
+    expected.source = SourceType::Empty;
+    CHECK(r.kit->slots[4] == expected);
+    CHECK(r.kit->names[4].empty());
+}
+
+TEST_CASE("unknown or missing sound sources are rejected in version 2", "[kitfile]")
+{
+    auto sample = parsed(makeFactoryKit());
+    sample["slots"][4].getDynamicObject()->setProperty("source", "sample");
+    const auto r = reparse(sample);
+    CHECK_FALSE(r.kit.has_value());
+    CHECK(r.error == juce::String("Slot 5: unknown sound source."));
+
+    auto missing = parsed(makeFactoryKit());
+    missing["slots"][0].getDynamicObject()->removeProperty("source");
+    CHECK_FALSE(reparse(missing).kit.has_value());
 }

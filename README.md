@@ -56,8 +56,10 @@ If the config is invalid, the plugin shows a notice when the kit menu, import or
 
 ## Kits
 
-Kit menu → factory kit or kits from the kit folder. Import/export as `.dgkit` (JSON, 16 slots, without effects).
-Right-click a pad: copy, paste, reset to factory settings, rename.
+Kit menu → factory kit, a new empty kit, or kits from the kit folder. Import/export as `.dgkit`
+(JSON, 16 slots, without effects).
+Right-click a pad: copy, paste, reset to factory settings, rename, clear.
+An empty pad is silent; click it to choose a sound source (Synth; Sample follows in a later version).
 
 ## Validation
 

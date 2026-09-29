@@ -45,6 +45,11 @@ public:
     juce::String slotName(int slot) const;
     void setSlotName(int slot, const juce::String& name);
     void setSlot(int slot, const SlotParams& params, const juce::String& name);
+    SourceType slotSource(int slot) const;
+    // Leert den Slot: Quelle Empty, Name leer; die Synth-Parameter bleiben erhalten.
+    void clearSlot(int slot);
+    // Setzt den Slot auf die Factory-Sirene dieses Slots (Quelle Synth, Factory-Name).
+    void resetSlotToFactory(int slot);
     Kit currentKit();
     void applyKit(const Kit& kit);
     void previewPress(int slot);

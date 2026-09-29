@@ -10,6 +10,12 @@ enum class LfoShape { Square, Triangle, SawUp, SawDown, SampleHold };
 enum class TriggerMode { Gate, Latch, OneShot };
 enum class SyncDivision { D1_32, D1_16T, D1_16, D1_8T, D1_8, D1_4T, D1_4, D1_2, Bar1, Bars2, Bars4 };
 
+// Klangquelle eines Slots. Reihenfolge ist Teil des Host-States (Parameterwert), nie umsortieren.
+enum class SourceType { Empty, Synth, Sample };
+
+// Ob ein Slot mit dieser Quelle klingt. Sample bleibt stumm, bis der Sample-Player (#8) existiert.
+constexpr bool hasSound(SourceType t) { return t == SourceType::Synth; }
+
 // Länge einer LFO-Periode in Viertelnoten (4/4-Takt).
 float syncDivisionBeats(SyncDivision d);
 
@@ -33,6 +39,8 @@ struct SlotParams
     float volumeDb = -6.0f;        // -60 (stumm) .. 6
     float pan = 0.0f;              // -1 .. 1
     float fxSend = 0.3f;           // 0 .. 1
+
+    SourceType source = SourceType::Synth; // kein SlotField, wird gesondert gespeichert
 
     bool operator==(const SlotParams&) const = default;
 };

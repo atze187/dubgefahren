@@ -32,8 +32,11 @@ inline constexpr const char* panic = "panic";
 namespace dg {
 
 constexpr int kParameterVersion = 1;
+// Versionshinweis für Parameter, die mit dem leeren Slot (#7) hinzugekommen sind.
+constexpr int kSourceParameterVersion = 2;
 
 juce::String slotParamId(int slot, SlotField f);
+juce::String slotSourceParamId(int slot);
 
 juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout(const Kit& defaults);
 
@@ -52,6 +55,7 @@ public:
 private:
     using Ptr = std::atomic<float>*;
     std::array<std::array<Ptr, kNumSlotFields>, kNumSlots> slots_ {};
+    std::array<Ptr, kNumSlots> sources_ {};
     Ptr drive_, cutoff_, resonance_, filterType_;
     Ptr delayTime_, delayFeedback_, delayTone_, delayWow_, delayMix_;
     Ptr reverbDecay_, reverbTone_, reverbMix_, masterVol_;

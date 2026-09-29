@@ -1,5 +1,6 @@
 #include "plugin/PluginProcessor.h"
 #include <algorithm>
+#include <cmath>
 #include "plugin/PluginEditor.h"
 
 namespace dg {
@@ -160,6 +161,8 @@ void DubgefahrenProcessor::setStateInformation(const void* data, int sizeInBytes
     if (xml == nullptr || !xml->hasTagName(apvts_.state.getType()))
         return;
     // Versionsfeld: ältere Stände werden hier bei Bedarf migriert (Version 1: nichts zu tun).
+    // Fehlende Parameter (z. B. sNN_source aus Projekten vor #7) setzt APVTS beim
+    // replaceState() auf ihren Default zurück; eine eigene Migration ist nicht nötig.
     apvts_.replaceState(juce::ValueTree::fromXml(*xml));
     ensureStateChildren();
     ++stateGeneration_;
@@ -182,6 +185,27 @@ void DubgefahrenProcessor::setSlot(int slot, const SlotParams& params, const juc
     writeSlotToParameters(apvts_, slot, params);
     setSlotName(slot, name);
     ++stateGeneration_;
+}
+
+SourceType DubgefahrenProcessor::slotSource(int slot) const
+{
+    const auto* v = apvts_.getRawParameterValue(slotSourceParamId(slot));
+    jassert(v != nullptr);
+    return static_cast<SourceType>(std::clamp(static_cast<int>(std::lround(v->load())), 0, 2));
+}
+
+void DubgefahrenProcessor::clearSlot(int slot)
+{
+    SlotParams p = readSlotFromParameters(apvts_, slot);
+    p.source = SourceType::Empty;
+    setSlot(slot, p, {});
+}
+
+void DubgefahrenProcessor::resetSlotToFactory(int slot)
+{
+    const Kit factory = makeFactoryKit();
+    const auto s = static_cast<std::size_t>(slot);
+    setSlot(slot, factory.slots[s], juce::String::fromUTF8(factory.names[s].c_str()));
 }
 
 Kit DubgefahrenProcessor::currentKit()

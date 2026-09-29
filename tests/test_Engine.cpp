@@ -291,3 +291,74 @@ TEST_CASE("slot volume changes are smoothed", "[engine]")
 
     CHECK(dgtest::maxStep(l, 4790) < 0.03f);
 }
+
+TEST_CASE("empty slots ignore notes and previews", "[engine]")
+{
+    Engine e;
+    e.prepare(kSr, 512);
+    auto p = testParams();
+    p.slots[5].source = SourceType::Empty;
+    p.slots[6].source = SourceType::Sample; // bis #8 ebenfalls stumm
+    const auto o = run(e, p, 4800, { noteOn(41), noteOn(42), { EngineEvent::Type::PreviewOn, 0, 5 } });
+    CHECK(dgtest::peakAbs(o.l) == 0.0f);
+    CHECK(e.activeMask() == 0u);
+    CHECK(e.focusSlot() == 0);
+    run(e, p, 512, { noteOff(41), { EngineEvent::Type::PreviewOff, 0, 5 } }); // harmlos
+    CHECK(e.activeMask() == 0u);
+}
+
+TEST_CASE("an empty slot does not choke its group", "[engine]")
+{
+    Engine e;
+    e.prepare(kSr, 512);
+    auto p = testParams();
+    p.slots[0].chokeGroup = 1;
+    p.slots[1].chokeGroup = 1;
+    p.slots[1].source = SourceType::Empty;
+    run(e, p, 4800, { noteOn(36) });
+    run(e, p, 4800, { noteOn(37) });
+    CHECK(e.activeMask() == 1u);
+}
+
+TEST_CASE("clearing a playing latched slot stops it in the next block", "[engine]")
+{
+    Engine e;
+    e.prepare(kSr, 512);
+    auto p = testParams();
+    p.slots[0].trigMode = TriggerMode::Latch;
+    run(e, p, 4800, { noteOn(36) });
+    REQUIRE(e.latchedMask() == 1u);
+
+    p.slots[0].source = SourceType::Empty;
+    const auto o = run(e, p, 4800);
+    CHECK(e.activeMask() == 0u);
+    CHECK(e.latchedMask() == 0u);
+    CHECK(dgtest::peakAbs(o.l, 300) < 1.0e-4f);
+
+    p.slots[0].source = SourceType::Synth;
+    run(e, p, 4800, { noteOn(36) });
+    CHECK(e.activeMask() == 1u);
+    CHECK(e.latchedMask() == 1u);
+}
+
+TEST_CASE("clearing a slot during a one-shot stops it and a later one-shot plays in full", "[engine]")
+{
+    Engine e;
+    e.prepare(kSr, 512);
+    auto p = testParams();
+    p.slots[0].trigMode = TriggerMode::OneShot;
+    p.slots[0].oneShotS = 1.0f;
+    run(e, p, 4800, { noteOn(36) });
+    REQUIRE(e.activeMask() == 1u);
+
+    p.slots[0].source = SourceType::Empty;
+    const auto o = run(e, p, 4800);
+    CHECK(e.activeMask() == 0u);
+    CHECK(dgtest::peakAbs(o.l, 300) < 1.0e-4f);
+
+    // Neuer One-Shot nach "Synth": läuft seine volle Länge, kein Rest-Timer vom abgebrochenen.
+    p.slots[0].source = SourceType::Synth;
+    run(e, p, 4800, { noteOn(36) });
+    run(e, p, 38400); // 0,9 s nach dem Start
+    CHECK(e.activeMask() == 1u);
+}

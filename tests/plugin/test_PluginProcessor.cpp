@@ -52,7 +52,7 @@ void prepare(DubgefahrenProcessor& p)
 }
 } // namespace
 
-TEST_CASE("the plugin exposes 308 uniquely named parameters", "[plugin]")
+TEST_CASE("the plugin exposes 324 uniquely named parameters", "[plugin]")
 {
     juce::ScopedJuceInitialiser_GUI gui;
     DubgefahrenProcessor p;
@@ -60,10 +60,12 @@ TEST_CASE("the plugin exposes 308 uniquely named parameters", "[plugin]")
     for (auto* param : p.getParameters())
         if (auto* withId = dynamic_cast<juce::AudioProcessorParameterWithID*>(param))
             ids.insert(withId->paramID);
-    CHECK(p.getParameters().size() == 16 * 18 + 20);
-    CHECK(ids.size() == 308);
+    CHECK(p.getParameters().size() == 16 * 19 + 20);
+    CHECK(ids.size() == 324);
     CHECK(slotParamId(0, SlotField::Wave) == "s01_wave");
     CHECK(slotParamId(15, SlotField::FxSend) == "s16_send");
+    CHECK(slotSourceParamId(15) == "s16_source");
+    CHECK_FALSE(p.state().getParameter("s01_source")->isAutomatable());
 }
 
 TEST_CASE("default program is named for VST3 hosts and validators", "[plugin]")
@@ -83,6 +85,7 @@ TEST_CASE("slot parameters and names default to the factory kit", "[plugin]")
     {
         CHECK(approxEqual(readSlotFromParameters(p.state(), s), k.slots[static_cast<std::size_t>(s)]));
         CHECK(p.slotName(s) == juce::String::fromUTF8(k.names[static_cast<std::size_t>(s)].c_str()));
+        CHECK(p.slotSource(s) == SourceType::Synth);
     }
 }
 
@@ -242,4 +245,89 @@ TEST_CASE("cpu load is zero before processing and a sane proportion afterwards",
     CHECK(std::isfinite(load));
     CHECK(load > 0.0);
     CHECK(load < 1.0);
+}
+
+TEST_CASE("clearSlot empties a slot and resetSlotToFactory restores its siren", "[plugin]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    DubgefahrenProcessor p;
+    setParam(p, "s04_pitch", 1000.0f);
+    p.clearSlot(3);
+    CHECK(p.slotSource(3) == SourceType::Empty);
+    CHECK(p.slotName(3).isEmpty());
+    CHECK_THAT(readSlotFromParameters(p.state(), 3).pitchHz, WithinAbs(1000.0, 1.0)); // Synth-Werte bleiben
+    CHECK(p.slotSource(2) == SourceType::Synth);
+
+    p.resetSlotToFactory(3);
+    CHECK(p.slotSource(3) == SourceType::Synth);
+    CHECK(p.slotName(3) == "Laser");
+    CHECK(approxEqual(readSlotFromParameters(p.state(), 3), makeFactoryKit().slots[3]));
+}
+
+TEST_CASE("setSlot copies the source, so pasting an empty slot empties the target", "[plugin]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    DubgefahrenProcessor p;
+    p.clearSlot(0);
+    const auto copied = p.currentKit().slots[0];
+    p.setSlot(5, copied, {});
+    CHECK(p.slotSource(5) == SourceType::Empty);
+}
+
+TEST_CASE("empty slots survive a state round-trip", "[plugin]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    DubgefahrenProcessor a;
+    a.clearSlot(5);
+    juce::MemoryBlock mb;
+    a.getStateInformation(mb);
+
+    DubgefahrenProcessor b;
+    b.setStateInformation(mb.getData(), static_cast<int>(mb.getSize()));
+    CHECK(b.slotSource(5) == SourceType::Empty);
+    CHECK(b.slotSource(0) == SourceType::Synth);
+}
+
+TEST_CASE("a state without source parameters loads as all synth even over empty slots", "[plugin]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    DubgefahrenProcessor a;
+    juce::MemoryBlock mb;
+    a.getStateInformation(mb);
+    auto xml = juce::AudioProcessor::getXmlFromBinary(mb.getData(), static_cast<int>(mb.getSize()));
+    REQUIRE(xml != nullptr);
+    for (auto* child = xml->getFirstChildElement(); child != nullptr;)
+    {
+        auto* next = child->getNextElement();
+        if (child->getStringAttribute("id").endsWith("_source"))
+            xml->removeChildElement(child, true);
+        child = next;
+    }
+    juce::MemoryBlock old;
+    juce::AudioProcessor::copyXmlToBinary(*xml, old);
+
+    DubgefahrenProcessor b;
+    b.applyKit(makeEmptyKit());
+    REQUIRE(b.slotSource(0) == SourceType::Empty);
+    b.setStateInformation(old.getData(), static_cast<int>(old.getSize()));
+    for (int s = 0; s < kNumSlots; ++s)
+        CHECK(b.slotSource(s) == SourceType::Synth);
+}
+
+TEST_CASE("applyKit with an empty kit keeps the plugin silent", "[plugin]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    DubgefahrenProcessor p;
+    p.applyKit(makeEmptyKit());
+    for (const auto& s : p.currentKit().slots)
+        CHECK(s.source == SourceType::Empty);
+
+    prepare(p);
+    juce::MidiBuffer on;
+    on.addEvent(juce::MidiMessage::noteOn(1, 36, static_cast<juce::uint8>(100)), 0);
+    juce::AudioBuffer<float> buf(2, 512);
+    buf.clear();
+    p.processBlock(buf, on);
+    CHECK(buf.getMagnitude(0, 0, 512) == 0.0f);
+    CHECK(p.activeMask() == 0u);
 }
