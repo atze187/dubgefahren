@@ -219,3 +219,29 @@ TEST_CASE("retrigger of a tone has no jump at the restart", "[sampler]")
     out.insert(out.end(), more.begin(), more.end());
     CHECK(maxStep(out, 0, out.size()) < 0.1f);
 }
+
+TEST_CASE("retrigger shortly before the sample end stays continuous", "[sampler]")
+{
+    for (const bool dc : { false, true })
+    {
+        SampleData d;
+        if (dc)
+            d = dcData(0.1);
+        else
+        {
+            d.sampleRate = kSr;
+            d.samples = dgtest::sine(200.0f, kSr, 4800, 0.5f);
+        }
+        SamplePlayer v;
+        v.prepare(kSr);
+        SlotParams p = sampleParams();
+        VoiceContext ctx { &p, 120.0, {}, &d };
+        v.start(ctx, 1);
+        auto out = renderN(v, ctx, 4752); // 1 ms vor dem Ende
+        v.start(ctx, 2);
+        const auto more = renderN(v, ctx, 480); // 10 ms danach
+        out.insert(out.end(), more.begin(), more.end());
+        CHECK(maxStep(out, 1, out.size()) < 0.05f);
+        CHECK(v.isActive());
+    }
+}

@@ -95,14 +95,14 @@ void SamplePlayer::render(float* out, int numSamples, const VoiceContext& ctx)
         pos_ += step;
         if (fadeGain_ > 0.0f)
         {
+            // Hinter dem Sample-Ende trägt der alte Kopf nichts bei, das Gewicht läuft aber normal aus,
+            // damit das Einblenden des neuen Kopfes stetig bleibt.
             if (fadePos_ < length)
             {
                 y += cubicAt(d->samples, fadePos_) * endGain(fadePos_) * fadeGain_;
                 fadePos_ += step;
-                fadeGain_ = std::max(0.0f, fadeGain_ - fadeDec);
             }
-            else
-                fadeGain_ = 0.0f;
+            fadeGain_ = std::max(0.0f, fadeGain_ - fadeDec);
         }
         out[i] = y * env_.process();
     }
