@@ -78,8 +78,8 @@ Regeln:
 - Schreiben: immer Version 3. Ein Sample-Slot hat `source: "sample"`, `name`, `sample` und
   `params` (alle Felder inkl. `tune`). Synth- und Empty-Slots bleiben wie in Version 2.
 - Lesen: Die Versionen 1 und 2 laden wie bisher. In Version 3 ist `"sample"` als `source`
-  erlaubt und erfordert einen nicht leeren String `sample` ohne Pfadtrenner (`/`, `\`) und
-  ohne `..`, sonst Fehler „Slot N: invalid sample file name.“ Version > 3 wird abgelehnt.
+  erlaubt und erfordert einen nicht leeren String `sample` ohne `/`, `\`, `:`, ohne `..` und ohne
+  führende/abschließende Leerzeichen (`isValidSampleFileName`), sonst Fehler „Slot N: invalid sample file name.“ Version > 3 wird abgelehnt.
 - In Version 2 bleibt `"sample"` weiterhin ein Fehler („unknown sound source“).
 
 ## 4. Engine (JUCE-frei)

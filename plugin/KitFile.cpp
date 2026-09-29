@@ -5,9 +5,10 @@ namespace dg {
 
 namespace {
 constexpr const char* kFormat = "dubgefahren-kit";
-constexpr int kVersion = 2;
+constexpr int kVersion = 3;
 constexpr const char* kSourceSynth = "synth";
 constexpr const char* kSourceEmpty = "empty";
+constexpr const char* kSourceSample = "sample";
 constexpr juce::int64 kMaxFileBytes = 1024 * 1024;
 
 KitParseResult fail(const juce::String& message) { return { std::nullopt, message }; }
@@ -16,6 +17,11 @@ bool isNumber(const juce::var& v) { return v.isDouble() || v.isInt() || v.isInt6
 
 juce::String slotLabel(int s) { return "Slot " + juce::String(s + 1); }
 } // namespace
+
+bool isValidSampleFileName(const juce::String& name)
+{
+    return name.isNotEmpty() && name.trim() == name && !name.containsAnyOf("/\\:") && !name.contains("..");
+}
 
 juce::String kitToJsonString(const Kit& kit)
 {
@@ -27,11 +33,15 @@ juce::String kitToJsonString(const Kit& kit)
     for (int s = 0; s < kNumSlots; ++s)
     {
         const auto i = static_cast<std::size_t>(s);
-        const bool synth = kit.slots[i].source == SourceType::Synth;
+        const SourceType src = kit.slots[i].source;
         auto* slot = new juce::DynamicObject();
-        slot->setProperty("source", synth ? kSourceSynth : kSourceEmpty);
+        slot->setProperty("source", src == SourceType::Synth    ? kSourceSynth
+                                    : src == SourceType::Sample ? kSourceSample
+                                                                : kSourceEmpty);
         slot->setProperty("name", juce::String::fromUTF8(kit.names[i].c_str()));
-        if (synth)
+        if (src == SourceType::Sample)
+            slot->setProperty("sample", juce::String::fromUTF8(kit.samples[i].c_str()));
+        if (src != SourceType::Empty)
         {
             auto* params = new juce::DynamicObject();
             for (int f = 0; f < kNumSlotFields; ++f)
@@ -79,6 +89,8 @@ KitParseResult kitFromJsonString(const juce::String& text)
             const auto src = slot["source"].toString();
             if (src == kSourceEmpty)
                 source = SourceType::Empty;
+            else if (src == kSourceSample && version >= 3)
+                source = SourceType::Sample;
             else if (src != kSourceSynth)
                 return fail(slotLabel(s) + ": unknown sound source.");
         }
@@ -91,6 +103,15 @@ KitParseResult kitFromJsonString(const juce::String& text)
             kit.names[static_cast<std::size_t>(s)] =
                 slot["name"].isString() ? slot["name"].toString().substring(0, 32).toStdString() : std::string();
             continue;
+        }
+
+        std::string sampleName;
+        if (source == SourceType::Sample)
+        {
+            const auto file = slot["sample"].toString();
+            if (!slot["sample"].isString() || !isValidSampleFileName(file))
+                return fail(slotLabel(s) + ": invalid sample file name.");
+            sampleName = file.toStdString();
         }
 
         if (!slot["name"].isString())
@@ -109,8 +130,10 @@ KitParseResult kitFromJsonString(const juce::String& text)
                 return fail(slotLabel(s) + ": value for \"" + prop.name.toString() + "\" is not a number.");
             setSlotField(p, *field, static_cast<float>(static_cast<double>(prop.value)));
         }
+        p.source = source;
         kit.slots[static_cast<std::size_t>(s)] = p;
         kit.names[static_cast<std::size_t>(s)] = slot["name"].toString().substring(0, 32).toStdString();
+        kit.samples[static_cast<std::size_t>(s)] = sampleName;
     }
     return { kit, {} };
 }
