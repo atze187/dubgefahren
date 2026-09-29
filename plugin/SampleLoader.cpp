@@ -1,11 +1,14 @@
 #include "plugin/SampleLoader.h"
+#include <limits>
+#include <new>
 
 namespace dg {
 
 SampleLoader::~SampleLoader()
 {
-    // Laufende Aufträge greifen auf lock_ und results_ zu: vor deren Zerstörung beenden.
-    pool_.removeAllJobs(true, 10000);
+    // Laufende Aufträge greifen auf lock_ und results_ zu: ohne Timeout (-1) warten,
+    // sonst würden diese bei einem langen Decode vor dem Job zerstört.
+    pool_.removeAllJobs(true, -1);
 }
 
 std::shared_ptr<const SampleData> SampleLoader::decode(const juce::File& file, juce::String& error)
@@ -29,24 +32,43 @@ std::shared_ptr<const SampleData> SampleLoader::decode(const juce::File& file, j
         return nullptr;
     }
 
-    const int length = static_cast<int>(reader->lengthInSamples);
-    const int channels = static_cast<int>(reader->numChannels);
-    juce::AudioBuffer<float> buffer(channels, length);
-    if (!reader->read(buffer.getArrayOfWritePointers(), channels, 0, length))
+    // Header-Werte sind nicht vertrauenswürdig: vor dem Allokieren begrenzen.
+    constexpr juce::int64 kMaxFrames = static_cast<juce::int64>(kMaxSampleSeconds * 384000.0);
+    constexpr unsigned int kMaxChannels = 32;
+    if (reader->lengthInSamples > kMaxFrames || reader->lengthInSamples > std::numeric_limits<int>::max()
+        || reader->numChannels > kMaxChannels)
     {
         error = "unsupported or damaged file";
         return nullptr;
     }
 
-    auto data = std::make_shared<SampleData>();
-    data->sampleRate = reader->sampleRate;
-    data->samples.assign(static_cast<std::size_t>(length), 0.0f);
-    const float scale = 1.0f / static_cast<float>(channels);
-    for (int c = 0; c < channels; ++c)
+    std::shared_ptr<SampleData> data;
+    try
     {
-        const float* src = buffer.getReadPointer(c);
-        for (int i = 0; i < length; ++i)
-            data->samples[static_cast<std::size_t>(i)] += src[i] * scale;
+        const int length = static_cast<int>(reader->lengthInSamples);
+        const int channels = static_cast<int>(reader->numChannels);
+        juce::AudioBuffer<float> buffer(channels, length);
+        if (!reader->read(buffer.getArrayOfWritePointers(), channels, 0, length))
+        {
+            error = "unsupported or damaged file";
+            return nullptr;
+        }
+
+        data = std::make_shared<SampleData>();
+        data->sampleRate = reader->sampleRate;
+        data->samples.assign(static_cast<std::size_t>(length), 0.0f);
+        const float scale = 1.0f / static_cast<float>(channels);
+        for (int c = 0; c < channels; ++c)
+        {
+            const float* src = buffer.getReadPointer(c);
+            for (int i = 0; i < length; ++i)
+                data->samples[static_cast<std::size_t>(i)] += src[i] * scale;
+        }
+    }
+    catch (const std::bad_alloc&)
+    {
+        error = "unsupported or damaged file";
+        return nullptr;
     }
     return data;
 }

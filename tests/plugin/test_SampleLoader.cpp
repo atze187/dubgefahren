@@ -110,3 +110,50 @@ TEST_CASE("requests are decoded in the background and returned with their ticket
     CHECK(results[1].error == "file not found");
     CHECK(loader.takeResults().empty());
 }
+
+TEST_CASE("headers claiming an absurd rate and length are rejected without allocating", "[loader]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    dgtest::TempDir tmp;
+    // Handgebauter WAV-Header: 16 bit mono, Abtastrate 1 GHz (besteht die 60-s-Prüfung),
+    // data-Chunk behauptet 0x7FFFFFF0 Bytes (~1,07 Mrd. Frames), tatsächlich nur 8 Bytes.
+    // Deckt den Größen-Deckel vor der Allokation ab (sonst bad_alloc bzw. Int-Überlauf im Pool-Thread).
+    juce::MemoryOutputStream header;
+    auto u32 = [&](juce::uint32 v) { header.writeInt(static_cast<int>(v)); };
+    auto u16 = [&](juce::uint16 v) { header.writeShort(static_cast<short>(v)); };
+    header.write("RIFF", 4);
+    u32(0x7FFFFFFF);
+    header.write("WAVEfmt ", 8);
+    u32(16);
+    u16(1);
+    u16(1);
+    u32(1000000000);
+    u32(2000000000);
+    u16(2);
+    u16(16);
+    header.write("data", 4);
+    u32(0x7FFFFFF0);
+    for (int i = 0; i < 8; ++i)
+        header.writeByte(0);
+    const auto file = tmp.dir.getChildFile("huge.wav");
+    REQUIRE(file.replaceWithData(header.getData(), header.getDataSize()));
+
+    juce::String error;
+    CHECK(SampleLoader::decode(file, error) == nullptr);
+    CHECK(error == "unsupported or damaged file");
+}
+
+TEST_CASE("destroying the loader with queued requests neither crashes nor hangs", "[loader]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    dgtest::TempDir tmp;
+    juce::WavAudioFormat wav;
+    const auto file = tmp.dir.getChildFile("a.wav");
+    dgtest::writeSine(wav, file, 441.0f, 48000.0, 48000);
+    {
+        SampleLoader loader;
+        for (int i = 0; i < 20; ++i)
+            loader.request(i, static_cast<std::uint64_t>(i), file);
+    } // Destruktor ohne waitForAll()
+    SUCCEED();
+}
