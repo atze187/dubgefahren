@@ -6,6 +6,7 @@
 #include "engine/FxChain.h"
 #include "engine/FxParams.h"
 #include "engine/PadRouter.h"
+#include "engine/SamplePlayer.h"
 #include "engine/SirenVoice.h"
 
 namespace dg {
@@ -24,6 +25,9 @@ struct EngineParams
 {
     std::array<SlotParams, kNumSlots> slots {};
     GlobalParams global {};
+    // Sample-Daten pro Slot (nicht besitzend). Der Processor hält sie am Leben, solange ein
+    // Block sie gelesen haben kann.
+    std::array<const SampleData*, kNumSlots> samples {};
 };
 
 struct TransportInfo
@@ -79,6 +83,9 @@ private:
     double sampleRate_ = 44100.0;
     int maxBlock_ = 512;
     std::array<SirenVoice, kNumSlots> voices_ {};
+    std::array<SamplePlayer, kNumSlots> samplers_ {};
+    std::array<bool, kNumSlots> useSample_ {};             // zuletzt gestartete Stimmenart
+    std::array<const SampleData*, kNumSlots> lastSample_ {}; // Sample-Zeiger des vorigen Blocks
     std::array<PerfOffsets, kNumSlots> applied_ {};
     // Quellentyp-Zustand des vorigen Blocks: erkennt, wann ein Slot stumm geschaltet wird.
     std::array<bool, kNumSlots> hasSound_ {};
@@ -91,7 +98,7 @@ private:
     PadRouter router_;
     Bank bank_ { *this };
     FxChain fx_;
-    std::vector<float> mainL_, mainR_, sendL_, sendR_, voiceBuf_;
+    std::vector<float> mainL_, mainR_, sendL_, sendR_, voiceBuf_, sampleBuf_;
 
     const EngineParams* params_ = nullptr;
     TriggerSettingsArray trig_ {};

@@ -5,25 +5,57 @@
 
 namespace dg {
 
+namespace {
+bool slotPlayable(const SlotParams& p, const SampleData* d)
+{
+    if (p.source == SourceType::Synth)
+        return true;
+    return p.source == SourceType::Sample && d != nullptr && !d->samples.empty();
+}
+} // namespace
+
 void Engine::Bank::startVoice(int slot)
 {
     const auto s = static_cast<std::size_t>(slot);
     e_.applied_[s] = e_.params_->global.perf; // der gestartete Slot wird Fokus
-    e_.voices_[s].start(e_.contextFor(slot), e_.seed_++);
+    const bool sample = e_.params_->slots[s].source == SourceType::Sample;
+    // Wechselt die Stimmenart, blendet die bisherige per Kill-Fade aus.
+    if (sample)
+        e_.voices_[s].kill();
+    else
+        e_.samplers_[s].kill();
+    e_.useSample_[s] = sample;
+    if (sample)
+        e_.samplers_[s].start(e_.contextFor(slot), e_.seed_++);
+    else
+        e_.voices_[s].start(e_.contextFor(slot), e_.seed_++);
 }
 
 void Engine::Bank::releaseVoice(int slot)
 {
-    e_.voices_[static_cast<std::size_t>(slot)].release(e_.contextFor(slot));
+    const auto s = static_cast<std::size_t>(slot);
+    const auto ctx = e_.contextFor(slot);
+    e_.voices_[s].release(ctx);
+    e_.samplers_[s].release(ctx);
 }
 
-void Engine::Bank::killVoice(int slot) { e_.voices_[static_cast<std::size_t>(slot)].kill(); }
+void Engine::Bank::killVoice(int slot)
+{
+    const auto s = static_cast<std::size_t>(slot);
+    e_.voices_[s].kill();
+    e_.samplers_[s].kill();
+}
 
-bool Engine::Bank::isVoiceActive(int slot) const { return e_.voices_[static_cast<std::size_t>(slot)].isActive(); }
+bool Engine::Bank::isVoiceActive(int slot) const
+{
+    const auto s = static_cast<std::size_t>(slot);
+    return e_.voices_[s].isActive() || e_.samplers_[s].isActive();
+}
 
 bool Engine::Bank::isVoiceReleasing(int slot) const
 {
-    return e_.voices_[static_cast<std::size_t>(slot)].isReleasing();
+    const auto s = static_cast<std::size_t>(slot);
+    return e_.useSample_[s] ? e_.samplers_[s].isReleasing() : e_.voices_[s].isReleasing();
 }
 
 void Engine::prepare(double sampleRate, int maxBlockSize)
@@ -32,6 +64,10 @@ void Engine::prepare(double sampleRate, int maxBlockSize)
     maxBlock_ = std::max(1, maxBlockSize);
     for (auto& v : voices_)
         v.prepare(sampleRate);
+    for (auto& v : samplers_)
+        v.prepare(sampleRate);
+    useSample_.fill(false);
+    lastSample_.fill(nullptr);
     applied_.fill(PerfOffsets {});
     hasSound_.fill(true);
     smGl_.fill(0.0f);
@@ -40,7 +76,7 @@ void Engine::prepare(double sampleRate, int maxBlockSize)
     smInit_.fill(false);
     router_.prepare(sampleRate);
     fx_.prepare(sampleRate);
-    for (auto* b : { &mainL_, &mainR_, &sendL_, &sendR_, &voiceBuf_ })
+    for (auto* b : { &mainL_, &mainR_, &sendL_, &sendR_, &voiceBuf_, &sampleBuf_ })
         b->assign(static_cast<std::size_t>(maxBlock_), 0.0f);
     wasPlaying_ = false;
     activeMask_.store(0);
@@ -51,7 +87,7 @@ void Engine::prepare(double sampleRate, int maxBlockSize)
 VoiceContext Engine::contextFor(int slot) const
 {
     const auto s = static_cast<std::size_t>(slot);
-    return VoiceContext { &params_->slots[s], bpm_, applied_[s] };
+    return VoiceContext { &params_->slots[s], bpm_, applied_[s], params_->samples[s] };
 }
 
 void Engine::process(float* outL, float* outR, int numSamples, const EngineParams& params,
@@ -60,16 +96,30 @@ void Engine::process(float* outL, float* outR, int numSamples, const EngineParam
     params_ = &params;
     bpm_ = transport.bpm > 0.0 ? transport.bpm : 120.0;
     for (std::size_t s = 0; s < trig_.size(); ++s)
-        trig_[s] = { params.slots[s].trigMode, params.slots[s].oneShotS, params.slots[s].chokeGroup };
+    {
+        const SlotParams& sp = params.slots[s];
+        if (sp.source == SourceType::Sample)
+        {
+            // Sample: One Shot spielt bis zum Ende, Latch wirkt wie Gate.
+            const bool oneShot = sp.trigMode == TriggerMode::OneShot;
+            trig_[s] = { oneShot ? TriggerMode::OneShot : TriggerMode::Gate, sp.oneShotS, sp.chokeGroup, oneShot };
+        }
+        else
+            trig_[s] = { sp.trigMode, sp.oneShotS, sp.chokeGroup, false };
+    }
 
-    // Ein Slot, der leer wird, verstummt sofort und vergisst Latch/One-Shot.
+    // Ein Slot, der stumm wird oder dessen Sample-Daten wechseln, verstummt sofort und
+    // vergisst Latch/One-Shot. Der Player liest danach nie mehr die alten Daten.
     for (int s = 0; s < kNumSlots; ++s)
     {
         const auto i = static_cast<std::size_t>(s);
-        const bool has = hasSound(params.slots[i].source);
-        if (!has && hasSound_[i])
+        const SampleData* data = params.samples[i];
+        const bool has = slotPlayable(params.slots[i], data);
+        const bool dataChanged = data != lastSample_[i] && samplers_[i].isActive();
+        if ((!has && hasSound_[i]) || dataChanged)
             router_.killSlot(s, bank_);
         hasSound_[i] = has;
+        lastSample_[i] = data;
     }
 
     if (wasPlaying_ && !transport.isPlaying)
@@ -91,7 +141,7 @@ void Engine::process(float* outL, float* outR, int numSamples, const EngineParam
 
     std::uint32_t active = 0;
     for (int s = 0; s < kNumSlots; ++s)
-        if (voices_[static_cast<std::size_t>(s)].isActive())
+        if (bank_.isVoiceActive(s))
             active |= 1u << s;
     activeMask_.store(active, std::memory_order_relaxed);
     latchedMask_.store(router_.latchedMask(), std::memory_order_relaxed);
@@ -171,7 +221,8 @@ void Engine::renderSubSegment(int start, int len)
     {
         const auto s = static_cast<std::size_t>(slot);
         SirenVoice& voice = voices_[s];
-        if (!voice.isActive())
+        SamplePlayer& sampler = samplers_[s];
+        if (!voice.isActive() && !sampler.isActive())
         {
             applied_[s] = PerfOffsets {};
             smInit_[s] = false;
@@ -180,7 +231,14 @@ void Engine::renderSubSegment(int start, int len)
         if (g.perfTarget == PerfTarget::All || slot == focus)
             applied_[s] = g.perf;
 
-        voice.render(voiceBuf_.data(), len, contextFor(slot));
+        const VoiceContext ctx = contextFor(slot);
+        voice.render(voiceBuf_.data(), len, ctx);
+        if (sampler.isActive())
+        {
+            sampler.render(sampleBuf_.data(), len, ctx);
+            for (int i = 0; i < len; ++i)
+                voiceBuf_[static_cast<std::size_t>(i)] += sampleBuf_[static_cast<std::size_t>(i)];
+        }
 
         const SlotParams& sp = params_->slots[s];
         const float gain = volumeDbToGain(sp.volumeDb);

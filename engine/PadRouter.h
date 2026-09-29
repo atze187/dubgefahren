@@ -21,6 +21,7 @@ struct TriggerSettings
     TriggerMode mode = TriggerMode::Gate;
     float oneShotS = 1.0f;
     int chokeGroup = 0;
+    bool untilEnd = false; // One-Shot ohne Längen-Timer: die Stimme endet selbst (Sample)
 };
 using TriggerSettingsArray = std::array<TriggerSettings, kNumSlots>;
 

@@ -4,6 +4,7 @@
 #include "engine/Engine.h"
 #include "engine/Kit.h"
 #include "engine/Limiter.h"
+#include "engine/SampleData.h"
 #include "TestHelpers.h"
 
 using namespace dg;
@@ -49,6 +50,24 @@ Out run(Engine& e, const EngineParams& p, int n, std::vector<EngineEvent> ev = {
 EngineEvent noteOn(int note, int offset = 0) { return { EngineEvent::Type::NoteOn, offset, note }; }
 EngineEvent noteOff(int note, int offset = 0) { return { EngineEvent::Type::NoteOff, offset, note }; }
 EngineEvent panicEvent() { return { EngineEvent::Type::Panic, 0, 0 }; }
+
+SampleData testSample(double seconds, float hz = 441.0f)
+{
+    SampleData d;
+    d.sampleRate = kSr;
+    d.samples = dgtest::sine(hz, kSr, static_cast<int>(seconds * kSr), 0.5f);
+    return d;
+}
+
+void makeSampleSlot(EngineParams& p, int slot, const SampleData* d, TriggerMode mode)
+{
+    auto& s = p.slots[static_cast<std::size_t>(slot)];
+    s.source = SourceType::Sample;
+    s.trigMode = mode;
+    s.attackS = 0.0f;
+    s.releaseS = 0.01f;
+    p.samples[static_cast<std::size_t>(slot)] = d;
+}
 } // namespace
 
 TEST_CASE("engine is silent without events", "[engine]")
@@ -361,4 +380,103 @@ TEST_CASE("clearing a slot during a one-shot stops it and a later one-shot plays
     run(e, p, 4800, { noteOn(36) });
     run(e, p, 38400); // 0,9 s nach dem Start
     CHECK(e.activeMask() == 1u);
+}
+
+TEST_CASE("a sample slot plays its sample through the slot mix", "[engine]")
+{
+    Engine e;
+    e.prepare(kSr, 512);
+    auto p = testParams();
+    const auto d = testSample(1.0);
+    makeSampleSlot(p, 2, &d, TriggerMode::OneShot);
+    const auto o = run(e, p, 24000, { noteOn(38) });
+    CHECK(e.activeMask() == (1u << 2));
+    CHECK_THAT(dgtest::estimateFrequency(o.l, kSr, 2400, o.l.size()), WithinAbs(441.0, 4.0));
+}
+
+TEST_CASE("a sample slot without data stays silent", "[engine]")
+{
+    Engine e;
+    e.prepare(kSr, 512);
+    auto p = testParams();
+    makeSampleSlot(p, 2, nullptr, TriggerMode::OneShot);
+    const auto o = run(e, p, 4800, { noteOn(38), { EngineEvent::Type::PreviewOn, 0, 2 } });
+    CHECK(e.activeMask() == 0u);
+    CHECK(dgtest::peakAbs(o.l) == 0.0f);
+}
+
+TEST_CASE("a sample one-shot plays to the end regardless of the one-shot length", "[engine]")
+{
+    Engine e;
+    e.prepare(kSr, 512);
+    auto p = testParams();
+    const auto d = testSample(0.5);
+    makeSampleSlot(p, 0, &d, TriggerMode::OneShot);
+    p.slots[0].oneShotS = 0.05f;
+    run(e, p, 14400, { noteOn(36) }); // 0,3 s
+    CHECK(e.activeMask() == 1u);
+    run(e, p, 4800, { noteOff(36) }); // Loslassen ändert nichts
+    CHECK(e.activeMask() == 1u);
+    run(e, p, 14400); // 0,7 s gesamt
+    CHECK(e.activeMask() == 0u);
+}
+
+TEST_CASE("a sample gate releases on note off and latch acts like gate", "[engine]")
+{
+    Engine e;
+    e.prepare(kSr, 512);
+    auto p = testParams();
+    const auto d = testSample(2.0);
+    makeSampleSlot(p, 0, &d, TriggerMode::Gate);
+    makeSampleSlot(p, 1, &d, TriggerMode::Latch);
+    run(e, p, 4800, { noteOn(36), noteOn(37) });
+    CHECK(e.activeMask() == 3u);
+    CHECK(e.latchedMask() == 0u);
+    run(e, p, 4800, { noteOff(36), noteOff(37) });
+    CHECK(e.activeMask() == 0u);
+}
+
+TEST_CASE("changing the sample data stops a playing sample slot", "[engine]")
+{
+    Engine e;
+    e.prepare(kSr, 512);
+    auto p = testParams();
+    const auto d1 = testSample(2.0);
+    const auto d2 = testSample(2.0, 880.0f);
+    makeSampleSlot(p, 0, &d1, TriggerMode::OneShot);
+    run(e, p, 4800, { noteOn(36) });
+    REQUIRE(e.activeMask() == 1u);
+    p.samples[0] = &d2;
+    const auto o = run(e, p, 4800);
+    CHECK(e.activeMask() == 0u);
+    CHECK(dgtest::peakAbs(o.l, 300) < 1.0e-4f);
+}
+
+TEST_CASE("choke works between a siren and a sample slot", "[engine]")
+{
+    Engine e;
+    e.prepare(kSr, 512);
+    auto p = testParams();
+    const auto d = testSample(2.0);
+    p.slots[0].chokeGroup = 1;
+    makeSampleSlot(p, 1, &d, TriggerMode::OneShot);
+    p.slots[1].chokeGroup = 1;
+    run(e, p, 4800, { noteOn(36) });
+    run(e, p, 4800, { noteOn(37) });
+    CHECK(e.activeMask() == 2u);
+    run(e, p, 4800, { noteOn(36) });
+    CHECK(e.activeMask() == 1u);
+}
+
+TEST_CASE("switching a playing slot from synth to sample hands the slot to the sample", "[engine]")
+{
+    Engine e;
+    e.prepare(kSr, 512);
+    auto p = testParams();
+    run(e, p, 4800, { noteOn(36) }); // Sirene 440 Hz, Gate
+    const auto d = testSample(2.0, 880.0f);
+    makeSampleSlot(p, 0, &d, TriggerMode::OneShot);
+    const auto o = run(e, p, 9600, { noteOn(36) });
+    CHECK(e.activeMask() == 1u);
+    CHECK_THAT(dgtest::estimateFrequency(o.l, kSr, 960, o.l.size()), WithinAbs(880.0, 6.0));
 }

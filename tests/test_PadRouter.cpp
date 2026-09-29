@@ -297,3 +297,16 @@ TEST_CASE("killSlot stops the voice and forgets latch and one-shot state", "[rou
     r.killSlot(16, v);
     CHECK(v.log.empty());
 }
+
+TEST_CASE("a one-shot until the end starts no length timer and ignores note off", "[router]")
+{
+    auto r = makeRouter();
+    FakeVoices v;
+    auto s = allMode(TriggerMode::OneShot);
+    s[0].untilEnd = true;
+    r.noteOn(36, s, v);
+    CHECK(v.active[0]);
+    CHECK(r.samplesUntilNextExpiry() == INT_MAX);
+    r.noteOff(36, v);
+    CHECK_FALSE(v.releasing[0]);
+}
