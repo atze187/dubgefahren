@@ -1,7 +1,7 @@
 # Sample-Bereiche: Start/End, Loop, Reverse – Design-Spezifikation
 
 **Datum:** 2026-09-30
-**Status:** Entwurf zur Freigabe
+**Status:** Umgesetzt, Abnahme in Ableton offen
 **Issue:** atze187/dubgefahren#11 (Voraussetzung für #17, Stretching)
 
 ## 1. Ziel
