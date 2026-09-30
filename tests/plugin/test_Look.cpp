@@ -1,4 +1,5 @@
 #include <catch2/catch_test_macros.hpp>
+#include <algorithm>
 #include <memory>
 #include <vector>
 #include "plugin/PluginEditor.h"
@@ -247,4 +248,143 @@ TEST_CASE("sixteen glowing pads paint within one timer tick", "[look][perf]")
     CHECK(perFrame < 33.0); // ein Timer-Tick bei 30 Hz
     dgtest::savePng(img, "pads-2.00");
     grid.setLookAndFeel(nullptr);
+}
+
+namespace {
+juce::Image drawKnob(ui::DgLookAndFeel& lnf, juce::Slider& slider, int size, float pos)
+{
+    juce::Image img(juce::Image::ARGB, std::max(1, size), std::max(1, size), true);
+    juce::Graphics g(img);
+    lnf.drawRotarySlider(g, 0, 0, size, size, pos, juce::MathConstants<float>::pi * 1.2f, juce::MathConstants<float>::pi * 2.8f, slider);
+    return img;
+}
+
+// Akzentgelb: viel Rot, mittleres Grün, wenig Blau.
+bool isAccent(juce::Colour c) { return c.getAlpha() > 200 && c.getRed() > 200 && c.getGreen() > 140 && c.getBlue() < 110; }
+
+int countAccent(const juce::Image& img, int maxX)
+{
+    int n = 0;
+    for (int y = 0; y < img.getHeight(); ++y)
+        for (int x = 0; x < std::min(maxX, img.getWidth()); ++x)
+            n += isAccent(img.getPixelAt(x, y)) ? 1 : 0;
+    return n;
+}
+} // namespace
+
+TEST_CASE("controls draw nothing harmful into tiny or empty areas", "[look]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    ui::DgLookAndFeel lnf;
+    juce::Slider slider;
+    slider.setRange(0.0, 1.0);
+    for (const int size : { 0, 1, 3, 8, 11 })
+        CHECK_NOTHROW(drawKnob(lnf, slider, size, 0.5f));
+    CHECK_FALSE(dgtest::hasVisiblePixel(drawKnob(lnf, slider, 3, 0.5f)));
+
+    juce::Image img(juce::Image::ARGB, 8, 8, true);
+    juce::Graphics g(img);
+    juce::TextButton button("x");
+    button.setSize(0, 0);
+    CHECK_NOTHROW(lnf.drawButtonBackground(g, button, juce::Colours::grey, false, false));
+    juce::ToggleButton toggle("x");
+    toggle.setSize(0, 0);
+    CHECK_NOTHROW(lnf.drawToggleButton(g, toggle, false, false));
+    juce::ComboBox box;
+    CHECK_NOTHROW(lnf.drawComboBox(g, 0, 0, false, 0, 0, 0, 0, box));
+    CHECK_FALSE(dgtest::hasVisiblePixel(img));
+}
+
+TEST_CASE("a knob shows its value arc in the accent colour and dims when disabled", "[look]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    ui::DgLookAndFeel lnf;
+    juce::Slider slider;
+    slider.setRange(0.0, 1.0);
+
+    const auto low = drawKnob(lnf, slider, 64, 0.1f);
+    const auto high = drawKnob(lnf, slider, 64, 0.9f);
+    CHECK(countAccent(high, 64) > countAccent(low, 64));
+    CHECK(countAccent(low, 64) > 0);
+
+    slider.setEnabled(false);
+    CHECK(countAccent(drawKnob(lnf, slider, 64, 0.9f), 64) == 0);
+    dgtest::savePng(high, "knob-64");
+}
+
+TEST_CASE("a knob has a body in its centre", "[look]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    ui::DgLookAndFeel lnf;
+    juce::Slider slider;
+    slider.setRange(0.0, 1.0);
+    // Zeiger zeigt bei 0.5 nach oben; links und rechts der Mitte liegt der Körper.
+    const auto img = drawKnob(lnf, slider, 64, 0.5f);
+    CHECK(img.getPixelAt(24, 34).getAlpha() == 255);
+    CHECK(img.getPixelAt(40, 34).getAlpha() == 255);
+}
+
+TEST_CASE("a bipolar knob fills from its centre", "[look]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    ui::DgLookAndFeel lnf;
+    juce::Slider slider;
+    slider.setRange(-1.0, 1.0);
+    // In der Mitte ist der Wertebogen leer; voll rechts läuft er nur durch die rechte Hälfte.
+    CHECK(countAccent(drawKnob(lnf, slider, 64, 0.5f), 64) == 0);
+    const auto right = drawKnob(lnf, slider, 64, 1.0f);
+    CHECK(countAccent(right, 28) == 0);
+    CHECK(countAccent(right, 64) > 0);
+}
+
+TEST_CASE("a toggle shows a lamp instead of a tick box", "[look]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    ui::DgLookAndFeel lnf;
+    juce::ToggleButton toggle("Sync");
+    toggle.setLookAndFeel(&lnf);
+    toggle.setSize(100, 24);
+
+    const auto lamp = [&toggle] {
+        const auto img = dgtest::snapshot(toggle);
+        return img.getPixelAt(9, 12); // Mitte der Lampe
+    };
+    toggle.setToggleState(false, juce::dontSendNotification);
+    const auto off = lamp();
+    toggle.setToggleState(true, juce::dontSendNotification);
+    const auto on = lamp();
+    CHECK(on.getBrightness() > off.getBrightness() + 0.3f);
+    CHECK(isAccent(on));
+    CHECK(off.getAlpha() == 255); // ausgeschaltet: dunkel gefüllte Lampe statt leerem Kästchen
+    toggle.setLookAndFeel(nullptr);
+}
+
+TEST_CASE("buttons and combo boxes have a lit top edge and look pressed when down", "[look]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    ui::DgLookAndFeel lnf;
+    juce::TextButton button("Rename");
+    button.setSize(110, 28);
+
+    const auto render = [&](bool down) {
+        juce::Image img(juce::Image::ARGB, 110, 28, true);
+        juce::Graphics g(img);
+        lnf.drawButtonBackground(g, button, ui::colours::panel, false, down);
+        return img;
+    };
+    const auto up = render(false);
+    const auto down = render(true);
+    CHECK(up.getPixelAt(55, 5).getBrightness() > up.getPixelAt(55, 22).getBrightness());     // oben heller
+    CHECK(down.getPixelAt(55, 5).getBrightness() < down.getPixelAt(55, 22).getBrightness()); // gedrückt: umgekehrt
+
+    juce::ComboBox box;
+    box.setLookAndFeel(&lnf);
+    box.setSize(100, 24);
+    juce::Image img(juce::Image::ARGB, 100, 24, true);
+    {
+        juce::Graphics g(img);
+        lnf.drawComboBox(g, 100, 24, false, 0, 0, 0, 0, box);
+    }
+    CHECK(img.getPixelAt(50, 5).getBrightness() > img.getPixelAt(50, 19).getBrightness());
+    box.setLookAndFeel(nullptr);
 }

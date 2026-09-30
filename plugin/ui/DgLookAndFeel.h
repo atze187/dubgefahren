@@ -1,5 +1,8 @@
 #pragma once
+#include <map>
+#include <memory>
 #include <juce_gui_basics/juce_gui_basics.h>
+#include "melatonin_blur/melatonin_blur.h"
 #include "plugin/ui/Fonts.h"
 
 namespace dg::ui {
@@ -26,6 +29,8 @@ inline const juce::Colour padTop { 0xff27302f };
 inline const juce::Colour padBottom { 0xff161b1b };
 inline const juce::Colour padEmpty { 0xff101214 };
 inline const juce::Colour padTextLit { 0xff06240f }; // Text auf leuchtendem Pad
+inline const juce::Colour knobTop { 0xff3a4048 };
+inline const juce::Colour knobBottom { 0xff1c2025 };
 } // namespace colours
 
 class DgLookAndFeel final : public juce::LookAndFeel_V4
@@ -43,7 +48,22 @@ public:
     juce::Font getAlertWindowMessageFont() override;
     juce::Font getAlertWindowFont() override;
 
+    void drawButtonBackground(juce::Graphics& g, juce::Button& button, const juce::Colour& backgroundColour,
+                              bool shouldDrawButtonAsHighlighted, bool shouldDrawButtonAsDown) override;
+    void drawComboBox(juce::Graphics& g, int width, int height, bool isButtonDown, int buttonX, int buttonY, int buttonW,
+                      int buttonH, juce::ComboBox& box) override;
+    void drawToggleButton(juce::Graphics& g, juce::ToggleButton& button, bool shouldDrawButtonAsHighlighted,
+                          bool shouldDrawButtonAsDown) override;
+
 private:
+    // Erhabene Fläche für Buttons und Auswahlboxen: Verlauf, Kontur, Lichtkante; gedrückt eingelassen.
+    static void drawRaisedBody(juce::Graphics& g, juce::Rectangle<float> bounds, juce::Colour base, bool down, bool highlighted, bool enabled);
+    melatonin::DropShadow& knobShadow(int diameter);
+
+    // Ein Schatten pro Körper-Durchmesser, damit der Cache von melatonin bei gemischten Reglergrößen hält.
+    std::map<int, std::unique_ptr<melatonin::DropShadow>> knobShadows_;
+    melatonin::DropShadow lampGlow_ { { colours::accent.withAlpha(0.8f), 4 } };
+    melatonin::InnerShadow lampInset_ { { juce::Colours::black.withAlpha(0.7f), 2, { 0, 1 } } };
     juce::SharedResourcePointer<EmbeddedFonts> fonts_; // hält die Typefaces geladen
 };
 
