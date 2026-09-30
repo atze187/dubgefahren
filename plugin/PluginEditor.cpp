@@ -65,6 +65,10 @@ DubgefahrenEditor::~DubgefahrenEditor()
 {
     stopTimer();
     setPanic(false);
+    // Menüs und Dialoge benutzen lnf_: vor dessen Zerstörung schließen.
+    juce::PopupMenu::dismissAllActiveMenus();
+    for (auto& dialog : dialogs_)
+        dialog.deleteAndZero();
     setLookAndFeel(nullptr);
 }
 
@@ -202,7 +206,33 @@ void DubgefahrenEditor::setPanic(bool down)
 void DubgefahrenEditor::showMessage(const juce::String& title, const juce::String& text)
 {
     lastMessage_ = title + "\n" + text;
-    juce::AlertWindow::showMessageBoxAsync(juce::MessageBoxIconType::WarningIcon, title, text);
+    auto* window = createDialog(title, text, juce::MessageBoxIconType::WarningIcon);
+    window->addButton("OK", 0, juce::KeyPress(juce::KeyPress::returnKey), juce::KeyPress(juce::KeyPress::escapeKey));
+    window->enterModalState(true, nullptr, true);
+}
+
+juce::AlertWindow* DubgefahrenEditor::createDialog(const juce::String& title, const juce::String& text, juce::MessageBoxIconType icon)
+{
+    auto* window = new juce::AlertWindow(title, text, icon, this);
+    // Vor dem Hinzufügen von Buttons und Textfeldern setzen: Sie übernehmen Schrift und Farben beim Anlegen.
+    window->setLookAndFeel(&lnf_);
+    dialogs_.removeIf([](const auto& d) { return d == nullptr; });
+    dialogs_.add(window);
+    return window;
+}
+
+juce::AlertWindow* DubgefahrenEditor::topDialog() const
+{
+    for (int i = dialogs_.size(); --i >= 0;)
+        if (dialogs_.getReference(i) != nullptr)
+            return dialogs_.getReference(i).getComponent();
+    return nullptr;
+}
+
+juce::PopupMenu DubgefahrenEditor::styled(juce::PopupMenu menu)
+{
+    menu.setLookAndFeel(&lnf_);
+    return menu;
 }
 
 void DubgefahrenEditor::maybeShowConfigWarning()
@@ -232,7 +262,7 @@ void DubgefahrenEditor::showKitMenu()
     maybeShowConfigWarning();
     auto files = proc_.kitFolder().folder.findChildFiles(juce::File::findFiles, false, juce::String("*") + kKitExtension);
     files.sort();
-    buildKitMenu(files).showMenuAsync(juce::PopupMenu::Options().withTargetComponent(kitButton_),
+    styled(buildKitMenu(files)).showMenuAsync(juce::PopupMenu::Options().withTargetComponent(kitButton_),
                                       [safe = juce::Component::SafePointer<DubgefahrenEditor>(this), files](int result) {
                                           if (safe == nullptr || result == 0)
                                               return;
@@ -319,7 +349,7 @@ juce::PopupMenu DubgefahrenEditor::buildPadMenu(int slot) const
 
 void DubgefahrenEditor::showPadMenu(int slot)
 {
-    buildPadMenu(slot).showMenuAsync(juce::PopupMenu::Options(),
+    styled(buildPadMenu(slot)).showMenuAsync(juce::PopupMenu::Options(),
                                      [safe = juce::Component::SafePointer<DubgefahrenEditor>(this), slot](int result) {
                                          if (safe == nullptr)
                                              return;
@@ -370,7 +400,7 @@ void DubgefahrenEditor::showSourceMenu(int slot)
 {
     // Gleiche Optionen wie das Kit-Menü, verankert am angeklickten Pad.
     const auto files = listSampleFiles(proc_.sampleFolder());
-    buildSourceMenu(files).showMenuAsync(juce::PopupMenu::Options().withTargetComponent(pads_.pad(slot)),
+    styled(buildSourceMenu(files)).showMenuAsync(juce::PopupMenu::Options().withTargetComponent(pads_.pad(slot)),
                                          [safe = juce::Component::SafePointer<DubgefahrenEditor>(this), slot, files](int result) {
                                              if (safe != nullptr)
                                                  safe->chooseSource(slot, result, files);
@@ -380,7 +410,7 @@ void DubgefahrenEditor::showSourceMenu(int slot)
 void DubgefahrenEditor::showSampleMenu(int slot)
 {
     const auto files = listSampleFiles(proc_.sampleFolder());
-    buildSampleMenu(files).showMenuAsync(juce::PopupMenu::Options().withTargetComponent(slotEditor_.sampleButton()),
+    styled(buildSampleMenu(files)).showMenuAsync(juce::PopupMenu::Options().withTargetComponent(slotEditor_.sampleButton()),
                                          [safe = juce::Component::SafePointer<DubgefahrenEditor>(this), slot, files](int result) {
                                              if (safe != nullptr)
                                                  safe->chooseSource(slot, result, files);
@@ -425,7 +455,7 @@ void DubgefahrenEditor::addSampleFile(int slot)
 
 void DubgefahrenEditor::renameSlot(int slot)
 {
-    auto* window = new juce::AlertWindow("Rename Slot", "New name:", juce::MessageBoxIconType::NoIcon);
+    auto* window = createDialog("Rename Slot", "New name:", juce::MessageBoxIconType::NoIcon);
     window->addTextEditor("name", proc_.slotName(slot));
     window->addButton("OK", 1, juce::KeyPress(juce::KeyPress::returnKey));
     window->addButton("Cancel", 0, juce::KeyPress(juce::KeyPress::escapeKey));

@@ -388,3 +388,64 @@ TEST_CASE("buttons and combo boxes have a lit top edge and look pressed when dow
     CHECK(img.getPixelAt(50, 5).getBrightness() > img.getPixelAt(50, 19).getBrightness());
     box.setLookAndFeel(nullptr);
 }
+
+TEST_CASE("a label set to the embedded bold cut keeps that cut", "[look]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    ui::DgLookAndFeel lnf;
+    juce::Label label;
+    label.setFont(juce::Font(ui::font(22.0f, true)));
+    CHECK(lnf.getLabelFont(label).getTypefacePtr() == juce::Font(ui::font(22.0f, true)).getTypefacePtr());
+    label.setFont(juce::Font(ui::font(22.0f)));
+    CHECK(lnf.getLabelFont(label).getTypefacePtr() == juce::Font(ui::font(22.0f)).getTypefacePtr());
+}
+
+namespace {
+bool usesDgLook(juce::Component& c) { return dynamic_cast<ui::DgLookAndFeel*>(&c.getLookAndFeel()) != nullptr; }
+} // namespace
+
+TEST_CASE("message dialogs use the editor's look and close with the editor", "[look]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    DubgefahrenProcessor p;
+    std::unique_ptr<juce::AudioProcessorEditor> editor(p.createEditor());
+    auto* e = static_cast<DubgefahrenEditor*>(editor.get());
+    CHECK(e->topDialog() == nullptr);
+
+    // Eine Datei als "Ordner": Speichern schlägt fehl und meldet das per Dialog.
+    const auto blocker = juce::File::createTempFile("dgblock");
+    REQUIRE(blocker.create().wasOk());
+    CHECK_FALSE(e->exportKitTo(blocker.getChildFile("kit.dgkit")));
+
+    juce::Component::SafePointer<juce::AlertWindow> dialog(e->topDialog());
+    REQUIRE(dialog != nullptr);
+    CHECK(usesDgLook(*dialog));
+    editor.reset();
+    CHECK(dialog == nullptr); // der Dialog nutzt das Look-and-Feel des Editors und darf ihn nicht überleben
+    blocker.deleteFile();
+}
+
+TEST_CASE("popup menus use the editor's look", "[look]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    DubgefahrenProcessor p;
+    std::unique_ptr<juce::AudioProcessorEditor> editor(p.createEditor());
+    auto* e = static_cast<DubgefahrenEditor*>(editor.get());
+    auto& desktop = juce::Desktop::getInstance();
+    juce::Array<juce::Component*> before;
+    for (int i = 0; i < desktop.getNumComponents(); ++i)
+        before.add(desktop.getComponent(i));
+
+    e->showPadMenu(0);
+    // Das Menü öffnet eigene Fenster (Menü plus Schatten): mindestens eines davon trägt den Look des Editors.
+    int opened = 0, styled = 0;
+    for (int i = 0; i < desktop.getNumComponents(); ++i)
+        if (auto* c = desktop.getComponent(i); !before.contains(c))
+        {
+            ++opened;
+            styled += usesDgLook(*c) ? 1 : 0;
+        }
+    CHECK(opened > 0);
+    CHECK(styled > 0);
+    juce::PopupMenu::dismissAllActiveMenus();
+}

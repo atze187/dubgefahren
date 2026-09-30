@@ -20,7 +20,9 @@ juce::FontOptions font(float height, bool bold)
 
 juce::Font withEmbeddedTypeface(const juce::Font& f)
 {
-    return juce::Font(font(f.getHeight(), f.isBold()).withKerningFactor(f.getExtraKerningFactor()));
+    // isBold() sucht das ganze Wort "Bold" im Stilnamen und erkennt den eingebetteten Schnitt "SemiBold" nicht.
+    const bool bold = f.isBold() || f.getTypefaceStyle().containsIgnoreCase("bold");
+    return juce::Font(font(f.getHeight(), bold).withKerningFactor(f.getExtraKerningFactor()));
 }
 
 } // namespace dg::ui
