@@ -2,6 +2,7 @@
 #include "plugin/ParameterLayout.h"
 #include "plugin/PluginProcessor.h"
 #include "plugin/ui/DgLookAndFeel.h"
+#include "plugin/ui/Fonts.h"
 
 namespace dg::ui {
 
@@ -37,7 +38,7 @@ void FxPanel::paint(juce::Graphics& g)
 {
     g.setColour(colours::panel);
     g.fillRoundedRectangle(getLocalBounds().toFloat(), 8.0f);
-    g.setFont(juce::FontOptions(11.0f, juce::Font::bold));
+    g.setFont(font(11.0f, true));
     for (const auto& grp : kGroups)
     {
         const int x = 12 + grp.firstCell * kCell;

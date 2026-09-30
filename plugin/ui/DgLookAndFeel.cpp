@@ -57,4 +57,21 @@ void DgLookAndFeel::drawRotarySlider(juce::Graphics& g, int x, int y, int width,
     g.drawLine({ centre, tip }, 2.0f);
 }
 
+juce::Font DgLookAndFeel::getLabelFont(juce::Label& label) { return withEmbeddedTypeface(label.getFont()); }
+
+juce::Font DgLookAndFeel::getTextButtonFont(juce::TextButton&, int buttonHeight)
+{
+    return juce::Font(font(std::min(15.0f, static_cast<float>(buttonHeight) * 0.6f)));
+}
+
+juce::Font DgLookAndFeel::getComboBoxFont(juce::ComboBox& box)
+{
+    return juce::Font(font(std::min(15.0f, static_cast<float>(box.getHeight()) * 0.85f)));
+}
+
+juce::Font DgLookAndFeel::getPopupMenuFont() { return juce::Font(font(15.0f)); }
+juce::Font DgLookAndFeel::getAlertWindowTitleFont() { return juce::Font(font(17.0f, true)); }
+juce::Font DgLookAndFeel::getAlertWindowMessageFont() { return juce::Font(font(15.0f)); }
+juce::Font DgLookAndFeel::getAlertWindowFont() { return juce::Font(font(14.0f)); }
+
 } // namespace dg::ui

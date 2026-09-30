@@ -19,7 +19,7 @@ include(Catch)
 catch_discover_tests(DubgefahrenTests)
 
 juce_add_console_app(DubgefahrenPluginTests PRODUCT_NAME "DubgefahrenPluginTests")
-target_sources(DubgefahrenPluginTests PRIVATE plugin/test_PluginProcessor.cpp plugin/test_KitFile.cpp plugin/test_Config.cpp plugin/test_Editor.cpp plugin/test_CpuMeter.cpp plugin/test_SampleFiles.cpp plugin/test_SampleLoader.cpp plugin/test_Samples.cpp)
+target_sources(DubgefahrenPluginTests PRIVATE plugin/test_PluginProcessor.cpp plugin/test_KitFile.cpp plugin/test_Config.cpp plugin/test_Editor.cpp plugin/test_CpuMeter.cpp plugin/test_SampleFiles.cpp plugin/test_SampleLoader.cpp plugin/test_Samples.cpp plugin/test_Look.cpp)
 target_link_libraries(DubgefahrenPluginTests PRIVATE dg_plugin_shared Catch2::Catch2WithMain)
 catch_discover_tests(DubgefahrenPluginTests)
 

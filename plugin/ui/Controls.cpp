@@ -1,5 +1,6 @@
 #include "plugin/ui/Controls.h"
 #include "plugin/ui/DgLookAndFeel.h"
+#include "plugin/ui/Fonts.h"
 
 namespace dg::ui {
 
@@ -9,7 +10,7 @@ void setupLabel(juce::Label& l, const juce::String& text)
     l.setText(text, juce::dontSendNotification);
     l.setJustificationType(juce::Justification::centred);
     l.setColour(juce::Label::textColourId, colours::textDim);
-    l.setFont(juce::FontOptions(12.0f));
+    l.setFont(font(12.0f));
 }
 } // namespace
 

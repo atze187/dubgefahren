@@ -1,6 +1,7 @@
 #include "plugin/ui/CpuMeter.h"
 #include <cmath>
 #include "plugin/ui/DgLookAndFeel.h"
+#include "plugin/ui/Fonts.h"
 
 namespace dg::ui {
 
@@ -12,7 +13,7 @@ constexpr int kRefreshHz = 4;
 
 CpuMeter::CpuMeter()
 {
-    setFont(juce::FontOptions(13.0f));
+    setFont(ui::font(13.0f));
     setJustificationType(juce::Justification::centredLeft);
     setLoad(0.0);
 }

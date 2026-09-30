@@ -4,6 +4,7 @@
 #include "plugin/ParameterLayout.h"
 #include "plugin/PluginProcessor.h"
 #include "plugin/SampleFiles.h"
+#include "plugin/ui/Fonts.h"
 
 namespace dg {
 
@@ -20,7 +21,7 @@ DubgefahrenEditor::DubgefahrenEditor(DubgefahrenProcessor& proc)
     addAndMakeVisible(content_);
 
     title_.setText("DUBGEFAHREN", juce::dontSendNotification);
-    title_.setFont(juce::FontOptions(22.0f, juce::Font::bold));
+    title_.setFont(ui::font(22.0f, true).withKerningFactor(0.12f));
     title_.setColour(juce::Label::textColourId, ui::colours::accent);
 
     cpuMeter_.setSource([this] { return proc_.cpuLoad(); });

@@ -2,6 +2,7 @@
 #include "plugin/ParameterLayout.h"
 #include "plugin/PluginProcessor.h"
 #include "plugin/ui/DgLookAndFeel.h"
+#include "plugin/ui/Fonts.h"
 
 namespace dg::ui {
 
@@ -21,7 +22,7 @@ const char* const kSampleRowNames[kNumSampleRows] = { "SAMPLE\nAMP", "TRIG", "MI
 
 SlotEditor::SlotEditor(DubgefahrenProcessor& proc) : proc_(proc)
 {
-    header_.setFont(juce::FontOptions(18.0f, juce::Font::bold));
+    header_.setFont(font(18.0f, true));
     header_.setColour(juce::Label::textColourId, colours::text);
     addAndMakeVisible(header_);
     renameButton_.onClick = [this] {
@@ -38,7 +39,7 @@ SlotEditor::SlotEditor(DubgefahrenProcessor& proc) : proc_(proc)
     emptyHint_.setText(u8("Empty slot – click the pad to choose a sound source"), juce::dontSendNotification);
     emptyHint_.setJustificationType(juce::Justification::centred);
     emptyHint_.setColour(juce::Label::textColourId, colours::textDim);
-    emptyHint_.setFont(juce::FontOptions(15.0f));
+    emptyHint_.setFont(font(15.0f));
     addChildComponent(emptyHint_);
 
     sampleControls_ = { &tune_, &attack_, &release_, &trigMode_, &choke_, &vol_, &pan_, &send_ };
@@ -113,7 +114,7 @@ void SlotEditor::paint(juce::Graphics& g)
     if (emptyHint_.isVisible())
         return;
     g.setColour(colours::textDim);
-    g.setFont(juce::FontOptions(12.0f, juce::Font::bold));
+    g.setFont(font(12.0f, true));
     const bool sample = mode_ == Mode::Sample;
     const int rows = sample ? kNumSampleRows : kNumRows;
     for (int row = 0; row < rows; ++row)

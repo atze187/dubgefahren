@@ -2,6 +2,7 @@
 #include "plugin/PluginProcessor.h"
 #include "plugin/ui/Controls.h"
 #include "plugin/ui/DgLookAndFeel.h"
+#include "plugin/ui/Fonts.h"
 
 namespace dg::ui {
 
@@ -49,18 +50,18 @@ public:
         g.drawRoundedRectangle(r, 6.0f, selected_ ? 3.0f : 1.5f);
 
         g.setColour(colours::textDim);
-        g.setFont(juce::FontOptions(11.0f));
+        g.setFont(font(11.0f));
         g.drawText(juce::String(slot_ + 1), r.reduced(6.0f), juce::Justification::topLeft);
         // Fehlendes Sample: Name und Symbol in Warnfarbe, der Slot ist stumm.
         g.setColour(empty_ ? colours::textDim : (missing_ ? colours::warning : colours::text));
-        g.setFont(juce::FontOptions(13.0f));
+        g.setFont(font(13.0f));
         g.drawFittedText(empty_ ? juce::String("Empty") : name_, r.reduced(6.0f).toNearestInt(),
                          juce::Justification::centred, 2);
 
         if (sample_ && !empty_)
         {
             g.setColour(missing_ ? colours::warning : colours::textDim);
-            g.setFont(juce::FontOptions(13.0f));
+            g.setFont(font(13.0f));
             g.drawText(u8("∿"), juce::Rectangle<float>(r.getRight() - 34.0f, r.getY() + 3.0f, 16.0f, 14.0f),
                        juce::Justification::centred);
         }
@@ -167,7 +168,7 @@ bool PadGrid::isEmpty(int slot) const { return pads_[static_cast<std::size_t>(sl
 void PadGrid::paint(juce::Graphics& g)
 {
     auto legend = getLocalBounds().removeFromBottom(20).toFloat();
-    g.setFont(juce::FontOptions(11.0f));
+    g.setFont(font(11.0f));
     g.setColour(colours::playing);
     g.drawText(u8("● playing"), legend.removeFromLeft(80.0f), juce::Justification::centredLeft);
     g.setColour(colours::accent);

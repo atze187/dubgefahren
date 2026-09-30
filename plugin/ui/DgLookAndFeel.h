@@ -1,5 +1,6 @@
 #pragma once
 #include <juce_gui_basics/juce_gui_basics.h>
+#include "plugin/ui/Fonts.h"
 
 namespace dg::ui {
 
@@ -22,6 +23,17 @@ public:
     DgLookAndFeel();
     void drawRotarySlider(juce::Graphics& g, int x, int y, int width, int height, float sliderPos,
                           float rotaryStartAngle, float rotaryEndAngle, juce::Slider& slider) override;
+
+    juce::Font getLabelFont(juce::Label& label) override;
+    juce::Font getTextButtonFont(juce::TextButton& button, int buttonHeight) override;
+    juce::Font getComboBoxFont(juce::ComboBox& box) override;
+    juce::Font getPopupMenuFont() override;
+    juce::Font getAlertWindowTitleFont() override;
+    juce::Font getAlertWindowMessageFont() override;
+    juce::Font getAlertWindowFont() override;
+
+private:
+    juce::SharedResourcePointer<EmbeddedFonts> fonts_; // hält die Typefaces geladen
 };
 
 } // namespace dg::ui
