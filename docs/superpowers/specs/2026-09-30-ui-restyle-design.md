@@ -1,7 +1,7 @@
 # UI-Umbau: Material und Zustandslicht – Design-Spezifikation
 
 **Datum:** 2026-09-30
-**Status:** Entwurf zur Freigabe
+**Status:** Umgesetzt, Abnahme in Ableton offen
 **Issue:** atze187/dubgefahren#15 (Voraussetzung für #11 und #14)
 
 ## 1. Ziel
