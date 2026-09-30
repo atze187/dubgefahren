@@ -57,27 +57,32 @@ Bleibt die zentrale Stelle für den Look.
   `panelBottom`), Lichtkante (`highlight`), Schattenfarbe (`shadow`),
   Pad-Grundfarbe (`padBase`, Wert des heutigen `playing`-Grüns `0xff4cd07d`).
   `playing` entfällt; die Legende nutzt `padBase`.
-- Neue Überschreibungen: `drawButtonBackground`, `drawComboBox`, `drawToggleButton`,
-  `getTypefaceForFont`. `drawRotarySlider` wird neu gezeichnet (Abschnitt 6).
-- Die Schrift wird einmal aus den Binärdaten geladen und für alle Fonts geliefert:
-  fette Fonts erhalten Inter SemiBold, alle anderen Inter Regular. Bestehende
-  `juce::FontOptions(..., juce::Font::bold)`-Aufrufe bleiben unverändert.
+- Neue Überschreibungen: `drawButtonBackground`, `drawComboBox`, `drawToggleButton`
+  sowie die Font-Abfragen (`getLabelFont`, `getTextButtonFont`, `getComboBoxFont`,
+  `getPopupMenuFont`, Alert-Fonts). `drawRotarySlider` wird neu gezeichnet (Abschnitt 6).
+- Die Schrift liefert `plugin/ui/Fonts.h/.cpp` über `ui::font(höhe, fett)`: fett ergibt
+  Inter SemiBold, sonst Inter Regular. Alle `juce::FontOptions(...)`-Aufrufe der UI
+  werden auf `ui::font(...)` umgestellt.
+- `getTypefaceForFont` wird bewusst **nicht** verwendet: JUCE fragt dafür das
+  prozessweite Standard-Look-and-Feel ab, und das dürfen sich mehrere Plugin-Instanzen
+  im selben Host-Prozess nicht gegenseitig setzen und zurücksetzen.
 
 ### 4.2 `plugin/ui/Surfaces.h/.cpp` (neu)
 
-Gemeinsame Zeichenhelfer ohne Zustand:
+Gemeinsame Zeichenhelfer:
 
-- `drawPanel(g, bounds)`: Panel mit Verlauf, Lichtkante oben und weichem Schatten.
-  Ersetzt die drei gleichen `fillRoundedRectangle`-Aufrufe in `SlotEditor`, `FxPanel`
-  und `PerformancePanel`.
+- `drawPanelBody(g, bounds)`: Panel mit Verlauf und Lichtkante oben. Ersetzt die drei
+  gleichen `fillRoundedRectangle`-Aufrufe in `SlotEditor`, `FxPanel` und
+  `PerformancePanel`.
+- `PanelShadow`: weicher Schlagschatten eines Panels. Eine kleine Klasse statt einer
+  Funktion, weil melatonin_blur den berechneten Schatten im Objekt zwischenspeichert.
 - `drawDivider(g, x, top, bottom)`: feine Doppellinie (dunkel plus hell) für die
   Gruppentrenner im FX-Panel.
+- `drawWindowBackground(g, bounds)`: Verlauf des Fensterhintergrunds.
 
-Der Panel-Schatten ragt über die Panel-Fläche hinaus. Deshalb zeichnet der Editor
-(`DubgefahrenEditor::paint` bzw. die `content_`-Komponente) die Schatten aller drei
-Panels unter den Panels; die Panels selbst zeichnen nur Verlauf und Lichtkante.
-`drawPanel` wird dafür in zwei Funktionen geteilt: `drawPanelShadow` und
-`drawPanelBody`.
+Der Panel-Schatten ragt über die Panel-Fläche hinaus. Deshalb zeichnet
+`DubgefahrenEditor::paint` die Schatten aller drei Panels unter den Panels; die Panels
+selbst zeichnen nur ihren Körper.
 
 ### 4.3 `plugin/ui/PadGlow.h` (neu)
 
@@ -89,8 +94,10 @@ Reine, header-only Funktion ohne JUCE-Abhängigkeit für die Helligkeitskurve de
 - `Pad` erhält das Feld `baseColour_` (Standard `colours::padBase`) und einen Setter.
   Für #14 muss später nur dieser Setter aus dem Kit befüllt werden.
 - `Pad` hält seine aktuelle Helligkeit (0…1) und zeichnet nur seinen Körper.
-- `PadGrid::paint` zeichnet den Glow aller Pads auf der eigenen Fläche unter den
-  Pads, weil er über die Pad-Fläche hinausragt.
+- Der Glow ragt über die Pad-Fläche und am Rand auch über das Pad-Raster hinaus.
+  Deshalb zeichnet ihn wie die Panel-Schatten der Editor unter den Komponenten:
+  `PadGrid::paintGlows(g)` liefert das Bild, `PadGrid::onGlowChanged` meldet dem
+  Editor den neu zu zeichnenden Bereich.
 
 ## 5. Pads
 
@@ -117,8 +124,10 @@ des Glows.
 
 - **Trigger** (Pad wird aktiv): `b = 1`.
 - **Halten:** `b` fällt exponentiell auf den Haltewert 0,7 mit einer Zeitkonstante
-  von 80 ms (nach etwa 250 ms ist der Haltewert praktisch erreicht).
-- **Ende** (Pad wird inaktiv): `b` fällt linear in 200 ms auf 0.
+  von 80 ms und rastet dort ein, sobald der Abstand unter 0,005 liegt (nach etwa
+  330 ms), damit ein gehaltenes Pad nicht dauernd neu gezeichnet wird.
+- **Ende** (Pad wird inaktiv): `b` fällt linear mit 1/200 ms, ist also spätestens
+  nach 200 ms bei 0.
 - **Erneuter Trigger** während des Ausklingens: `b = 1`.
 
 Ein erneuter Trigger, während das Pad durchgehend aktiv ist, ist in der UI nicht
