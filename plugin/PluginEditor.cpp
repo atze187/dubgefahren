@@ -67,7 +67,16 @@ DubgefahrenEditor::~DubgefahrenEditor()
     setLookAndFeel(nullptr);
 }
 
-void DubgefahrenEditor::paint(juce::Graphics& g) { g.fillAll(ui::colours::background); }
+void DubgefahrenEditor::paint(juce::Graphics& g)
+{
+    ui::drawWindowBackground(g, getLocalBounds());
+    // Schatten ragen über ihre Komponenten hinaus, deshalb zeichnet sie der Editor darunter,
+    // im Koordinatensystem der skalierten content_-Komponente.
+    g.addTransform(content_.getTransform());
+    panelShadows_[0].render(g, slotEditor_.getBounds().toFloat());
+    panelShadows_[1].render(g, fx_.getBounds().toFloat());
+    panelShadows_[2].render(g, perf_.getBounds().toFloat());
+}
 
 void DubgefahrenEditor::resized()
 {

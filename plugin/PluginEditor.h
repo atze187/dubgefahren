@@ -1,4 +1,5 @@
 #pragma once
+#include <array>
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -12,6 +13,7 @@
 #include "plugin/ui/PadGrid.h"
 #include "plugin/ui/PerformancePanel.h"
 #include "plugin/ui/SlotEditor.h"
+#include "plugin/ui/Surfaces.h"
 
 namespace dg {
 
@@ -87,6 +89,7 @@ private:
     ui::SlotEditor slotEditor_;
     ui::FxPanel fx_;
     ui::PerformancePanel perf_;
+    std::array<ui::PanelShadow, 3> panelShadows_;
     std::unique_ptr<juce::FileChooser> chooser_;
     struct ClipboardSlot
     {

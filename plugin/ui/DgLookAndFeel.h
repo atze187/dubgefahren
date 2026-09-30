@@ -15,6 +15,14 @@ inline const juce::Colour playing { 0xff4cd07d };
 inline const juce::Colour latched { 0xff3aa0ff };
 inline const juce::Colour warning { 0xffff8c2a };
 inline const juce::Colour danger { 0xffff4d4d };
+inline const juce::Colour backgroundTop { 0xff15181b };
+inline const juce::Colour backgroundBottom { 0xff0f1113 };
+inline const juce::Colour panelTop { 0xff1f2329 };
+inline const juce::Colour panelBottom { 0xff181b20 };
+inline const juce::Colour highlight { 0x12ffffff }; // Lichtkante: 7 % Weiß
+inline const juce::Colour shadow { 0x99000000 };
+inline const juce::Colour groove { 0xff0c0e10 };    // vertiefte Linien und Konturen
+inline const juce::Colour padBase { 0xff4cd07d };
 } // namespace colours
 
 class DgLookAndFeel final : public juce::LookAndFeel_V4

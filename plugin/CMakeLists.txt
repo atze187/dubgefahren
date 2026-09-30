@@ -25,6 +25,8 @@ target_sources(dg_plugin_shared INTERFACE
     ${CMAKE_CURRENT_SOURCE_DIR}/ui/DgLookAndFeel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/ui/Fonts.h
     ${CMAKE_CURRENT_SOURCE_DIR}/ui/Fonts.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/ui/Surfaces.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/ui/Surfaces.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/ui/Controls.h
     ${CMAKE_CURRENT_SOURCE_DIR}/ui/Controls.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/ui/CpuMeter.h
@@ -45,6 +47,7 @@ target_compile_definitions(dg_plugin_shared INTERFACE
 target_link_libraries(dg_plugin_shared INTERFACE
     dg_engine
     dg_fonts
+    melatonin_blur
     juce::juce_audio_utils
     juce::juce_audio_formats
     juce::juce_audio_processors

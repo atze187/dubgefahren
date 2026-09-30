@@ -3,6 +3,7 @@
 #include "plugin/PluginProcessor.h"
 #include "plugin/ui/DgLookAndFeel.h"
 #include "plugin/ui/Fonts.h"
+#include "plugin/ui/Surfaces.h"
 
 namespace dg::ui {
 
@@ -109,8 +110,7 @@ void SlotEditor::refresh()
 
 void SlotEditor::paint(juce::Graphics& g)
 {
-    g.setColour(colours::panel);
-    g.fillRoundedRectangle(getLocalBounds().toFloat(), 8.0f);
+    drawPanelBody(g, getLocalBounds().toFloat());
     if (emptyHint_.isVisible())
         return;
     g.setColour(colours::textDim);
