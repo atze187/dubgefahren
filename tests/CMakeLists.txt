@@ -6,6 +6,7 @@ add_executable(DubgefahrenTests
     test_Lfo.cpp
     test_Envelope.cpp
     test_SirenVoice.cpp
+    test_SamplePlayer.cpp
     test_PadRouter.cpp
     test_FxUnits.cpp
     test_TapeDelay.cpp
@@ -18,7 +19,7 @@ include(Catch)
 catch_discover_tests(DubgefahrenTests)
 
 juce_add_console_app(DubgefahrenPluginTests PRODUCT_NAME "DubgefahrenPluginTests")
-target_sources(DubgefahrenPluginTests PRIVATE plugin/test_PluginProcessor.cpp plugin/test_KitFile.cpp plugin/test_Config.cpp plugin/test_Editor.cpp plugin/test_CpuMeter.cpp)
+target_sources(DubgefahrenPluginTests PRIVATE plugin/test_PluginProcessor.cpp plugin/test_KitFile.cpp plugin/test_Config.cpp plugin/test_Editor.cpp plugin/test_CpuMeter.cpp plugin/test_SampleFiles.cpp plugin/test_SampleLoader.cpp plugin/test_Samples.cpp)
 target_link_libraries(DubgefahrenPluginTests PRIVATE dg_plugin_shared Catch2::Catch2WithMain)
 catch_discover_tests(DubgefahrenPluginTests)
 

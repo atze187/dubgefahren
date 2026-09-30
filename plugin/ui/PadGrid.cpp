@@ -27,14 +27,18 @@ public:
         repaint();
     }
 
-    void setContent(const juce::String& n, bool empty)
+    void setContent(const juce::String& n, bool empty, bool sample, bool missing)
     {
         name_ = n;
         empty_ = empty;
+        sample_ = sample;
+        missing_ = missing;
         repaint();
     }
 
     bool isEmpty() const { return empty_; }
+    bool isSample() const { return sample_; }
+    bool isMissing() const { return missing_; }
 
     void paint(juce::Graphics& g) override
     {
@@ -47,10 +51,19 @@ public:
         g.setColour(colours::textDim);
         g.setFont(juce::FontOptions(11.0f));
         g.drawText(juce::String(slot_ + 1), r.reduced(6.0f), juce::Justification::topLeft);
-        g.setColour(empty_ ? colours::textDim : colours::text);
+        // Fehlendes Sample: Name und Symbol in Warnfarbe, der Slot ist stumm.
+        g.setColour(empty_ ? colours::textDim : (missing_ ? colours::warning : colours::text));
         g.setFont(juce::FontOptions(13.0f));
         g.drawFittedText(empty_ ? juce::String("Empty") : name_, r.reduced(6.0f).toNearestInt(),
                          juce::Justification::centred, 2);
+
+        if (sample_ && !empty_)
+        {
+            g.setColour(missing_ ? colours::warning : colours::textDim);
+            g.setFont(juce::FontOptions(13.0f));
+            g.drawText(u8("∿"), juce::Rectangle<float>(r.getRight() - 34.0f, r.getY() + 3.0f, 16.0f, 14.0f),
+                       juce::Justification::centred);
+        }
 
         if (latched_)
         {
@@ -98,7 +111,8 @@ private:
     PadGrid& owner_;
     const int slot_;
     juce::String name_;
-    bool active_ = false, latched_ = false, focus_ = false, selected_ = false, held_ = false, empty_ = false;
+    bool active_ = false, latched_ = false, focus_ = false, selected_ = false, held_ = false, empty_ = false, sample_ = false,
+         missing_ = false;
 };
 
 PadGrid::PadGrid(DubgefahrenProcessor& proc) : proc_(proc)
@@ -135,8 +149,16 @@ void PadGrid::setSelected(int slot)
 void PadGrid::refreshNames()
 {
     for (int s = 0; s < kNumSlots; ++s)
-        pads_[static_cast<std::size_t>(s)]->setContent(proc_.slotName(s), !hasSound(proc_.slotSource(s)));
+    {
+        const auto source = proc_.slotSource(s);
+        pads_[static_cast<std::size_t>(s)]->setContent(proc_.slotName(s), !hasSound(source), source == SourceType::Sample,
+                                                       proc_.isSampleMissing(s));
+    }
 }
+
+bool PadGrid::isSample(int slot) const { return pads_[static_cast<std::size_t>(slot)]->isSample(); }
+
+bool PadGrid::isMissing(int slot) const { return pads_[static_cast<std::size_t>(slot)]->isMissing(); }
 
 juce::Component& PadGrid::pad(int slot) { return *pads_[static_cast<std::size_t>(slot)]; }
 

@@ -47,7 +47,7 @@ void PadRouter::start(int slot, TriggerMode mode, const TriggerSettingsArray& se
     startedMode_[slot] = mode;
     latched_[slot] = mode == TriggerMode::Latch;
     previewHeld_[slot] = false;
-    oneShotRemaining_[slot] = mode == TriggerMode::OneShot
+    oneShotRemaining_[slot] = (mode == TriggerMode::OneShot && !settings[slot].untilEnd)
         ? std::max<std::int64_t>(1, std::llround(settings[slot].oneShotS * sampleRate_))
         : -1;
 }

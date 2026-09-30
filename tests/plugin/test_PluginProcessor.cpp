@@ -52,7 +52,7 @@ void prepare(DubgefahrenProcessor& p)
 }
 } // namespace
 
-TEST_CASE("the plugin exposes 324 uniquely named parameters", "[plugin]")
+TEST_CASE("the plugin exposes 340 uniquely named parameters", "[plugin]")
 {
     juce::ScopedJuceInitialiser_GUI gui;
     DubgefahrenProcessor p;
@@ -60,12 +60,14 @@ TEST_CASE("the plugin exposes 324 uniquely named parameters", "[plugin]")
     for (auto* param : p.getParameters())
         if (auto* withId = dynamic_cast<juce::AudioProcessorParameterWithID*>(param))
             ids.insert(withId->paramID);
-    CHECK(p.getParameters().size() == 16 * 19 + 20);
-    CHECK(ids.size() == 324);
+    CHECK(p.getParameters().size() == 16 * 20 + 20);
+    CHECK(ids.size() == 340);
     CHECK(slotParamId(0, SlotField::Wave) == "s01_wave");
     CHECK(slotParamId(15, SlotField::FxSend) == "s16_send");
+    CHECK(slotParamId(0, SlotField::Tune) == "s01_tune");
     CHECK(slotSourceParamId(15) == "s16_source");
     CHECK_FALSE(p.state().getParameter("s01_source")->isAutomatable());
+    CHECK(p.state().getParameter("s01_tune")->isAutomatable());
 }
 
 TEST_CASE("default program is named for VST3 hosts and validators", "[plugin]")

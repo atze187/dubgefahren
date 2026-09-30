@@ -79,9 +79,16 @@ TEST_CASE("empty kit has 16 empty, unnamed slots with factory synth values", "[k
     }
 }
 
-TEST_CASE("only synth slots have sound until the sample player exists", "[kit]")
+TEST_CASE("synth and sample slots have sound, empty ones do not", "[kit]")
 {
     CHECK(hasSound(SourceType::Synth));
+    CHECK(hasSound(SourceType::Sample));
     CHECK_FALSE(hasSound(SourceType::Empty));
-    CHECK_FALSE(hasSound(SourceType::Sample));
+}
+
+TEST_CASE("factory and empty kits reference no samples", "[kit]")
+{
+    for (const auto& k : { makeFactoryKit(), makeEmptyKit() })
+        for (const auto& s : k.samples)
+            CHECK(s.empty());
 }

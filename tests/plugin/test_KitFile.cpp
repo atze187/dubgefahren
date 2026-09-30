@@ -55,7 +55,7 @@ TEST_CASE("invalid kit files are rejected with a message", "[kitfile]")
     CHECK_FALSE(reparse(wrongFormat).kit.has_value());
 
     auto newer = parsed(k);
-    newer.getDynamicObject()->setProperty("version", 3);
+    newer.getDynamicObject()->setProperty("version", 4);
     const auto rNewer = reparse(newer);
     CHECK_FALSE(rNewer.kit.has_value());
     CHECK(rNewer.error.isNotEmpty());
@@ -89,14 +89,14 @@ TEST_CASE("kit values are clamped, missing keys default and unknown keys are ign
     CHECK(r.kit->slots[0].pulseWidth == fieldSpec(SlotField::PulseWidth).def);
 }
 
-TEST_CASE("kits with empty slots are written as version 2 and survive a round-trip", "[kitfile]")
+TEST_CASE("kits with empty slots survive a round-trip", "[kitfile]")
 {
     Kit k = makeFactoryKit();
     k.slots[2].source = SourceType::Empty;
     k.names[2].clear();
 
     const auto v = parsed(k);
-    CHECK(static_cast<int>(v["version"]) == 2);
+    CHECK(static_cast<int>(v["version"]) == 3);
     CHECK(v["slots"][0]["source"].toString() == "synth");
     CHECK(v["slots"][2]["source"].toString() == "empty");
     CHECK_FALSE(v["slots"][2].getDynamicObject()->hasProperty("params"));
@@ -142,6 +142,7 @@ TEST_CASE("empty slots ignore params and may omit the name", "[kitfile]")
 TEST_CASE("unknown or missing sound sources are rejected in version 2", "[kitfile]")
 {
     auto sample = parsed(makeFactoryKit());
+    sample.getDynamicObject()->setProperty("version", 2);
     sample["slots"][4].getDynamicObject()->setProperty("source", "sample");
     const auto r = reparse(sample);
     CHECK_FALSE(r.kit.has_value());
@@ -150,4 +151,55 @@ TEST_CASE("unknown or missing sound sources are rejected in version 2", "[kitfil
     auto missing = parsed(makeFactoryKit());
     missing["slots"][0].getDynamicObject()->removeProperty("source");
     CHECK_FALSE(reparse(missing).kit.has_value());
+}
+
+TEST_CASE("sample slots survive a version 3 round-trip", "[kitfile]")
+{
+    Kit k = makeFactoryKit();
+    k.slots[3].source = SourceType::Sample;
+    k.slots[3].tuneSemis = 5.0f;
+    k.samples[3] = juce::String::fromUTF8("Hörner.wav").toStdString();
+    k.names[3] = "Horn";
+
+    const auto v = parsed(k);
+    CHECK(static_cast<int>(v["version"]) == 3);
+    CHECK(v["slots"][3]["source"].toString() == "sample");
+    CHECK(v["slots"][3]["sample"].toString() == juce::String::fromUTF8("Hörner.wav"));
+    CHECK(static_cast<double>(v["slots"][3]["params"]["tune"]) == 5.0);
+    CHECK_FALSE(v["slots"][0].getDynamicObject()->hasProperty("sample"));
+
+    const auto r = kitFromJsonString(kitToJsonString(k));
+    REQUIRE(r.kit.has_value());
+    CHECK(r.kit->slots == k.slots);
+    CHECK(r.kit->samples == k.samples);
+    CHECK(r.kit->names == k.names);
+}
+
+TEST_CASE("sample slots need version 3 and a plain file name", "[kitfile]")
+{
+    Kit k = makeFactoryKit();
+    k.slots[3].source = SourceType::Sample;
+    k.samples[3] = "horn.wav";
+
+    auto v2 = parsed(k);
+    v2.getDynamicObject()->setProperty("version", 2);
+    const auto r2 = reparse(v2);
+    CHECK_FALSE(r2.kit.has_value());
+    CHECK(r2.error == juce::String("Slot 4: unknown sound source."));
+
+    for (const char* bad : { "", "../x.wav", "a/b.wav", "a\\b.wav", "C:x.wav", " x.wav" })
+    {
+        auto v = parsed(k);
+        v["slots"][3].getDynamicObject()->setProperty("sample", bad);
+        const auto r = reparse(v);
+        CHECK_FALSE(r.kit.has_value());
+        CHECK(r.error == juce::String("Slot 4: invalid sample file name."));
+    }
+
+    auto missing = parsed(k);
+    missing["slots"][3].getDynamicObject()->removeProperty("sample");
+    CHECK(reparse(missing).error == juce::String("Slot 4: invalid sample file name."));
+
+    CHECK(isValidSampleFileName("horn.wav"));
+    CHECK(isValidSampleFileName(juce::String::fromUTF8("Hörner (2).flac")));
 }

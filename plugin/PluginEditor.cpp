@@ -3,13 +3,14 @@
 #include "plugin/KitFile.h"
 #include "plugin/ParameterLayout.h"
 #include "plugin/PluginProcessor.h"
+#include "plugin/SampleFiles.h"
 
 namespace dg {
 
 namespace {
 enum KitMenuId { kKitFactory = 1, kKitNone = 2, kKitEmpty = 3, kKitFileBase = 100 };
 enum PadMenuId { kPadCopy = 1, kPadPaste, kPadReset, kPadRename, kPadClear };
-enum SourceMenuId { kSourceSynth = 1, kSourceSample };
+enum SourceMenuId { kSourceSynth = 1, kSourceSampleDisabled, kSourceNoSamples, kSourceAddFile, kSourceSampleBase = 100 };
 } // namespace
 
 DubgefahrenEditor::DubgefahrenEditor(DubgefahrenProcessor& proc)
@@ -35,6 +36,7 @@ DubgefahrenEditor::DubgefahrenEditor(DubgefahrenProcessor& proc)
     pads_.onContextMenu = [this](int s) { showPadMenu(s); };
     pads_.onEmptyClick = [this](int s) { showSourceMenu(s); };
     slotEditor_.onRename = [this] { renameSlot(selectedSlot_); };
+    slotEditor_.onChooseSample = [this] { showSampleMenu(selectedSlot_); };
 
     for (juce::Component* c : std::initializer_list<juce::Component*> {
              &title_, &cpuMeter_, &kitButton_, &importButton_, &exportButton_, &panicButton_, &followFocus_, &pads_, &slotEditor_, &fx_, &perf_ })
@@ -124,6 +126,13 @@ void DubgefahrenEditor::pollProcessorState()
         refreshAll();
         followFocus_.setToggleState(proc_.editorFollowsFocus(), juce::dontSendNotification);
     }
+
+    // Erst melden, wenn alle Ladeaufträge erledigt sind: so entsteht pro Ladevorgang nur ein Hinweis.
+    if (proc_.hasPendingSampleLoads())
+        return;
+    const auto problems = proc_.takeSampleProblems();
+    if (!problems.isEmpty())
+        showMessage("Some samples could not be loaded", problems.joinIntoString("\n"));
 }
 
 std::uint32_t DubgefahrenEditor::soundMask() const
@@ -179,6 +188,7 @@ void DubgefahrenEditor::setPanic(bool down)
 
 void DubgefahrenEditor::showMessage(const juce::String& title, const juce::String& text)
 {
+    lastMessage_ = title + "\n" + text;
     juce::AlertWindow::showMessageBoxAsync(juce::MessageBoxIconType::WarningIcon, title, text);
 }
 
@@ -214,9 +224,9 @@ void DubgefahrenEditor::showKitMenu()
                                           if (safe == nullptr || result == 0)
                                               return;
                                           if (result == kKitFactory)
-                                              safe->proc_.applyKit(makeFactoryKit());
+                                              safe->proc_.applyKit(makeFactoryKit(), {});
                                           else if (result == kKitEmpty)
-                                              safe->proc_.applyKit(makeEmptyKit());
+                                              safe->proc_.applyKit(makeEmptyKit(), {});
                                           else if (result >= kKitFileBase)
                                               safe->loadKit(files[result - kKitFileBase]);
                                           safe->refreshAll();
@@ -231,7 +241,7 @@ void DubgefahrenEditor::loadKit(const juce::File& file)
         showMessage("Could not load kit", result.error);
         return;
     }
-    proc_.applyKit(*result.kit);
+    proc_.applyKit(*result.kit, file);
     refreshAll();
 }
 
@@ -260,10 +270,26 @@ void DubgefahrenEditor::exportKit()
                               if (safe == nullptr || fc.getResult() == juce::File())
                                   return;
                               const auto file = fc.getResult().withFileExtension(kKitExtension);
-                              juce::String error;
-                              if (!saveKitFile(safe->proc_.currentKit(), file, error))
-                                  safe->showMessage("Could not save kit", error);
+                              safe->exportKitTo(file);
                           });
+}
+
+bool DubgefahrenEditor::exportKitTo(const juce::File& file)
+{
+    const Kit kit = proc_.currentKit();
+    juce::StringArray problems;
+    if (file != proc_.kitFile())
+        problems = copyKitSamples(kit, proc_.sampleFolder(), sampleFolderFor(file));
+    juce::String error;
+    if (!saveKitFile(kit, file, error))
+    {
+        showMessage("Could not save kit", error);
+        return false;
+    }
+    proc_.setKitFile(file);
+    if (!problems.isEmpty())
+        showMessage("Some samples could not be copied", problems.joinIntoString("\n"));
+    return true;
 }
 
 juce::PopupMenu DubgefahrenEditor::buildPadMenu(int slot) const
@@ -288,12 +314,12 @@ void DubgefahrenEditor::showPadMenu(int slot)
                                          switch (result)
                                          {
                                              case kPadCopy:
-                                                 self.clipboard_ = std::make_pair(self.proc_.currentKit().slots[static_cast<std::size_t>(slot)],
-                                                                                  self.proc_.slotName(slot));
+                                                 self.clipboard_ = ClipboardSlot { self.proc_.currentKit().slots[static_cast<std::size_t>(slot)],
+                                                                                   self.proc_.slotName(slot), self.proc_.slotSample(slot) };
                                                  break;
                                              case kPadPaste:
                                                  if (self.clipboard_)
-                                                     self.proc_.setSlot(slot, self.clipboard_->first, self.clipboard_->second);
+                                                     self.proc_.setSlot(slot, self.clipboard_->params, self.clipboard_->name, self.clipboard_->sample);
                                                  break;
                                              case kPadReset:  self.proc_.resetSlotToFactory(slot); break;
                                              case kPadRename: self.renameSlot(slot); break;
@@ -304,24 +330,84 @@ void DubgefahrenEditor::showPadMenu(int slot)
                                      });
 }
 
-juce::PopupMenu DubgefahrenEditor::buildSourceMenu()
+juce::PopupMenu DubgefahrenEditor::buildSourceMenu(const juce::StringArray& sampleFiles) const
 {
     juce::PopupMenu menu;
     menu.addItem(kSourceSynth, "Synth");
-    menu.addItem(kSourceSample, "Sample", false); // folgt mit dem Sample-Player (#8)
+    if (proc_.kitFile() == juce::File())
+        menu.addItem(kSourceSampleDisabled, "Sample (export the kit first)", false);
+    else
+        menu.addSubMenu("Sample", buildSampleMenu(sampleFiles));
+    return menu;
+}
+
+juce::PopupMenu DubgefahrenEditor::buildSampleMenu(const juce::StringArray& sampleFiles)
+{
+    juce::PopupMenu menu;
+    if (sampleFiles.isEmpty())
+        menu.addItem(kSourceNoSamples, "(no samples in kit folder)", false);
+    for (int i = 0; i < sampleFiles.size(); ++i)
+        menu.addItem(kSourceSampleBase + i, sampleFiles[i]);
+    menu.addSeparator();
+    menu.addItem(kSourceAddFile, juce::String::fromUTF8("Add File…"));
     return menu;
 }
 
 void DubgefahrenEditor::showSourceMenu(int slot)
 {
     // Gleiche Optionen wie das Kit-Menü, verankert am angeklickten Pad.
-    buildSourceMenu().showMenuAsync(juce::PopupMenu::Options().withTargetComponent(pads_.pad(slot)),
-                                    [safe = juce::Component::SafePointer<DubgefahrenEditor>(this), slot](int result) {
-                                        if (safe == nullptr || result != kSourceSynth)
-                                            return;
-                                        safe->proc_.resetSlotToFactory(slot);
-                                        safe->refreshAll();
-                                    });
+    const auto files = listSampleFiles(proc_.sampleFolder());
+    buildSourceMenu(files).showMenuAsync(juce::PopupMenu::Options().withTargetComponent(pads_.pad(slot)),
+                                         [safe = juce::Component::SafePointer<DubgefahrenEditor>(this), slot, files](int result) {
+                                             if (safe != nullptr)
+                                                 safe->chooseSource(slot, result, files);
+                                         });
+}
+
+void DubgefahrenEditor::showSampleMenu(int slot)
+{
+    const auto files = listSampleFiles(proc_.sampleFolder());
+    buildSampleMenu(files).showMenuAsync(juce::PopupMenu::Options().withTargetComponent(slotEditor_.sampleButton()),
+                                         [safe = juce::Component::SafePointer<DubgefahrenEditor>(this), slot, files](int result) {
+                                             if (safe != nullptr)
+                                                 safe->chooseSource(slot, result, files);
+                                         });
+}
+
+void DubgefahrenEditor::chooseSource(int slot, int result, const juce::StringArray& files)
+{
+    if (result == kSourceSynth)
+        proc_.resetSlotToFactory(slot);
+    else if (result == kSourceAddFile)
+    {
+        addSampleFile(slot);
+        return;
+    }
+    else if (result >= kSourceSampleBase && result - kSourceSampleBase < files.size())
+        proc_.setSlotSample(slot, files[result - kSourceSampleBase]);
+    else
+        return;
+    refreshAll();
+}
+
+void DubgefahrenEditor::addSampleFile(int slot)
+{
+    chooser_ = std::make_unique<juce::FileChooser>("Add Sample", juce::File::getSpecialLocation(juce::File::userMusicDirectory),
+                                                   sampleFileWildcard());
+    chooser_->launchAsync(juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
+                          [safe = juce::Component::SafePointer<DubgefahrenEditor>(this), slot](const juce::FileChooser& fc) {
+                              if (safe == nullptr || fc.getResult() == juce::File())
+                                  return;
+                              juce::String error;
+                              const auto target = importSampleFile(fc.getResult(), safe->proc_.sampleFolder(), error);
+                              if (target == juce::File())
+                              {
+                                  safe->showMessage("Could not add sample", error);
+                                  return;
+                              }
+                              safe->proc_.setSlotSample(slot, target.getFileName());
+                              safe->refreshAll();
+                          });
 }
 
 void DubgefahrenEditor::renameSlot(int slot)

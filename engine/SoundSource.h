@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include "engine/SampleData.h"
 #include "engine/SlotParams.h"
 
 namespace dg {
@@ -20,6 +21,7 @@ struct VoiceContext
     const SlotParams* params = nullptr;
     double bpm = 120.0;
     PerfOffsets perf {};
+    const SampleData* sample = nullptr; // nur für SamplePlayer, nicht besitzend
 };
 
 // Klangquelle eines Slots. Heute SirenVoice, später z. B. ein SamplePlayer.

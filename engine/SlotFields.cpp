@@ -35,6 +35,7 @@ const std::array<FieldSpec, kNumSlotFields> kSpecs { {
     { "vol",        "Volume",         FieldKind::Float, -60.0f, 6.0f, -6.0f, 0.0f, "dB", {} },
     { "pan",        "Pan",            FieldKind::Float, -1.0f, 1.0f, 0.0f, 0.0f, "", {} },
     { "send",       "FX-Send",        FieldKind::Float, 0.0f, 1.0f, 0.3f, 0.0f, "", {} },
+    { "tune",       "Tune",           FieldKind::Float, -24.0f, 24.0f, 0.0f, 0.0f, "st", {}, 3 },
 } };
 
 } // namespace
@@ -63,6 +64,7 @@ float getSlotField(const SlotParams& p, SlotField f)
         case SlotField::Volume:        return p.volumeDb;
         case SlotField::Pan:           return p.pan;
         case SlotField::FxSend:        return p.fxSend;
+        case SlotField::Tune:          return p.tuneSemis;
         case SlotField::Count:         break;
     }
     return 0.0f;
@@ -96,6 +98,7 @@ void setSlotField(SlotParams& p, SlotField f, float value)
         case SlotField::Volume:        p.volumeDb = value; break;
         case SlotField::Pan:           p.pan = value; break;
         case SlotField::FxSend:        p.fxSend = value; break;
+        case SlotField::Tune:          p.tuneSemis = value; break;
         case SlotField::Count:         break;
     }
 }

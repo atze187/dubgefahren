@@ -24,17 +24,17 @@ juce::StringArray toStringArray(std::span<const char* const> items)
 
 std::unique_ptr<juce::RangedAudioParameter> makeFloat(const juce::String& id, const juce::String& name,
                                                       float min, float max, float def, float skewCentre,
-                                                      const juce::String& unit)
+                                                      const juce::String& unit, int version = kParameterVersion)
 {
     return std::make_unique<juce::AudioParameterFloat>(
-        juce::ParameterID { id, kParameterVersion }, name, rangeFor(min, max, skewCentre), def,
+        juce::ParameterID { id, version }, name, rangeFor(min, max, skewCentre), def,
         juce::AudioParameterFloatAttributes().withLabel(unit));
 }
 
 std::unique_ptr<juce::RangedAudioParameter> makeChoice(const juce::String& id, const juce::String& name,
-                                                       const juce::StringArray& choices, int def)
+                                                       const juce::StringArray& choices, int def, int version = kParameterVersion)
 {
-    return std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { id, kParameterVersion }, name, choices, def);
+    return std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { id, version }, name, choices, def);
 }
 
 juce::String u8(const char* s) { return juce::String::fromUTF8(s); }
@@ -107,13 +107,13 @@ juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout(const 
             switch (spec.kind)
             {
                 case FieldKind::Float:
-                    layout.add(makeFloat(id, name, spec.min, spec.max, def, spec.skewCentre, u8(spec.unit)));
+                    layout.add(makeFloat(id, name, spec.min, spec.max, def, spec.skewCentre, u8(spec.unit), spec.versionHint));
                     break;
                 case FieldKind::Choice:
-                    layout.add(makeChoice(id, name, toStringArray(spec.choices), static_cast<int>(std::lround(def))));
+                    layout.add(makeChoice(id, name, toStringArray(spec.choices), static_cast<int>(std::lround(def)), spec.versionHint));
                     break;
                 case FieldKind::Bool:
-                    layout.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID { id, kParameterVersion }, name, def > 0.5f));
+                    layout.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID { id, spec.versionHint }, name, def > 0.5f));
                     break;
             }
         }

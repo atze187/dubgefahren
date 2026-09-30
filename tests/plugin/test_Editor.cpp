@@ -4,6 +4,9 @@
 #include <vector>
 #include "plugin/PluginEditor.h"
 #include "plugin/PluginProcessor.h"
+#include "plugin/SampleFiles.h"
+#include "engine/Kit.h"
+#include "SampleTestHelpers.h"
 
 using namespace dg;
 
@@ -89,9 +92,120 @@ TEST_CASE("empty slots show a hint in the slot editor and 'Empty' on the pad", "
     CHECK(e->slotEditorShowsEmptyHint());
 }
 
-TEST_CASE("source menu offers synth and a disabled sample entry", "[editor]")
+TEST_CASE("without a kit file the source menu offers synth and a disabled sample hint", "[editor]")
 {
-    CHECK(menuItems(DubgefahrenEditor::buildSourceMenu()) == Items { { "Synth", true }, { "Sample", false } });
+    juce::ScopedJuceInitialiser_GUI gui;
+    DubgefahrenProcessor p;
+    std::unique_ptr<juce::AudioProcessorEditor> editor(p.createEditor());
+    auto* e = static_cast<DubgefahrenEditor*>(editor.get());
+    CHECK(menuItems(e->buildSourceMenu({})) == Items { { "Synth", true }, { "Sample (export the kit first)", false } });
+}
+
+TEST_CASE("with a kit file the source menu has a sample submenu with the folder's files", "[editor]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    dgtest::TempDir tmp;
+    DubgefahrenProcessor p;
+    p.applyKit(makeFactoryKit(), tmp.dir.getChildFile("Dub.dgkit"));
+    std::unique_ptr<juce::AudioProcessorEditor> editor(p.createEditor());
+    auto* e = static_cast<DubgefahrenEditor*>(editor.get());
+
+    CHECK(menuItems(e->buildSourceMenu({ "a.wav" })) == Items { { "Synth", true }, { "Sample", true } });
+    const auto addFile = juce::String::fromUTF8("Add File…");
+    CHECK(menuItems(DubgefahrenEditor::buildSampleMenu({ "a.wav", "b.mp3" }))
+          == Items { { "a.wav", true }, { "b.mp3", true }, { addFile, true } });
+    CHECK(menuItems(DubgefahrenEditor::buildSampleMenu({}))
+          == Items { { "(no samples in kit folder)", false }, { addFile, true } });
+}
+
+TEST_CASE("a sample slot shows the sample controls, its file and no latch", "[editor]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    dgtest::TempDir tmp;
+    const auto kitFile = tmp.dir.getChildFile("Dub.dgkit");
+    sampleFolderFor(kitFile).createDirectory();
+    juce::WavAudioFormat wav;
+    dgtest::writeSine(wav, sampleFolderFor(kitFile).getChildFile("horn.wav"), 441.0f, 48000.0, 4800);
+
+    DubgefahrenProcessor p;
+    p.applyKit(makeFactoryKit(), kitFile);
+    p.setSlotSample(2, "horn.wav");
+    p.waitForSampleLoads();
+    std::unique_ptr<juce::AudioProcessorEditor> editor(p.createEditor());
+    auto* e = static_cast<DubgefahrenEditor*>(editor.get());
+
+    e->selectSlot(2);
+    CHECK(e->slotEditorShowsSampleControls());
+    CHECK(e->slotEditorSampleText() == "horn.wav");
+    CHECK_FALSE(e->slotEditorLatchSelectable());
+    CHECK_FALSE(e->slotEditorShowsEmptyHint());
+    CHECK(e->padShowsSample(2));
+    CHECK_FALSE(e->padShowsSample(0));
+
+    e->selectSlot(0);
+    CHECK_FALSE(e->slotEditorShowsSampleControls());
+    CHECK(e->slotEditorLatchSelectable());
+}
+
+TEST_CASE("sample load problems are shown once as a message", "[editor]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    dgtest::TempDir tmp;
+    DubgefahrenProcessor p;
+    p.applyKit(makeFactoryKit(), tmp.dir.getChildFile("Dub.dgkit"));
+    std::unique_ptr<juce::AudioProcessorEditor> editor(p.createEditor());
+    auto* e = static_cast<DubgefahrenEditor*>(editor.get());
+
+    p.setSlotSample(1, "missing.wav");
+    p.waitForSampleLoads();
+    e->pollProcessorState();
+    CHECK(e->lastMessage().contains("Some samples could not be loaded"));
+    CHECK(e->lastMessage().contains("missing.wav"));
+    CHECK(p.takeSampleProblems().isEmpty());
+}
+
+
+TEST_CASE("several failing samples produce one message listing all of them", "[editor]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    dgtest::TempDir tmp;
+    DubgefahrenProcessor p;
+    p.applyKit(makeFactoryKit(), tmp.dir.getChildFile("Dub.dgkit"));
+    std::unique_ptr<juce::AudioProcessorEditor> editor(p.createEditor());
+    auto* e = static_cast<DubgefahrenEditor*>(editor.get());
+
+    p.setSlotSample(1, "missing1.wav");
+    p.setSlotSample(3, "missing3.wav");
+    e->pollProcessorState(); // Aufträge laufen noch: keine (Teil-)Meldung
+    CHECK(e->lastMessage().isEmpty());
+    p.waitForSampleLoads();
+    e->pollProcessorState();
+    CHECK(e->lastMessage().contains("Slot 2"));
+    CHECK(e->lastMessage().contains("Slot 4"));
+}
+
+TEST_CASE("exporting to a new kit copies the samples and switches the kit file", "[editor]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    dgtest::TempDir tmp;
+    const auto oldKit = tmp.dir.getChildFile("Old.dgkit");
+    sampleFolderFor(oldKit).createDirectory();
+    juce::WavAudioFormat wav;
+    dgtest::writeSine(wav, sampleFolderFor(oldKit).getChildFile("horn.wav"), 441.0f, 48000.0, 4800);
+
+    DubgefahrenProcessor p;
+    p.applyKit(makeFactoryKit(), oldKit);
+    p.setSlotSample(2, "horn.wav");
+    p.waitForSampleLoads();
+    std::unique_ptr<juce::AudioProcessorEditor> editor(p.createEditor());
+    auto* e = static_cast<DubgefahrenEditor*>(editor.get());
+
+    const auto newKit = tmp.dir.getChildFile("New.dgkit");
+    CHECK(e->exportKitTo(newKit));
+    CHECK(newKit.existsAsFile());
+    CHECK(sampleFolderFor(newKit).getChildFile("horn.wav").existsAsFile());
+    CHECK(p.kitFile() == newKit);
+    CHECK(p.isSampleLoaded(2));
 }
 
 TEST_CASE("pad menu disables rename and clear on empty slots", "[editor]")
@@ -139,4 +253,23 @@ TEST_CASE("editor refreshes when the host changes a slot source directly", "[edi
     e->pollProcessorState();
     CHECK_FALSE(e->padShowsEmpty(3));
     CHECK_FALSE(e->slotEditorShowsEmptyHint());
+}
+
+TEST_CASE("a sample slot whose file is missing is marked on the pad and in the slot editor", "[editor]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    dgtest::TempDir tmp;
+    DubgefahrenProcessor p;
+    p.applyKit(makeFactoryKit(), tmp.dir.getChildFile("Dub.dgkit"));
+    p.setSlotSample(2, "missing.wav");
+    p.waitForSampleLoads();
+    std::unique_ptr<juce::AudioProcessorEditor> editor(p.createEditor());
+    auto* e = static_cast<DubgefahrenEditor*>(editor.get());
+
+    CHECK(e->padShowsSample(2));
+    CHECK(e->padShowsMissing(2));
+    CHECK_FALSE(e->padShowsMissing(0));
+    e->selectSlot(2);
+    CHECK(e->slotEditorShowsSampleControls());
+    CHECK(e->slotEditorSampleText() == "missing.wav (missing)");
 }

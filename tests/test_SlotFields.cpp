@@ -8,9 +8,9 @@
 using namespace dg;
 using Catch::Matchers::WithinAbs;
 
-TEST_CASE("there are 18 slot fields with unique keys", "[fields]")
+TEST_CASE("there are 19 slot fields with unique keys", "[fields]")
 {
-    STATIC_CHECK(kNumSlotFields == 18);
+    STATIC_CHECK(kNumSlotFields == 19);
     std::set<std::string> keys;
     for (int i = 0; i < kNumSlotFields; ++i)
     {
@@ -24,7 +24,7 @@ TEST_CASE("there are 18 slot fields with unique keys", "[fields]")
         if (s.kind == FieldKind::Choice)
             REQUIRE(static_cast<int>(s.choices.size()) == static_cast<int>(s.max) + 1);
     }
-    CHECK(keys.size() == 18);
+    CHECK(keys.size() == 19);
     CHECK_FALSE(slotFieldFromKey("doesNotExist").has_value());
 }
 
@@ -72,4 +72,22 @@ TEST_CASE("sync division beats", "[fields]")
     CHECK_THAT(syncDivisionBeats(SyncDivision::D1_4), WithinAbs(1.0, 1e-6));
     CHECK_THAT(syncDivisionBeats(SyncDivision::Bar1), WithinAbs(4.0, 1e-6));
     CHECK_THAT(syncDivisionBeats(SyncDivision::Bars4), WithinAbs(16.0, 1e-6));
+}
+
+TEST_CASE("tune spans two octaves and is newer than the siren fields", "[fields]")
+{
+    const auto& t = fieldSpec(SlotField::Tune);
+    CHECK(std::string(t.key) == "tune");
+    CHECK(t.min == -24.0f);
+    CHECK(t.max == 24.0f);
+    CHECK(t.def == 0.0f);
+    CHECK(std::string(t.unit) == "st");
+    CHECK(t.versionHint == 3);
+    for (int i = 0; i < kNumSlotFields; ++i)
+        if (static_cast<SlotField>(i) != SlotField::Tune)
+            CHECK(fieldSpec(static_cast<SlotField>(i)).versionHint == 1);
+
+    SlotParams p;
+    setSlotField(p, SlotField::Tune, 7.0f);
+    CHECK(p.tuneSemis == 7.0f);
 }
