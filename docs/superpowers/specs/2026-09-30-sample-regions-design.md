@@ -129,10 +129,10 @@ Der Bereich wird in jedem Block neu aufgelöst; Marker, Loop, Reverse und X-Fade
 wirken sofort.
 
 - Liegt die Position nach einer Änderung hinter dem Ende des Bereichs (in
-  Laufrichtung), gilt das Ende als erreicht: mit Schleife Sprung an den
-  Schleifenanfang, ohne Schleife Ende der Stimme. In beiden Fällen läuft die alte
-  Position als zweiter Lesekopf 5 ms aus (dieselbe Überblendung wie beim Retrigger),
-  damit es nicht knackt.
+  Laufrichtung), gilt das Ende als erreicht. Mit Schleife springt die Stimme an den
+  Schleifenanfang, und die alte Position läuft als zweiter Lesekopf 5 ms aus
+  (dieselbe Überblendung wie beim Retrigger). Ohne Schleife blendet die Stimme über
+  den Kill-Fade der Hüllkurve (5 ms) aus und endet. Beides vermeidet ein Knacken.
 - Liegt die Position vor dem Anfang des Bereichs, spielt die Stimme weiter und
   läuft von selbst in den Bereich hinein.
 - Wird Reverse während des Spielens umgeschaltet, kehrt die Stimme an ihrer
@@ -187,6 +187,8 @@ Der Mausklick auf ein Pad bleibt eine Gate-Vorschau (unverändert).
 - Ziehen: Ein Zug ist eine Host-Geste (`beginChangeGesture` … `endChangeGesture`)
   auf dem zugehörigen Parameter. Ein Marker bleibt am Nachbarn hängen, statt ihn zu
   überholen: S ≤ L ≤ E, und zwischen S und E bleibt mindestens die Mindestlänge aus
+  Abschnitt 4.1. Ist `Loop` aus, begrenzt der unsichtbare Marker L die anderen
+  nicht; gezeichnet und begrenzt wird immer mit den aufgelösten Positionen aus
   Abschnitt 4.1. Liegen zwei Griffe übereinander, greift der Klick den Marker, der
   sich in Richtung der Mausbewegung noch bewegen lässt; bei Gleichstand gilt die
   Reihenfolge L, E, S.
