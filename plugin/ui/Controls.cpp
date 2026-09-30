@@ -17,6 +17,11 @@ void setupLabel(juce::Label& l, const juce::String& text)
 Knob::Knob(const juce::String& labelText)
 {
     slider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+    // Farben des Wertefelds direkt am Slider setzen: Das Feld wird beim Anlegen gebaut, bevor der
+    // Regler unter dem Look-and-Feel des Editors hängt, und übernähme sonst dessen Standardfarben.
+    slider.setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
+    slider.setColour(juce::Slider::textBoxBackgroundColourId, juce::Colours::transparentBlack);
+    slider.setColour(juce::Slider::textBoxTextColourId, colours::text);
     slider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 64, 16);
     setupLabel(label, labelText);
     addAndMakeVisible(slider);
@@ -27,6 +32,13 @@ void Knob::attach(juce::AudioProcessorValueTreeState& apvts, const juce::String&
 {
     attachment_.reset();
     attachment_ = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(apvts, paramId, slider);
+    // Die Attachment setzt die Textfunktion des Parameters (bis zu 7 Nachkommastellen). Angezeigt
+    // werden zwei; der Wert selbst bleibt unverändert genau.
+    slider.textFromValueFunction = [](double value) {
+        const auto text = juce::String(value, 2);
+        return text == "-0.00" ? juce::String("0.00") : text;
+    };
+    slider.updateText();
 }
 
 void Knob::resized()

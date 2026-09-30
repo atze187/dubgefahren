@@ -1,9 +1,12 @@
 #include <catch2/catch_test_macros.hpp>
 #include <algorithm>
+#include <cmath>
 #include <memory>
 #include <vector>
 #include "plugin/PluginEditor.h"
+#include "plugin/ParameterLayout.h"
 #include "plugin/PluginProcessor.h"
+#include "plugin/ui/Controls.h"
 #include "plugin/ui/DgLookAndFeel.h"
 #include "plugin/ui/Fonts.h"
 #include "plugin/ui/PadGlow.h"
@@ -448,4 +451,87 @@ TEST_CASE("popup menus use the editor's look", "[look]")
     CHECK(opened > 0);
     CHECK(styled > 0);
     juce::PopupMenu::dismissAllActiveMenus();
+}
+
+TEST_CASE("a latched pad shows the blue dot in the editor", "[look]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    DubgefahrenProcessor p;
+    p.prepareToPlay(48000.0, 512);
+    auto* mode = p.state().getParameter(slotParamId(0, SlotField::TrigMode));
+    mode->setValueNotifyingHost(mode->convertTo0to1(1.0f)); // Latch
+    juce::AudioBuffer<float> buf(2, 512);
+    juce::MidiBuffer on;
+    on.addEvent(juce::MidiMessage::noteOn(1, 36, static_cast<juce::uint8>(100)), 0);
+    buf.clear();
+    p.processBlock(buf, on);
+    REQUIRE(p.latchedMask() == 1u);
+
+    std::unique_ptr<juce::AudioProcessorEditor> editor(p.createEditor());
+    auto* e = static_cast<DubgefahrenEditor*>(editor.get());
+    e->selectSlot(1); // überträgt die Pad-Zustände des Processors auf die Pads
+    const auto img = dgtest::snapshot(*editor);
+    dgtest::savePng(img, "editor-latched");
+    // Mitte des Punkts oben rechts auf Pad 1 (unten links im Raster).
+    const auto dot = img.getPixelAt(87, 333);
+    CHECK(dot.getBlue() > 200);
+    CHECK(dot.getBlue() > dot.getRed() + 80);
+}
+
+namespace {
+juce::Label* valueBox(juce::Slider& slider)
+{
+    for (auto* child : slider.getChildren())
+        if (auto* label = dynamic_cast<juce::Label*>(child))
+            return label;
+    return nullptr;
+}
+} // namespace
+
+TEST_CASE("a knob's value field has no frame and no box", "[look]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    // Wie im Editor: Der Elternteil hat das Look-and-Feel schon, der Regler kommt später dazu.
+    ui::DgLookAndFeel lnf;
+    juce::Component parent;
+    parent.setLookAndFeel(&lnf);
+    ui::Knob knob("Pitch");
+    parent.addAndMakeVisible(knob);
+    auto* box = valueBox(knob.slider);
+    REQUIRE(box != nullptr);
+    CHECK(box->findColour(juce::Label::outlineColourId).isTransparent());
+    CHECK(box->findColour(juce::Label::backgroundColourId).isTransparent());
+    CHECK(box->findColour(juce::Label::textColourId) == ui::colours::text);
+    parent.removeChildComponent(&knob);
+    parent.setLookAndFeel(nullptr);
+}
+
+TEST_CASE("a knob shows its value with at most two decimals", "[look]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    DubgefahrenProcessor p;
+    ui::Knob pitch("Pitch");
+    pitch.attach(p.state(), slotParamId(0, SlotField::Pitch));
+    CHECK(pitch.slider.getTextFromValue(600.00006) == "600.00");
+    CHECK(pitch.slider.getTextFromValue(123.456) == "123.46");
+    CHECK(pitch.slider.getTextFromValue(3999.9993) == "4000.00");
+    auto* box = valueBox(pitch.slider);
+    REQUIRE(box != nullptr);
+    CHECK(box->getText() == pitch.slider.getTextFromValue(pitch.slider.getValue()));
+    CHECK(box->getText().fromFirstOccurrenceOf(".", false, false).length() == 2);
+
+    ui::Knob volume("Volume");
+    volume.attach(p.state(), slotParamId(0, SlotField::Volume));
+    CHECK(volume.slider.getTextFromValue(-9.0) == "-9.00");
+
+    ui::Knob pan("Pan");
+    pan.attach(p.state(), slotParamId(0, SlotField::Pan));
+    CHECK(pan.slider.getTextFromValue(-0.001) == "0.00"); // kein "-0.00"
+    CHECK(pan.slider.getTextFromValue(-0.25) == "-0.25");
+
+    // Neu verbinden (Slot-Wechsel) behält die Darstellung.
+    pitch.attach(p.state(), slotParamId(1, SlotField::Pitch));
+    CHECK(pitch.slider.getTextFromValue(123.456) == "123.46");
+    // Eingetippte Werte werden weiter verstanden.
+    CHECK(std::abs(pitch.slider.getValueFromText("440.5") - 440.5) < 0.01);
 }
