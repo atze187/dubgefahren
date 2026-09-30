@@ -1,5 +1,6 @@
 #include "plugin/ui/Controls.h"
 #include "plugin/ui/DgLookAndFeel.h"
+#include "plugin/ui/Fonts.h"
 
 namespace dg::ui {
 
@@ -9,13 +10,18 @@ void setupLabel(juce::Label& l, const juce::String& text)
     l.setText(text, juce::dontSendNotification);
     l.setJustificationType(juce::Justification::centred);
     l.setColour(juce::Label::textColourId, colours::textDim);
-    l.setFont(juce::FontOptions(12.0f));
+    l.setFont(font(12.0f));
 }
 } // namespace
 
 Knob::Knob(const juce::String& labelText)
 {
     slider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+    // Farben des Wertefelds direkt am Slider setzen: Das Feld wird beim Anlegen gebaut, bevor der
+    // Regler unter dem Look-and-Feel des Editors hängt, und übernähme sonst dessen Standardfarben.
+    slider.setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
+    slider.setColour(juce::Slider::textBoxBackgroundColourId, juce::Colours::transparentBlack);
+    slider.setColour(juce::Slider::textBoxTextColourId, colours::text);
     slider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 64, 16);
     setupLabel(label, labelText);
     addAndMakeVisible(slider);
@@ -26,6 +32,15 @@ void Knob::attach(juce::AudioProcessorValueTreeState& apvts, const juce::String&
 {
     attachment_.reset();
     attachment_ = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(apvts, paramId, slider);
+    // Die Attachment setzt die Textfunktion des Parameters (bis zu 7 Nachkommastellen). Angezeigt
+    // werden zwei, bei Zeiten (Einheit s) drei; der Wert selbst bleibt unverändert genau.
+    const auto* param = apvts.getParameter(paramId);
+    const int decimals = param != nullptr && param->getLabel() == "s" ? 3 : 2;
+    slider.textFromValueFunction = [decimals](double value) {
+        const auto text = juce::String(value, decimals);
+        return text.startsWith("-") && text.getDoubleValue() == 0.0 ? text.substring(1) : text; // kein "-0.00"
+    };
+    slider.updateText();
 }
 
 void Knob::resized()

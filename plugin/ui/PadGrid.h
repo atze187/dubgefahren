@@ -31,11 +31,27 @@ public:
     bool isSample(int slot) const;
     bool isMissing(int slot) const;
 
+    // So weit ragt der Glow höchstens über ein Pad hinaus (px im Basis-Layout).
+    static constexpr int kGlowReach = 24;
+
+    // Glow aller Pads in den Koordinaten dieses Rasters. Ragt über die Pads und das Raster
+    // hinaus und wird deshalb vom Editor unter den Komponenten gezeichnet.
+    void paintGlows(juce::Graphics& g);
+    // Ein Glow hat sich geändert: Bereich (Raster-Koordinaten) neu zeichnen.
+    std::function<void(juce::Rectangle<int>)> onGlowChanged;
+
+    float padBrightness(int slot) const;
+    // Grundfarbe eines Pads: ruhend gedämpft, spielend hell. Vorerst für alle gleich (siehe #14).
+    void setPadBaseColour(int slot, juce::Colour colour);
+    juce::Colour padBaseColour(int slot) const;
+
     void paint(juce::Graphics& g) override;
     void resized() override;
 
 private:
     class Pad;
+    void glowChanged(int slot);
+    double lastTickMs_ = 0.0;
     DubgefahrenProcessor& proc_;
     std::array<std::unique_ptr<Pad>, kNumSlots> pads_;
 };

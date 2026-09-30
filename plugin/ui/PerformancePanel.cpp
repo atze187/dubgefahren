@@ -2,6 +2,8 @@
 #include "plugin/ParameterLayout.h"
 #include "plugin/PluginProcessor.h"
 #include "plugin/ui/DgLookAndFeel.h"
+#include "plugin/ui/Fonts.h"
+#include "plugin/ui/Surfaces.h"
 
 namespace dg::ui {
 
@@ -20,10 +22,9 @@ PerformancePanel::PerformancePanel(DubgefahrenProcessor& proc)
 
 void PerformancePanel::paint(juce::Graphics& g)
 {
-    g.setColour(colours::panel);
-    g.fillRoundedRectangle(getLocalBounds().toFloat(), 8.0f);
+    drawPanelBody(g, getLocalBounds().toFloat());
     g.setColour(colours::textDim);
-    g.setFont(juce::FontOptions(11.0f, juce::Font::bold));
+    g.setFont(font(11.0f, true));
     g.drawText("PERFORMANCE", 12, 0, 120, getHeight(), juce::Justification::centredLeft);
 }
 

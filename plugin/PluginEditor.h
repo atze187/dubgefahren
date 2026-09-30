@@ -1,4 +1,5 @@
 #pragma once
+#include <array>
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -12,6 +13,7 @@
 #include "plugin/ui/PadGrid.h"
 #include "plugin/ui/PerformancePanel.h"
 #include "plugin/ui/SlotEditor.h"
+#include "plugin/ui/Surfaces.h"
 
 namespace dg {
 
@@ -44,6 +46,10 @@ public:
     juce::String slotEditorSampleText() const { return slotEditor_.sampleButtonText(); }
     bool slotEditorLatchSelectable() const { return slotEditor_.isLatchSelectable(); }
     juce::String lastMessage() const { return lastMessage_; }
+    // Für Tests: der zuletzt geöffnete, noch offene Dialog (Meldung oder Rename).
+    juce::AlertWindow* topDialog() const;
+    // Für Tests öffentlich: öffnet das Kontextmenü eines Pads.
+    void showPadMenu(int slot);
 
     // Für Tests öffentlich: bauen die Popup-Menüs von Kit-Button, Pad-Rechtsklick und leerem Pad.
     juce::PopupMenu buildKitMenu(const juce::Array<juce::File>& kitFiles) const;
@@ -59,7 +65,6 @@ private:
     void refreshAll();
     void setPanic(bool down);
     void showKitMenu();
-    void showPadMenu(int slot);
     void showSourceMenu(int slot);
     void showSampleMenu(int slot);
     void chooseSource(int slot, int result, const juce::StringArray& files);
@@ -69,6 +74,11 @@ private:
     void exportKit();
     void loadKit(const juce::File& file);
     void showMessage(const juce::String& title, const juce::String& text);
+    // Legt einen Dialog im Look des Editors an. Der Editor merkt ihn sich und schließt ihn in seinem
+    // Destruktor: Der Dialog benutzt lnf_ und darf den Editor deshalb nicht überleben.
+    juce::AlertWindow* createDialog(const juce::String& title, const juce::String& text, juce::MessageBoxIconType icon);
+    // Popup-Menüs sind eigene Fenster und erben das Look-and-Feel des Editors nicht von selbst.
+    juce::PopupMenu styled(juce::PopupMenu menu);
     void maybeShowConfigWarning();
     // Bit s gesetzt = Slot s hat eine klingende Quelle.
     std::uint32_t soundMask() const;
@@ -87,6 +97,7 @@ private:
     ui::SlotEditor slotEditor_;
     ui::FxPanel fx_;
     ui::PerformancePanel perf_;
+    std::array<ui::PanelShadow, 3> panelShadows_;
     std::unique_ptr<juce::FileChooser> chooser_;
     struct ClipboardSlot
     {
@@ -96,6 +107,7 @@ private:
     };
     std::optional<ClipboardSlot> clipboard_;
     juce::String lastMessage_;
+    juce::Array<juce::Component::SafePointer<juce::AlertWindow>> dialogs_;
     int selectedSlot_ = 0;
     int lastFocus_ = -1;
     int lastStateGeneration_ = -1;

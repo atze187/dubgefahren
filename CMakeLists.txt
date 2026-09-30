@@ -17,6 +17,13 @@ FetchContent_Declare(Catch2
     GIT_TAG v3.16.0
     GIT_SHALLOW ON)
 FetchContent_MakeAvailable(JUCE Catch2)
+# Der Ordner muss wie das Modul heißen: JUCE liest den Modulnamen aus dem Ordnernamen.
+FetchContent_Declare(melatonin_blur
+    GIT_REPOSITORY https://github.com/sudara/melatonin_blur.git
+    GIT_TAG v1.4
+    GIT_SHALLOW ON
+    SOURCE_DIR ${CMAKE_BINARY_DIR}/_deps/melatonin_blur)
+FetchContent_MakeAvailable(melatonin_blur)
 list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
 
 enable_testing()

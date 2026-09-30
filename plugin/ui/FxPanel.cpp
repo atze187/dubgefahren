@@ -2,6 +2,8 @@
 #include "plugin/ParameterLayout.h"
 #include "plugin/PluginProcessor.h"
 #include "plugin/ui/DgLookAndFeel.h"
+#include "plugin/ui/Fonts.h"
+#include "plugin/ui/Surfaces.h"
 
 namespace dg::ui {
 
@@ -35,16 +37,14 @@ FxPanel::FxPanel(DubgefahrenProcessor& proc)
 
 void FxPanel::paint(juce::Graphics& g)
 {
-    g.setColour(colours::panel);
-    g.fillRoundedRectangle(getLocalBounds().toFloat(), 8.0f);
-    g.setFont(juce::FontOptions(11.0f, juce::Font::bold));
+    drawPanelBody(g, getLocalBounds().toFloat());
+    g.setFont(font(11.0f, true));
     for (const auto& grp : kGroups)
     {
         const int x = 12 + grp.firstCell * kCell;
         g.setColour(colours::textDim);
         g.drawText(grp.title, x, 4, grp.cells * kCell, 16, juce::Justification::centredLeft);
-        g.setColour(colours::outline);
-        g.drawVerticalLine(x - 4, 6.0f, static_cast<float>(getHeight() - 6));
+        drawDivider(g, static_cast<float>(x - 5), 6.0f, static_cast<float>(getHeight() - 6));
     }
 }
 
