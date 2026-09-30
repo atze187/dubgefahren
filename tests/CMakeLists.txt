@@ -7,6 +7,7 @@ add_executable(DubgefahrenTests
     test_Envelope.cpp
     test_SirenVoice.cpp
     test_SamplePlayer.cpp
+    test_SampleRegion.cpp
     test_PadRouter.cpp
     test_FxUnits.cpp
     test_TapeDelay.cpp

@@ -36,6 +36,12 @@ const std::array<FieldSpec, kNumSlotFields> kSpecs { {
     { "pan",        "Pan",            FieldKind::Float, -1.0f, 1.0f, 0.0f, 0.0f, "", {} },
     { "send",       "FX-Send",        FieldKind::Float, 0.0f, 1.0f, 0.3f, 0.0f, "", {} },
     { "tune",       "Tune",           FieldKind::Float, -24.0f, 24.0f, 0.0f, 0.0f, "st", {}, 3 },
+    { "smpStart",   "Sample Start",   FieldKind::Float, 0.0f, 1.0f, 0.0f, 0.0f, "", {}, 4 },
+    { "loopStart",  "Loop Start",     FieldKind::Float, 0.0f, 1.0f, 0.0f, 0.0f, "", {}, 4 },
+    { "smpEnd",     "Sample End",     FieldKind::Float, 0.0f, 1.0f, 1.0f, 0.0f, "", {}, 4 },
+    { "loop",       "Loop",           FieldKind::Bool, 0.0f, 1.0f, 0.0f, 0.0f, "", {}, 4 },
+    { "reverse",    "Reverse",        FieldKind::Bool, 0.0f, 1.0f, 0.0f, 0.0f, "", {}, 4 },
+    { "xfade",      "Loop X-Fade",    FieldKind::Float, 0.0f, 50.0f, 5.0f, 0.0f, "%", {}, 4 },
 } };
 
 } // namespace
@@ -65,6 +71,12 @@ float getSlotField(const SlotParams& p, SlotField f)
         case SlotField::Pan:           return p.pan;
         case SlotField::FxSend:        return p.fxSend;
         case SlotField::Tune:          return p.tuneSemis;
+        case SlotField::SampleStart:   return p.sampleStart;
+        case SlotField::LoopStart:     return p.loopStart;
+        case SlotField::SampleEnd:     return p.sampleEnd;
+        case SlotField::Loop:          return p.loop ? 1.0f : 0.0f;
+        case SlotField::Reverse:       return p.reverse ? 1.0f : 0.0f;
+        case SlotField::LoopXfade:     return p.loopXfadePct;
         case SlotField::Count:         break;
     }
     return 0.0f;
@@ -99,6 +111,12 @@ void setSlotField(SlotParams& p, SlotField f, float value)
         case SlotField::Pan:           p.pan = value; break;
         case SlotField::FxSend:        p.fxSend = value; break;
         case SlotField::Tune:          p.tuneSemis = value; break;
+        case SlotField::SampleStart:   p.sampleStart = value; break;
+        case SlotField::LoopStart:     p.loopStart = value; break;
+        case SlotField::SampleEnd:     p.sampleEnd = value; break;
+        case SlotField::Loop:          p.loop = i != 0; break;
+        case SlotField::Reverse:       p.reverse = i != 0; break;
+        case SlotField::LoopXfade:     p.loopXfadePct = value; break;
         case SlotField::Count:         break;
     }
 }
@@ -120,6 +138,13 @@ std::optional<SlotField> slotFieldFromKey(std::string_view key)
         if (key == kSpecs[static_cast<std::size_t>(i)].key)
             return static_cast<SlotField>(i);
     return std::nullopt;
+}
+
+void resetSampleRegionFields(SlotParams& p)
+{
+    for (const auto f : { SlotField::SampleStart, SlotField::LoopStart, SlotField::SampleEnd, SlotField::Loop, SlotField::Reverse,
+                          SlotField::LoopXfade })
+        setSlotField(p, f, fieldSpec(f).def);
 }
 
 } // namespace dg

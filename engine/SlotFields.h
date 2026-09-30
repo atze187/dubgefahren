@@ -15,6 +15,7 @@ enum class SlotField
     TrigMode, OneShotLength, Choke,
     Volume, Pan, FxSend,
     Tune,
+    SampleStart, LoopStart, SampleEnd, Loop, Reverse, LoopXfade,
     Count
 };
 constexpr int kNumSlotFields = static_cast<int>(SlotField::Count);
@@ -40,5 +41,7 @@ float getSlotField(const SlotParams& p, SlotField f);
 void setSlotField(SlotParams& p, SlotField f, float value);
 SlotParams makeDefaultSlotParams();
 std::optional<SlotField> slotFieldFromKey(std::string_view key);
+// Setzt die sechs Bereichsfelder eines Sample-Slots auf ihre Standardwerte (ganze Datei, kein Loop).
+void resetSampleRegionFields(SlotParams& p);
 
 } // namespace dg
