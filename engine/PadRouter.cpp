@@ -100,6 +100,10 @@ void PadRouter::advance(int numSamples, VoiceControl& voices)
 {
     for (int s = 0; s < kNumSlots; ++s)
     {
+        // Eine gelatchte Stimme, die von selbst geendet hat (Sample ohne Loop), ist nicht mehr gelatcht.
+        if (latched_[s] && !voices.isVoiceActive(s))
+            latched_[s] = false;
+
         if (oneShotRemaining_[s] < 0)
             continue;
         oneShotRemaining_[s] -= numSamples;

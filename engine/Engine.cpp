@@ -100,9 +100,12 @@ void Engine::process(float* outL, float* outR, int numSamples, const EngineParam
         const SlotParams& sp = params.slots[s];
         if (sp.source == SourceType::Sample)
         {
-            // Sample: One Shot spielt bis zum Ende, Latch wirkt wie Gate.
+            // Sample: One Shot spielt bis zum Ende des Bereichs. Latch gilt nur für geloopte
+            // Samples, sonst wirkt es wie Gate.
             const bool oneShot = sp.trigMode == TriggerMode::OneShot;
-            trig_[s] = { oneShot ? TriggerMode::OneShot : TriggerMode::Gate, sp.oneShotS, sp.chokeGroup, oneShot };
+            const bool latch = sp.trigMode == TriggerMode::Latch && sp.loop;
+            const TriggerMode mode = oneShot ? TriggerMode::OneShot : latch ? TriggerMode::Latch : TriggerMode::Gate;
+            trig_[s] = { mode, sp.oneShotS, sp.chokeGroup, oneShot };
         }
         else
             trig_[s] = { sp.trigMode, sp.oneShotS, sp.chokeGroup, false };
