@@ -28,6 +28,10 @@ private:
     double fadePos_ = 0.0;
     double fadeDir_ = 1.0;
     float fadeGain_ = 0.0f;
+    // Der alte Kopf stammt von einem Sprung nach einer Marker-Änderung und liegt außerhalb des
+    // Segments: Er liest ohne X-Fade weiter, sonst spränge er um eine Segmentlänge.
+    bool fadeRaw_ = false;
+    bool startedAsOneShot_ = false;
     // Der Bereich wurde unter der Stimme weggezogen: Sie blendet per Kill-Fade aus und
     // beachtet das Bereichsende nicht mehr.
     bool overrun_ = false;

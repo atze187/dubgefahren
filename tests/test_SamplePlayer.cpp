@@ -639,3 +639,61 @@ TEST_CASE("a loop keeps running during the release and then ends", "[sampler][lo
     renderN(v, ctx, 2400);
     CHECK_FALSE(v.isActive());
 }
+
+TEST_CASE("moving a marker behind the position does not click when the loop crossfades", "[sampler][loop]")
+{
+    const auto d = rampData(4800);
+    SECTION("forward: end marker")
+    {
+        SamplePlayer v;
+        v.prepare(kSr);
+        SlotParams p = loopParams(0.0f, 0.25f, 0.75f, 25.0f); // L 1200, E 3600
+        VoiceContext ctx { &p, 120.0, {}, &d };
+        v.start(ctx, 1);
+        const auto before = renderN(v, ctx, 3000);
+        p.sampleEnd = 0.5f; // End 2400: die Position 3000 liegt dahinter
+        const auto after = renderN(v, ctx, 1000);
+        CHECK(std::abs(after[0] - before.back()) < 0.002f);
+        CHECK(maxStep(after, 1, 1000) < 0.002f);
+        CHECK_THAT(after[300], WithinAbs(rampAt(1500), 1e-3));
+        CHECK(v.isActive());
+    }
+    SECTION("reverse: start marker")
+    {
+        SamplePlayer v;
+        v.prepare(kSr);
+        SlotParams p = loopParams(0.25f, 0.5f, 0.75f, 25.0f); // S 1200, L 2400, E 3600
+        p.reverse = true;
+        VoiceContext ctx { &p, 120.0, {}, &d };
+        v.start(ctx, 1);
+        const auto before = renderN(v, ctx, 600); // Position 2999
+        p.sampleStart = 0.6875f;                  // Start 3300: die Position liegt in Laufrichtung dahinter
+        const auto after = renderN(v, ctx, 1000);
+        CHECK(std::abs(after[0] - before.back()) < 0.002f);
+        CHECK(maxStep(after, 1, 1000) < 0.002f);
+        CHECK(dgtest::peakAbs(after, 300) <= rampAt(3600));
+        CHECK(dgtest::peakAbs(after, 300) >= rampAt(3300) - 1e-3f);
+        CHECK(v.isActive());
+    }
+}
+
+TEST_CASE("a voice started as one shot never starts looping", "[sampler][loop]")
+{
+    const auto d = rampData(4800);
+    SamplePlayer v;
+    v.prepare(kSr);
+    SlotParams p = loopParams(0.0f, 0.5f, 0.75f);
+    p.trigMode = TriggerMode::OneShot;
+    VoiceContext ctx { &p, 120.0, {}, &d };
+    v.start(ctx, 1);
+    renderN(v, ctx, 1000);
+    p.trigMode = TriggerMode::Gate; // Modus während des Spielens umgestellt: keine Note hält die Stimme
+    const auto out = renderN(v, ctx, 5000);
+    CHECK_FALSE(v.isActive());
+    CHECK(dgtest::peakAbs(out, 2602) == 0.0f);
+
+    // Eine danach neu gestartete Stimme loopt wie eingestellt.
+    v.start(ctx, 2);
+    renderN(v, ctx, 6000);
+    CHECK(v.isActive());
+}

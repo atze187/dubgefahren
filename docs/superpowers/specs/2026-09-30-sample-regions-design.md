@@ -105,7 +105,9 @@ Loop-Start = Start (Reverse), also auch bei den Standardwerten mit Reverse.
 - Ohne Schleife wird am Ende des Bereichs wie bisher über 2 ms linear ausgeblendet
   (vorwärts vor `end`, rückwärts vor `start`).
 - „Loop an“ gilt für die Stimme nur, wenn das Feld `Loop` an ist **und** der
-  Trigger-Modus nicht One Shot ist.
+  Trigger-Modus nicht One Shot ist. Eine als One Shot gestartete Stimme beginnt auch
+  dann nicht zu loopen, wenn der Modus während des Spielens umgestellt wird; sonst
+  würde sie keine Note und kein Latch mehr beenden.
 
 ### 4.4 X-Fade
 

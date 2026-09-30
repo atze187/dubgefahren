@@ -26,8 +26,13 @@ float cubicAt(const std::vector<float>& x, double pos)
     return y1 + 0.5f * t * (y2 - y0 + t * (2.0f * y0 - 5.0f * y1 + 4.0f * y2 - y3 + t * (3.0f * (y1 - y2) + y3 - y0)));
 }
 
-// Die Stimme loopt nur, wenn Loop an ist und der Slot nicht als One Shot spielt.
-bool loops(const SlotParams& p) { return p.loop && p.trigMode != TriggerMode::OneShot; }
+// Die Stimme loopt nur, wenn Loop an ist und der Slot nicht als One Shot spielt. Eine als One Shot
+// gestartete Stimme beginnt auch dann nicht zu loopen, wenn der Modus während des Spielens
+// umgestellt wird: Keine Note und kein Latch würde sie mehr beenden.
+bool loops(const SlotParams& p, bool startedAsOneShot)
+{
+    return p.loop && !startedAsOneShot && p.trigMode != TriggerMode::OneShot;
+}
 } // namespace
 
 void SamplePlayer::prepare(double sampleRate)
@@ -54,12 +59,14 @@ void SamplePlayer::start(const VoiceContext& ctx, std::uint32_t)
         fadePos_ = pos_;
         fadeDir_ = dir_;
         fadeGain_ = 1.0f;
+        fadeRaw_ = false;
     }
     else
         fadeGain_ = 0.0f;
     dir_ = p.reverse ? -1.0 : 1.0;
     pos_ = p.reverse ? std::max(region.start, region.end - 1.0) : region.start;
     overrun_ = false;
+    startedAsOneShot_ = p.trigMode == TriggerMode::OneShot;
     smPitch_ = ctx.perf.pitchSemis;
     env_.noteOn(p.attackS);
 }
@@ -90,7 +97,7 @@ void SamplePlayer::render(float* out, int numSamples, const VoiceContext& ctx)
     const auto& x = d->samples;
     const SampleRegion region = resolveSampleRegion(p.sampleStart, p.loopStart, p.sampleEnd, x.size());
     dir_ = p.reverse ? -1.0 : 1.0; // wirkt sofort, auch während des Spielens
-    const bool looping = loops(p);
+    const bool looping = loops(p, startedAsOneShot_);
     const LoopSegment seg = resolveLoopSegment(region, p.reverse, x.size());
     const double segLen = seg.hi - seg.lo;
     // X-Fade: Anteil der Segmentlänge, begrenzt auf das Material, das in Laufrichtung vor dem
@@ -129,6 +136,7 @@ void SamplePlayer::render(float* out, int numSamples, const VoiceContext& ctx)
                     fadePos_ = pos_;
                     fadeDir_ = dir_;
                     fadeGain_ = 1.0f;
+                    fadeRaw_ = true; // die alte Position liegt außerhalb des Segments: ohne X-Fade weiterlesen
                     pos_ = dir_ > 0.0 ? seg.lo : std::max(seg.lo, seg.hi - 1.0);
                 }
                 else if (dir_ > 0.0)
@@ -160,9 +168,9 @@ void SamplePlayer::render(float* out, int numSamples, const VoiceContext& ctx)
         // Liest das Sample an pos. Kurz vor dem Rücksprung wird in das Material übergeblendet, das
         // eine Segmentlänge entfernt liegt; am Sprung ist das Signal dadurch stetig. Hinter dem
         // Segmentende (g = 1) liest der Kopf so weiter, als wäre er schon gesprungen.
-        const auto read = [&](double pos, double dir) {
+        const auto read = [&](double pos, double dir, bool raw) {
             float v = cubicAt(x, pos);
-            if (xf > 0.0 && dir == dir_)
+            if (xf > 0.0 && dir == dir_ && !raw)
             {
                 if (dir > 0.0 && pos >= seg.hi - xf)
                 {
@@ -179,7 +187,7 @@ void SamplePlayer::render(float* out, int numSamples, const VoiceContext& ctx)
         };
 
         // Beim Retrigger und beim Sprung Überblendung: neuer Kopf blendet ein, alter aus (Summe der Gewichte = 1).
-        float y = read(pos_, dir_) * endGain(pos_, dir_) * (1.0f - fadeGain_);
+        float y = read(pos_, dir_, false) * endGain(pos_, dir_) * (1.0f - fadeGain_);
         pos_ += dir_ * step;
         if (fadeGain_ > 0.0f)
         {
@@ -187,7 +195,7 @@ void SamplePlayer::render(float* out, int numSamples, const VoiceContext& ctx)
             // damit das Einblenden des neuen Kopfes stetig bleibt.
             // Der alte Kopf liest mit derselben Überblendung weiter, sonst spränge das Signal, wenn
             // der Retrigger mitten in die X-Fade-Zone fällt.
-            y += read(fadePos_, fadeDir_) * endGain(fadePos_, fadeDir_) * fadeGain_;
+            y += read(fadePos_, fadeDir_, fadeRaw_) * endGain(fadePos_, fadeDir_) * fadeGain_;
             fadePos_ += fadeDir_ * step;
             fadeGain_ = std::max(0.0f, fadeGain_ - fadeDec);
         }
