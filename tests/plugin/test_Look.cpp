@@ -12,7 +12,10 @@
 #include "plugin/ui/PadGlow.h"
 #include "plugin/ui/PadGrid.h"
 #include "plugin/ui/Surfaces.h"
+#include "plugin/SampleFiles.h"
+#include "engine/Kit.h"
 #include "RenderTestHelpers.h"
+#include "SampleTestHelpers.h"
 
 using namespace dg;
 
@@ -555,4 +558,43 @@ TEST_CASE("time knobs show three decimals, everything else two", "[look]")
     CHECK(text(SlotField::Pitch, 600.00006) == "600.00");
     CHECK(text(SlotField::LfoRate, 3.9999993) == "4.00");
     CHECK(text(SlotField::Volume, -9.0) == "-9.00");
+}
+
+TEST_CASE("the editor paints a sample slot at every window scale", "[look]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    dgtest::TempDir tmp;
+    const auto kitFile = tmp.dir.getChildFile("Dub.dgkit");
+    sampleFolderFor(kitFile).createDirectory();
+    juce::WavAudioFormat wav;
+    dgtest::writeSine(wav, sampleFolderFor(kitFile).getChildFile("horn.wav"), 441.0f, 48000.0, 4800);
+
+    for (const float scale : { 0.75f, 1.0f, 2.0f })
+    {
+        DubgefahrenProcessor p;
+        p.applyKit(makeFactoryKit(), kitFile);
+        p.setSlotSample(2, "horn.wav");
+        p.setSlotSample(3, "gone.wav");
+        p.waitForSampleLoads();
+        SlotParams sp = readSlotFromParameters(p.state(), 2);
+        sp.sampleStart = 0.1f;
+        sp.loopStart = 0.4f;
+        sp.sampleEnd = 0.8f;
+        sp.loop = true;
+        p.setSlot(2, sp, "horn", "horn.wav");
+        p.waitForSampleLoads();
+        p.setUiScale(scale);
+        std::unique_ptr<juce::AudioProcessorEditor> editor(p.createEditor());
+        auto* e = static_cast<DubgefahrenEditor*>(editor.get());
+
+        e->selectSlot(2);
+        const auto img = dgtest::snapshot(*editor);
+        REQUIRE(img.isValid());
+        dgtest::savePng(img, "editor-sample-" + juce::String(scale, 2));
+
+        e->selectSlot(3); // fehlendes Sample: Hinweis statt Kurve
+        const auto missing = dgtest::snapshot(*editor);
+        REQUIRE(missing.isValid());
+        dgtest::savePng(missing, "editor-sample-missing-" + juce::String(scale, 2));
+    }
 }

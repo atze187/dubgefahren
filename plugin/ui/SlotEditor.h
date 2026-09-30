@@ -3,6 +3,7 @@
 #include <vector>
 #include <juce_gui_basics/juce_gui_basics.h>
 #include "plugin/ui/Controls.h"
+#include "plugin/ui/WaveformView.h"
 
 namespace dg {
 class DubgefahrenProcessor;
@@ -25,6 +26,9 @@ public:
     juce::String sampleButtonText() const { return sampleButton_.getButtonText(); }
     bool isLatchSelectable() const { return trigMode_.box.isItemEnabled(kLatchItemId); }
     juce::Component& sampleButton() { return sampleButton_; }
+    WaveformView& waveform() { return waveform_; }
+    const WaveformView& waveform() const { return waveform_; }
+    bool showsLoopControls() const { return loop_.isVisible() && reverse_.isVisible() && xfade_.isVisible(); }
 
     void paint(juce::Graphics& g) override;
     void resized() override;
@@ -32,6 +36,7 @@ public:
 private:
     enum class Mode { Empty, Synth, Sample };
     static constexpr int kLatchItemId = 2; // ComboBox-IDs 1..3 = Gate, Latch, One-Shot
+    void updateLatchItem();
     Mode mode_ = Mode::Synth;
     DubgefahrenProcessor& proc_;
     int slot_ = -1;
@@ -58,6 +63,10 @@ private:
     Knob send_ { u8("FX-Send") };
 
     Knob tune_ { u8("Tune") };
+    Toggle loop_ { u8("Loop") };
+    Toggle reverse_ { u8("Reverse") };
+    Knob xfade_ { u8("X-Fade") };
+    WaveformView waveform_;
     juce::TextButton sampleButton_;
     std::vector<juce::Component*> sampleControls_;
 
