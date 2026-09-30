@@ -36,6 +36,7 @@ DubgefahrenEditor::DubgefahrenEditor(DubgefahrenProcessor& proc)
     pads_.onSelect = [this](int s) { selectSlot(s); };
     pads_.onContextMenu = [this](int s) { showPadMenu(s); };
     pads_.onEmptyClick = [this](int s) { showSourceMenu(s); };
+    pads_.onGlowChanged = [this](juce::Rectangle<int> area) { repaint(getLocalArea(&pads_, area)); };
     slotEditor_.onRename = [this] { renameSlot(selectedSlot_); };
     slotEditor_.onChooseSample = [this] { showSampleMenu(selectedSlot_); };
 
@@ -76,6 +77,8 @@ void DubgefahrenEditor::paint(juce::Graphics& g)
     panelShadows_[0].render(g, slotEditor_.getBounds().toFloat());
     panelShadows_[1].render(g, fx_.getBounds().toFloat());
     panelShadows_[2].render(g, perf_.getBounds().toFloat());
+    g.setOrigin(pads_.getPosition());
+    pads_.paintGlows(g);
 }
 
 void DubgefahrenEditor::resized()

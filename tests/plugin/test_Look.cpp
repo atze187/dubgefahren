@@ -1,9 +1,12 @@
 #include <catch2/catch_test_macros.hpp>
 #include <memory>
+#include <vector>
 #include "plugin/PluginEditor.h"
 #include "plugin/PluginProcessor.h"
 #include "plugin/ui/DgLookAndFeel.h"
 #include "plugin/ui/Fonts.h"
+#include "plugin/ui/PadGlow.h"
+#include "plugin/ui/PadGrid.h"
 #include "plugin/ui/Surfaces.h"
 #include "RenderTestHelpers.h"
 
@@ -116,4 +119,132 @@ TEST_CASE("the editor paints at every window scale", "[look]")
         CHECK(panel != window);
         dgtest::savePng(img, "editor-" + juce::String(scale, 2));
     }
+}
+
+TEST_CASE("a pad lights up on trigger and fades after release", "[look]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    DubgefahrenProcessor p;
+    ui::PadGrid grid(p);
+    grid.setSize(360, 384);
+
+    CHECK(grid.padBrightness(0) == 0.0f);
+    grid.setPadStates(1u, 0u, 0);
+    CHECK(grid.padBrightness(0) == 1.0f);
+    CHECK(grid.padBrightness(1) == 0.0f);
+
+    juce::Thread::sleep(400);
+    grid.setPadStates(1u, 0u, 0);
+    CHECK(grid.padBrightness(0) == ui::kPadGlowHold);
+
+    grid.setPadStates(0u, 0u, 0);
+    juce::Thread::sleep(250);
+    grid.setPadStates(0u, 0u, 0);
+    CHECK(grid.padBrightness(0) == 0.0f);
+}
+
+TEST_CASE("an empty pad never lights up", "[look]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    DubgefahrenProcessor p;
+    p.clearSlot(2);
+    ui::PadGrid grid(p);
+    grid.setSize(360, 384);
+    grid.setPadStates(1u << 2, 0u, 0);
+    CHECK(grid.padBrightness(2) == 0.0f);
+
+    // Ein leuchtendes Pad wird geleert: Es klingt aus, statt weiter zu leuchten.
+    grid.setPadStates(1u << 5, 0u, 0);
+    CHECK(grid.padBrightness(5) == 1.0f);
+    p.clearSlot(5);
+    grid.refreshNames();
+    juce::Thread::sleep(250);
+    grid.setPadStates(1u << 5, 0u, 0);
+    CHECK(grid.padBrightness(5) == 0.0f);
+}
+
+TEST_CASE("a changing glow reports the pad area plus its reach", "[look]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    DubgefahrenProcessor p;
+    ui::PadGrid grid(p);
+    grid.setSize(360, 384);
+    grid.setPadStates(0u, 0u, 0); // Ausgangszustand, Fokus auf Pad 1
+
+    std::vector<juce::Rectangle<int>> areas;
+    grid.onGlowChanged = [&areas](juce::Rectangle<int> a) { areas.push_back(a); };
+
+    grid.setPadStates(1u << 3, 0u, 0);
+    REQUIRE(areas.size() == 1);
+    CHECK(areas[0] == grid.pad(3).getBounds().expanded(ui::PadGrid::kGlowReach));
+
+    areas.clear();
+    juce::Thread::sleep(20); // messbarer Zeitschritt, damit Pad 4 sicher vom Trigger-Wert abfällt
+    grid.setPadStates(1u << 3, 0u, 1); // Fokus wandert von Pad 1 zu Pad 2
+    CHECK(areas.size() == 3);          // Pad 4 fällt auf den Haltewert, Pad 1 und 2 wechseln den Fokus-Glow
+}
+
+TEST_CASE("pads use the shared base colour until one is assigned", "[look]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    DubgefahrenProcessor p;
+    ui::PadGrid grid(p);
+    CHECK(grid.padBaseColour(0) == ui::colours::padBase);
+    grid.setPadBaseColour(0, juce::Colours::red);
+    CHECK(grid.padBaseColour(0) == juce::Colours::red);
+    CHECK(grid.padBaseColour(1) == ui::colours::padBase);
+}
+
+TEST_CASE("pad glows are drawn outside the pads and only for lit or focused pads", "[look]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    DubgefahrenProcessor p;
+    ui::PadGrid grid(p);
+    grid.setSize(360, 384);
+
+    const auto render = [&grid] {
+        juce::Image img(juce::Image::ARGB, 360 + 2 * ui::PadGrid::kGlowReach, 384 + 2 * ui::PadGrid::kGlowReach, true);
+        juce::Graphics g(img);
+        g.setOrigin(ui::PadGrid::kGlowReach, ui::PadGrid::kGlowReach);
+        grid.paintGlows(g);
+        return img;
+    };
+
+    grid.setPadStates(0u, 0u, -1);
+    CHECK_FALSE(dgtest::hasVisiblePixel(render()));
+
+    grid.setPadStates(1u, 0u, -1); // Pad 1 liegt unten links
+    const auto lit = render();
+    CHECK(dgtest::hasVisiblePixel(lit));
+    // Links neben dem Raster, auf Höhe von Pad 1: Glow ragt über das Raster hinaus.
+    const auto padBounds = grid.pad(0).getBounds();
+    CHECK(lit.getPixelAt(ui::PadGrid::kGlowReach - 3, ui::PadGrid::kGlowReach + padBounds.getCentreY()).getAlpha() > 0);
+}
+
+TEST_CASE("sixteen glowing pads paint within one timer tick", "[look][perf]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    DubgefahrenProcessor p;
+    ui::DgLookAndFeel lnf;
+    ui::PadGrid grid(p);
+    grid.setLookAndFeel(&lnf);
+    grid.setSize(360, 384);
+
+    juce::Image img(juce::Image::ARGB, 720, 768, true); // 2× Fenstergröße
+    constexpr int frames = 60;
+    const double start = juce::Time::getMillisecondCounterHiRes();
+    for (int i = 0; i < frames; ++i)
+    {
+        grid.setPadStates(i % 8 < 4 ? 0x0f0fu : 0x00ffu, 0x00f0u, i % 16); // Trigger, Halten, Ausklingen im Wechsel
+        juce::Graphics g(img);
+        g.fillAll(ui::colours::background); // wie der Editor: jeder Frame beginnt mit dem Hintergrund
+        g.addTransform(juce::AffineTransform::scale(2.0f));
+        grid.paintGlows(g);
+        grid.paintEntireComponent(g, false);
+    }
+    const double perFrame = (juce::Time::getMillisecondCounterHiRes() - start) / frames;
+    WARN("pad frame at 2x: " << perFrame << " ms");
+    CHECK(perFrame < 33.0); // ein Timer-Tick bei 30 Hz
+    dgtest::savePng(img, "pads-2.00");
+    grid.setLookAndFeel(nullptr);
 }
