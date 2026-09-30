@@ -55,7 +55,7 @@ TEST_CASE("invalid kit files are rejected with a message", "[kitfile]")
     CHECK_FALSE(reparse(wrongFormat).kit.has_value());
 
     auto newer = parsed(k);
-    newer.getDynamicObject()->setProperty("version", 4);
+    newer.getDynamicObject()->setProperty("version", 5);
     const auto rNewer = reparse(newer);
     CHECK_FALSE(rNewer.kit.has_value());
     CHECK(rNewer.error.isNotEmpty());
@@ -96,7 +96,7 @@ TEST_CASE("kits with empty slots survive a round-trip", "[kitfile]")
     k.names[2].clear();
 
     const auto v = parsed(k);
-    CHECK(static_cast<int>(v["version"]) == 3);
+    CHECK(static_cast<int>(v["version"]) == 4);
     CHECK(v["slots"][0]["source"].toString() == "synth");
     CHECK(v["slots"][2]["source"].toString() == "empty");
     CHECK_FALSE(v["slots"][2].getDynamicObject()->hasProperty("params"));
@@ -153,7 +153,7 @@ TEST_CASE("unknown or missing sound sources are rejected in version 2", "[kitfil
     CHECK_FALSE(reparse(missing).kit.has_value());
 }
 
-TEST_CASE("sample slots survive a version 3 round-trip", "[kitfile]")
+TEST_CASE("sample slots survive a version 4 round-trip", "[kitfile]")
 {
     Kit k = makeFactoryKit();
     k.slots[3].source = SourceType::Sample;
@@ -161,11 +161,23 @@ TEST_CASE("sample slots survive a version 3 round-trip", "[kitfile]")
     k.samples[3] = juce::String::fromUTF8("Hörner.wav").toStdString();
     k.names[3] = "Horn";
 
+    k.slots[3].sampleStart = 0.25f;
+    k.slots[3].loopStart = 0.5f;
+    k.slots[3].sampleEnd = 0.75f;
+    k.slots[3].loop = true;
+    k.slots[3].reverse = true;
+    k.slots[3].loopXfadePct = 12.5f;
     const auto v = parsed(k);
-    CHECK(static_cast<int>(v["version"]) == 3);
+    CHECK(static_cast<int>(v["version"]) == 4);
     CHECK(v["slots"][3]["source"].toString() == "sample");
     CHECK(v["slots"][3]["sample"].toString() == juce::String::fromUTF8("Hörner.wav"));
     CHECK(static_cast<double>(v["slots"][3]["params"]["tune"]) == 5.0);
+    CHECK(static_cast<double>(v["slots"][3]["params"]["smpStart"]) == 0.25);
+    CHECK(static_cast<double>(v["slots"][3]["params"]["loopStart"]) == 0.5);
+    CHECK(static_cast<double>(v["slots"][3]["params"]["smpEnd"]) == 0.75);
+    CHECK(static_cast<double>(v["slots"][3]["params"]["loop"]) == 1.0);
+    CHECK(static_cast<double>(v["slots"][3]["params"]["reverse"]) == 1.0);
+    CHECK(static_cast<double>(v["slots"][3]["params"]["xfade"]) == 12.5);
     CHECK_FALSE(v["slots"][0].getDynamicObject()->hasProperty("sample"));
 
     const auto r = kitFromJsonString(kitToJsonString(k));
@@ -202,4 +214,35 @@ TEST_CASE("sample slots need version 3 and a plain file name", "[kitfile]")
 
     CHECK(isValidSampleFileName("horn.wav"));
     CHECK(isValidSampleFileName(juce::String::fromUTF8("Hörner (2).flac")));
+}
+
+TEST_CASE("version 3 kits load with default region fields", "[kitfile]")
+{
+    Kit k = makeFactoryKit();
+    k.slots[3].source = SourceType::Sample;
+    k.slots[3].tuneSemis = 5.0f;
+    k.samples[3] = "horn.wav";
+
+    auto v = parsed(k);
+    v.getDynamicObject()->setProperty("version", 3);
+    for (int s = 0; s < kNumSlots; ++s)
+        if (auto* params = v["slots"][s]["params"].getDynamicObject())
+            for (const char* key : { "smpStart", "loopStart", "smpEnd", "loop", "reverse", "xfade" })
+                params->removeProperty(key);
+
+    const auto r = reparse(v);
+    REQUIRE(r.kit.has_value());
+    CHECK(r.kit->slots == k.slots); // k trägt die Standardwerte der neuen Felder
+    CHECK(r.kit->slots[3].sampleEnd == 1.0f);
+    CHECK_FALSE(r.kit->slots[3].loop);
+    CHECK(r.kit->samples == k.samples);
+}
+
+TEST_CASE("version 5 kits are rejected as too new", "[kitfile]")
+{
+    auto v = parsed(makeFactoryKit());
+    v.getDynamicObject()->setProperty("version", 5);
+    const auto r = reparse(v);
+    CHECK_FALSE(r.kit.has_value());
+    CHECK(r.error.contains("newer version"));
 }

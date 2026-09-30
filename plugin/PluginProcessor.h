@@ -65,6 +65,8 @@ public:
     bool isSampleLoaded(int slot) const;
     // Sample-Slot, dessen Datei nicht geladen werden konnte: Verweis bleibt, der Slot ist stumm.
     bool isSampleMissing(int slot) const;
+    // Geladene Daten eines Sample-Slots für die Anzeige (nullptr: keine). Nur im Message-Thread.
+    std::shared_ptr<const SampleData> slotSampleData(int slot) const;
     // Liefert die gesammelten Ladeprobleme ("Slot N: datei – grund") und leert die Liste.
     juce::StringArray takeSampleProblems();
     // True, solange ein Ladeauftrag läuft, dessen Ergebnis noch nicht übernommen wurde (oder ein Reload ansteht).

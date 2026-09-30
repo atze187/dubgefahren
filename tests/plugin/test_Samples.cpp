@@ -302,3 +302,101 @@ TEST_CASE("pending sample loads are reported until the results are handled", "[p
     p.waitForSampleLoads();
     CHECK_FALSE(p.hasPendingSampleLoads());
 }
+
+TEST_CASE("choosing another sample resets the region fields, choosing the same one keeps them", "[plugin][samples]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    SampleKit kit;
+    juce::WavAudioFormat wav;
+    dgtest::writeSine(wav, kit.folder.getChildFile("bell.wav"), 880.0f, 48000.0, 24000);
+    DubgefahrenProcessor p;
+    p.applyKit(makeFactoryKit(), kit.kitFile);
+    p.setSlotSample(3, "horn.wav");
+
+    SlotParams sp = readSlotFromParameters(p.state(), 3);
+    CHECK(sp.sampleStart == 0.0f); // frisch gewählt: Standardwerte
+    CHECK(sp.sampleEnd == 1.0f);
+    sp.sampleStart = 0.25f;
+    sp.loopStart = 0.5f;
+    sp.sampleEnd = 0.75f;
+    sp.loop = true;
+    sp.reverse = true;
+    sp.loopXfadePct = 20.0f;
+    sp.tuneSemis = 3.0f;
+    p.setSlot(3, sp, "horn", "horn.wav");
+
+    p.setSlotSample(3, "horn.wav"); // dasselbe Sample: alles bleibt
+    sp = readSlotFromParameters(p.state(), 3);
+    CHECK_THAT(sp.sampleStart, WithinAbs(0.25, 1e-4));
+    CHECK(sp.loop);
+
+    p.setSlotSample(3, "bell.wav"); // anderes Sample: Bereich zurück, der Rest bleibt
+    sp = readSlotFromParameters(p.state(), 3);
+    CHECK(sp.sampleStart == 0.0f);
+    CHECK(sp.loopStart == 0.0f);
+    CHECK(sp.sampleEnd == 1.0f);
+    CHECK_FALSE(sp.loop);
+    CHECK_FALSE(sp.reverse);
+    CHECK_THAT(sp.loopXfadePct, WithinAbs(5.0, 1e-4));
+    CHECK_THAT(sp.tuneSemis, WithinAbs(3.0, 1e-4));
+}
+
+TEST_CASE("the processor hands out the loaded sample data of a slot", "[plugin][samples]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    SampleKit kit;
+    DubgefahrenProcessor p;
+    p.applyKit(makeFactoryKit(), kit.kitFile);
+    CHECK(p.slotSampleData(3) == nullptr);
+    p.setSlotSample(3, "horn.wav");
+    p.waitForSampleLoads();
+    const auto data = p.slotSampleData(3);
+    REQUIRE(data != nullptr);
+    CHECK(data->samples.size() == 48000u);
+    CHECK(p.slotSampleData(0) == nullptr); // Synth-Slot
+    p.resetSlotToFactory(3);
+    CHECK(p.slotSampleData(3) == nullptr);
+    CHECK(data->samples.size() == 48000u); // die herausgegebenen Daten bleiben gültig
+}
+
+TEST_CASE("a host state without the region parameters restores their defaults", "[plugin][samples]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    DubgefahrenProcessor a;
+    juce::MemoryBlock block;
+    a.getStateInformation(block);
+
+    // Den Zustand so zurechtschneiden, wie ihn Version 0.4.0 geschrieben hat: ohne die neuen Parameter.
+    auto xml = juce::AudioProcessor::getXmlFromBinary(block.getData(), static_cast<int>(block.getSize()));
+    REQUIRE(xml != nullptr);
+    int removed = 0;
+    for (const char* key : { "smpStart", "loopStart", "smpEnd", "loop", "reverse", "xfade" })
+        for (int s = 0; s < kNumSlots; ++s)
+        {
+            const auto id = juce::String::formatted("s%02d_", s + 1) + key;
+            for (auto* child = xml->getFirstChildElement(); child != nullptr; child = child->getNextElement())
+                if (child->getStringAttribute("id") == id)
+                {
+                    xml->removeChildElement(child, true);
+                    ++removed;
+                    break;
+                }
+        }
+    REQUIRE(removed == 6 * kNumSlots);
+    juce::MemoryBlock old;
+    juce::AudioProcessor::copyXmlToBinary(*xml, old);
+
+    DubgefahrenProcessor b;
+    SlotParams sp = readSlotFromParameters(b.state(), 0);
+    sp.sampleEnd = 0.5f;
+    sp.loop = true;
+    sp.loopXfadePct = 30.0f;
+    b.setSlot(0, sp, "x");
+    b.setStateInformation(old.getData(), static_cast<int>(old.getSize()));
+
+    sp = readSlotFromParameters(b.state(), 0);
+    CHECK(sp.sampleStart == 0.0f);
+    CHECK(sp.sampleEnd == 1.0f);
+    CHECK_FALSE(sp.loop);
+    CHECK_THAT(sp.loopXfadePct, WithinAbs(5.0, 1e-4));
+}

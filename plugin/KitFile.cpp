@@ -5,7 +5,7 @@ namespace dg {
 
 namespace {
 constexpr const char* kFormat = "dubgefahren-kit";
-constexpr int kVersion = 3;
+constexpr int kVersion = 4;
 constexpr const char* kSourceSynth = "synth";
 constexpr const char* kSourceEmpty = "empty";
 constexpr const char* kSourceSample = "sample";
