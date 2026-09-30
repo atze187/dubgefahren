@@ -21,7 +21,7 @@
 - Neue Abhängigkeiten: nur melatonin_blur **v1.4** (MIT) und Inter **4.1**, Schnitte Regular und SemiBold (SIL OFL 1.1). Kein UI-Framework, keine Bild-Regler, kein WebView.
 - `juce::LookAndFeel::setDefaultLookAndFeel` und `getTypefaceForFont` werden **nicht** verwendet (mehrere Plugin-Instanzen teilen sich einen Prozess). Schrift ausschließlich über `ui::font(...)`.
 - In `plugin/` steht nach Task 1 kein `juce::FontOptions(`-Aufruf mit Zahl mehr außerhalb von `plugin/ui/Fonts.cpp`.
-- melatonin-Schatten sind **Member** eines langlebigen Objekts (Komponente, Look-and-Feel), nie lokale Variablen in `paint` (sonst kein Cache).
+- melatonin-Schatten sind **Member** eines langlebigen Objekts (Komponente, Look-and-Feel), nie lokale Variablen in `paint` (sonst kein Cache). Member werden mit doppelten Klammern initialisiert: `melatonin::DropShadow s { { farbe, radius, { dx, dy }, spread } };`.
 - Animiert wird nur Farbe/Deckkraft eines Glows (`setColor`), nie Radius, Spread oder Pfad.
 - Pad-Helligkeit: Trigger = 1; Haltewert 0,7; Zeitkonstante 80 ms; Einrasten bei Abstand < 0,005; Ausklingen linear mit 1/200 ms.
 - Pad-Grundfarbe `colours::padBase` = `0xff4cd07d`. `colours::playing` entfällt.
@@ -492,7 +492,7 @@ TEST_CASE("the editor paints at every window scale", "[look]")
         REQUIRE(img.isValid());
         CHECK(img.getWidth() == juce::roundToInt(1000.0f * scale));
         // Punkt unten rechts im Slot-Editor-Panel (keine Controls) gegen den Fensterrand.
-        const auto panel = img.getPixelAt(juce::roundToInt(980.0f * scale), juce::roundToInt(425.0f * scale));
+        const auto panel = img.getPixelAt(juce::roundToInt(970.0f * scale), juce::roundToInt(420.0f * scale));
         const auto window = img.getPixelAt(juce::roundToInt(4.0f * scale), juce::roundToInt(4.0f * scale));
         CHECK(panel != window);
         dgtest::savePng(img, "editor-" + juce::String(scale, 2));
@@ -529,6 +529,7 @@ inline const juce::Colour padBase { 0xff4cd07d };
 #pragma once
 #include <juce_gui_basics/juce_gui_basics.h>
 #include "melatonin_blur/melatonin_blur.h"
+#include "plugin/ui/DgLookAndFeel.h"
 
 namespace dg::ui {
 
@@ -545,8 +546,7 @@ public:
     void render(juce::Graphics& g, juce::Rectangle<float> bounds);
 
 private:
-    melatonin::DropShadow shadow_;
-    bool configured_ = false;
+    melatonin::DropShadow shadow_ { { colours::shadow, 10, { 0, 3 } } };
 };
 
 // Senkrechter Gruppentrenner als Doppellinie (dunkel, daneben hell).
@@ -579,11 +579,6 @@ void PanelShadow::render(juce::Graphics& g, juce::Rectangle<float> bounds)
 {
     if (bounds.isEmpty())
         return;
-    if (!configured_)
-    {
-        shadow_ = melatonin::DropShadow(colours::shadow, 10, { 0, 3 });
-        configured_ = true;
-    }
     juce::Path p;
     p.addRoundedRectangle(bounds, kPanelCorner);
     shadow_.render(g, p);
@@ -941,6 +936,7 @@ TEST_CASE("a changing glow reports the pad area plus its reach", "[look]")
     CHECK(areas[0] == grid.pad(3).getBounds().expanded(ui::PadGrid::kGlowReach));
 
     areas.clear();
+    juce::Thread::sleep(20); // messbarer Zeitschritt, damit Pad 4 sicher vom Trigger-Wert abfällt
     grid.setPadStates(1u << 3, 0u, 1); // Fokus wandert von Pad 1 zu Pad 2
     CHECK(areas.size() == 3);          // Pad 4 fällt auf den Haltewert, Pad 1 und 2 wechseln den Fokus-Glow
 }
@@ -1222,11 +1218,12 @@ Member der Klasse `Pad` (ersetzt die bisherige Zeile mit den `bool`-Feldern):
     bool wasLit_ = false;
     bool latched_ = false, focus_ = false, selected_ = false, held_ = false, empty_ = false, sample_ = false, missing_ = false;
     // Als Member: melatonin cacht den berechneten Schatten im Objekt.
-    melatonin::DropShadow drop_ { colours::shadow, 4, { 0, 1 } };
-    melatonin::InnerShadow inset_ { juce::Colours::black.withAlpha(0.8f), 6, { 0, 2 } };
-    melatonin::DropShadow playGlow_ { colours::padBase, 14, { 0, 0 }, 2 };
-    melatonin::DropShadow focusGlow_ { colours::accent.withAlpha(0.7f), 9, { 0, 0 }, 1 };
-    melatonin::DropShadow dotGlow_ { colours::latched.withAlpha(0.9f), 5 };
+    // Doppelte Klammern: ein Satz Parameter { Farbe, Radius, Versatz, Spread }.
+    melatonin::DropShadow drop_ { { colours::shadow, 4, { 0, 1 } } };
+    melatonin::InnerShadow inset_ { { juce::Colours::black.withAlpha(0.8f), 6, { 0, 2 } } };
+    melatonin::DropShadow playGlow_ { { colours::padBase, 14, { 0, 0 }, 2 } };
+    melatonin::DropShadow focusGlow_ { { colours::accent.withAlpha(0.7f), 9, { 0, 0 }, 1 } };
+    melatonin::DropShadow dotGlow_ { { colours::latched.withAlpha(0.9f), 5 } };
 ```
 
 Der Glow reicht 14 px (Radius) + 2 px (Spread) = 16 px über den Pad-Körper hinaus, also 11 px über die Zelle; `kGlowReach = 24` deckt das mit Reserve ab.
@@ -1546,8 +1543,8 @@ Privat ergänzen:
 
     // Ein Schatten pro Körper-Durchmesser, damit der Cache von melatonin bei gemischten Reglergrößen hält.
     std::map<int, std::unique_ptr<melatonin::DropShadow>> knobShadows_;
-    melatonin::DropShadow lampGlow_ { colours::accent.withAlpha(0.8f), 4 };
-    melatonin::InnerShadow lampInset_ { juce::Colours::black.withAlpha(0.7f), 2, { 0, 1 } };
+    melatonin::DropShadow lampGlow_ { { colours::accent.withAlpha(0.8f), 4 } };
+    melatonin::InnerShadow lampInset_ { { juce::Colours::black.withAlpha(0.7f), 2, { 0, 1 } } };
 ```
 
 - [ ] **Step 4: Regler neu zeichnen**
