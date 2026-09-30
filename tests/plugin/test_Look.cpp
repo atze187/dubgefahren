@@ -535,3 +535,24 @@ TEST_CASE("a knob shows its value with at most two decimals", "[look]")
     // Eingetippte Werte werden weiter verstanden.
     CHECK(std::abs(pitch.slider.getValueFromText("440.5") - 440.5) < 0.01);
 }
+
+TEST_CASE("time knobs show three decimals, everything else two", "[look]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    DubgefahrenProcessor p;
+    ui::Knob knob("x");
+    const auto text = [&](SlotField field, double value) {
+        knob.attach(p.state(), slotParamId(0, field));
+        return knob.slider.getTextFromValue(value);
+    };
+    // Zeiten (Einheit s)
+    CHECK(text(SlotField::Attack, 0.005) == "0.005");
+    CHECK(text(SlotField::Release, 0.4) == "0.400");
+    CHECK(text(SlotField::SweepTime, 0.4999999) == "0.500");
+    CHECK(text(SlotField::OneShotLength, 1.0) == "1.000");
+    CHECK(text(SlotField::Attack, 0.0) == "0.000");
+    // Alles andere
+    CHECK(text(SlotField::Pitch, 600.00006) == "600.00");
+    CHECK(text(SlotField::LfoRate, 3.9999993) == "4.00");
+    CHECK(text(SlotField::Volume, -9.0) == "-9.00");
+}

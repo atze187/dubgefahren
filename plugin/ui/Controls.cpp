@@ -33,10 +33,12 @@ void Knob::attach(juce::AudioProcessorValueTreeState& apvts, const juce::String&
     attachment_.reset();
     attachment_ = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(apvts, paramId, slider);
     // Die Attachment setzt die Textfunktion des Parameters (bis zu 7 Nachkommastellen). Angezeigt
-    // werden zwei; der Wert selbst bleibt unverändert genau.
-    slider.textFromValueFunction = [](double value) {
-        const auto text = juce::String(value, 2);
-        return text == "-0.00" ? juce::String("0.00") : text;
+    // werden zwei, bei Zeiten (Einheit s) drei; der Wert selbst bleibt unverändert genau.
+    const auto* param = apvts.getParameter(paramId);
+    const int decimals = param != nullptr && param->getLabel() == "s" ? 3 : 2;
+    slider.textFromValueFunction = [decimals](double value) {
+        const auto text = juce::String(value, decimals);
+        return text.startsWith("-") && text.getDoubleValue() == 0.0 ? text.substring(1) : text; // kein "-0.00"
     };
     slider.updateText();
 }
