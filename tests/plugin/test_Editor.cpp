@@ -6,6 +6,7 @@
 #include "plugin/PluginEditor.h"
 #include "plugin/PluginProcessor.h"
 #include "plugin/SampleFiles.h"
+#include "plugin/ui/PadGrid.h"
 #include "engine/Kit.h"
 #include "SampleTestHelpers.h"
 
@@ -377,4 +378,33 @@ TEST_CASE("the waveform follows a sample that finishes loading or goes missing",
     f.p.waitForSampleLoads();
     e->pollProcessorState();
     CHECK(e->slotEditor().waveform().hasData());
+}
+
+TEST_CASE("the pad grid lays out pad 1 at the bottom left or the top left", "[editor][padmapping]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    DubgefahrenProcessor p;
+    ui::PadGrid grid(p);
+    grid.setSize(360, 392);
+    const auto at = [&](int slot) { return grid.pad(slot).getBounds().getPosition(); };
+
+    // Standard: Pad 1 unten links, Pad 5 darüber, Pad 13 in der obersten Reihe.
+    CHECK(at(0).x == at(4).x);
+    CHECK(at(0).x < at(1).x);
+    CHECK(at(0).y == at(1).y);
+    CHECK(at(0).y > at(4).y);
+    CHECK(at(4).y > at(12).y);
+
+    CHECK(grid.setOrigin(PadOrigin::TopLeft));
+    // Oben links: Pad 1 in der obersten Reihe, Pad 13 unten; die Spalten bleiben gleich.
+    CHECK(at(0).x == at(4).x);
+    CHECK(at(0).x < at(1).x);
+    CHECK(at(0).y == at(3).y);
+    CHECK(at(0).y < at(4).y);
+    CHECK(at(4).y < at(12).y);
+    CHECK(at(12).y - at(0).y == 3 * (at(4).y - at(0).y));
+
+    CHECK_FALSE(grid.setOrigin(PadOrigin::TopLeft)); // unverändert
+    CHECK(grid.setOrigin(PadOrigin::BottomLeft));
+    CHECK(at(0).y > at(12).y);
 }
