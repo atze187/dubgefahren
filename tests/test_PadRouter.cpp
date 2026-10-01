@@ -55,6 +55,30 @@ TEST_CASE("notes outside 36..51 are ignored", "[router]")
     CHECK(slotForNote(52) == -1);
 }
 
+TEST_CASE("translateNote maps the pad block starting at the first note onto the engine notes", "[router]")
+{
+    for (int n = 36; n <= 51; ++n)
+        CHECK(translateNote(n, 36) == n); // Standard: Identität
+    CHECK(translateNote(35, 36) == -1);
+    CHECK(translateNote(52, 36) == -1);
+
+    CHECK(translateNote(32, 32) == 36); // BU16: Note 32 ist Pad 1
+    CHECK(translateNote(36, 32) == 40); // und Note 36 ist Pad 5
+    CHECK(translateNote(47, 32) == 51);
+    CHECK(translateNote(31, 32) == -1);
+    CHECK(translateNote(48, 32) == -1);
+
+    CHECK(translateNote(0, 0) == 36);
+    CHECK(translateNote(15, 0) == 51);
+    CHECK(translateNote(16, 0) == -1);
+
+    static_assert(kMaxPadFirstNote == 112);
+    CHECK(translateNote(112, kMaxPadFirstNote) == 36);
+    CHECK(translateNote(127, kMaxPadFirstNote) == 51);
+    CHECK(translateNote(128, kMaxPadFirstNote) == -1);
+    CHECK(translateNote(111, kMaxPadFirstNote) == -1);
+}
+
 TEST_CASE("gate: note on starts, note off releases, retrigger restarts", "[router]")
 {
     auto r = makeRouter();
