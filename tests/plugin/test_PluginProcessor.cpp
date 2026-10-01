@@ -3,6 +3,7 @@
 #include <array>
 #include <cmath>
 #include <set>
+#include <vector>
 #include "engine/Kit.h"
 #include "engine/SlotFields.h"
 #include "plugin/ParameterLayout.h"
@@ -52,7 +53,7 @@ void prepare(DubgefahrenProcessor& p)
 }
 } // namespace
 
-TEST_CASE("the plugin exposes 433 uniquely named parameters", "[plugin]")
+TEST_CASE("the plugin exposes 441 uniquely named parameters", "[plugin]")
 {
     juce::ScopedJuceInitialiser_GUI gui;
     DubgefahrenProcessor p;
@@ -60,8 +61,8 @@ TEST_CASE("the plugin exposes 433 uniquely named parameters", "[plugin]")
     for (auto* param : p.getParameters())
         if (auto* withId = dynamic_cast<juce::AudioProcessorParameterWithID*>(param))
             ids.insert(withId->paramID);
-    CHECK(p.getParameters().size() == 16 * 26 + 17);
-    CHECK(ids.size() == 433);
+    CHECK(p.getParameters().size() == 16 * 26 + 25);
+    CHECK(ids.size() == 441);
     CHECK(slotParamId(0, SlotField::Wave) == "s01_wave");
     CHECK(slotParamId(15, SlotField::FxSend) == "s16_send");
     CHECK(slotParamId(0, SlotField::Tune) == "s01_tune");
@@ -70,6 +71,95 @@ TEST_CASE("the plugin exposes 433 uniquely named parameters", "[plugin]")
     CHECK(slotSourceParamId(15) == "s16_source");
     CHECK_FALSE(p.state().getParameter("s01_source")->isAutomatable());
     CHECK(p.state().getParameter("s01_tune")->isAutomatable());
+}
+
+TEST_CASE("the delay filter parameters replace the global filter and tone", "[plugin]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    DubgefahrenProcessor p;
+    for (const char* gone : { "fltCutoff", "fltRes", "fltType", "dlyTone" })
+        CHECK(p.state().getParameter(gone) == nullptr);
+    for (const char* added : { "dlyFltType", "dlyFltCutoff", "dlyFltRes", "dlyLfoShape", "dlyLfoRate", "dlyLfoSync",
+                               "dlyLfoSyncDiv", "dlyLfoCutDepth", "dlyLfoResDepth" })
+        CHECK(p.state().getParameter(added) != nullptr);
+
+    auto* cutoff = p.state().getParameter(pid::delayFltCutoff);
+    CHECK_THAT(cutoff->convertFrom0to1(cutoff->getDefaultValue()), WithinAbs(2400.0, 1.0));
+    auto* rate = p.state().getParameter(pid::delayLfoRate);
+    CHECK_THAT(rate->convertFrom0to1(rate->getDefaultValue()), WithinAbs(0.5, 1e-3));
+}
+
+TEST_CASE("the parameter cache reads the delay filter into the engine parameters", "[plugin]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    DubgefahrenProcessor p;
+    setParam(p, pid::delayFltType, 3.0f);      // Notch
+    setParam(p, pid::delayFltCutoff, 500.0f);
+    setParam(p, pid::delayFltRes, 0.7f);
+    setParam(p, pid::delayLfoShape, 2.0f);     // SawUp
+    setParam(p, pid::delayLfoRate, 4.0f);
+    setParam(p, pid::delayLfoSync, 1.0f);
+    setParam(p, pid::delayLfoSyncDiv, 6.0f);   // 1/4
+    setParam(p, pid::delayLfoCutDepth, 2.5f);
+    setParam(p, pid::delayLfoResDepth, 0.4f);
+
+    ParamCache cache(p.state());
+    EngineParams ep;
+    cache.read(ep);
+    const FxParams& fx = ep.global.fx;
+    CHECK(fx.delayFilterType == FilterType::Notch);
+    CHECK_THAT(fx.delayFilterCutoffHz, WithinAbs(500.0, 1.0));
+    CHECK_THAT(fx.delayFilterRes, WithinAbs(0.7, 1e-3));
+    CHECK(fx.delayLfoShape == LfoShape::SawUp);
+    CHECK_THAT(fx.delayLfoRateHz, WithinAbs(4.0, 1e-2));
+    CHECK(fx.delayLfoSync);
+    CHECK(fx.delayLfoSyncDiv == SyncDivision::D1_4);
+    CHECK_THAT(fx.delayLfoCutDepthOct, WithinAbs(2.5, 1e-3));
+    CHECK_THAT(fx.delayLfoResDepth, WithinAbs(0.4, 1e-3));
+}
+
+TEST_CASE("a host state from 0.5.0 still loads", "[plugin]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    DubgefahrenProcessor a;
+    setParam(a, pid::delayFltCutoff, 500.0f);
+    setParam(a, pid::delayLfoCutDepth, 3.0f);
+    setParam(a, pid::delayMix, 0.8f);
+    juce::MemoryBlock mb;
+    a.getStateInformation(mb);
+
+    // Den Zustand so zurechtschneiden, wie ihn 0.5.0 schrieb: alte Filterparameter drin, neue fehlen.
+    auto xml = juce::AudioProcessor::getXmlFromBinary(mb.getData(), static_cast<int>(mb.getSize()));
+    REQUIRE(xml != nullptr);
+    std::vector<juce::XmlElement*> remove;
+    for (auto* e : xml->getChildIterator())
+    {
+        const auto id = e->getStringAttribute("id");
+        if (id.startsWith("dlyFlt") || id.startsWith("dlyLfo"))
+            remove.push_back(e);
+    }
+    CHECK(remove.size() == 9); // APVTS legt alle neun neuen Parameter im Zustand an
+    for (auto* e : remove)
+        xml->removeChildElement(e, true);
+    for (const char* oldId : { "fltCutoff", "fltRes", "fltType", "dlyTone" })
+    {
+        auto* e = xml->createNewChildElement("PARAM");
+        e->setAttribute("id", oldId);
+        e->setAttribute("value", 0.5);
+    }
+    juce::MemoryBlock old;
+    juce::AudioProcessor::copyXmlToBinary(*xml, old);
+
+    DubgefahrenProcessor b;
+    b.setStateInformation(old.getData(), static_cast<int>(old.getSize()));
+    auto* cutoff = b.state().getParameter(pid::delayFltCutoff);
+    auto* depth = b.state().getParameter(pid::delayLfoCutDepth);
+    CHECK_THAT(cutoff->convertFrom0to1(cutoff->getValue()), WithinAbs(2400.0, 1.0));
+    CHECK_THAT(depth->convertFrom0to1(depth->getValue()), WithinAbs(0.0, 1e-3));
+    CHECK_THAT(b.state().getParameter(pid::delayMix)->getValue(), WithinAbs(0.8, 1e-4));
+
+    prepare(b);
+    processBlocks(b, 4);
 }
 
 TEST_CASE("default program is named for VST3 hosts and validators", "[plugin]")

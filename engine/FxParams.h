@@ -14,7 +14,6 @@ struct FxParams
     float drive = 0.0f;              // 0 .. 1
     DelayDivision delayDiv = DelayDivision::D1_8D;
     float delayFeedback = 0.45f;     // 0 .. 1.1
-    float delayTone = 0.5f;          // 0 .. 1
     float delayWow = 0.2f;           // 0 .. 1
     float delayMix = 0.35f;          // 0 .. 1
     FilterType delayFilterType = FilterType::Lowpass;

@@ -19,7 +19,6 @@ private:
     Knob drive_ { u8("Drive") };
     Choice delayTime_ { u8("Time") };
     Knob delayFeedback_ { u8("Feedback") };
-    Knob delayTone_ { u8("Tone") };
     Knob delayWow_ { u8("Wow") };
     Knob delayMix_ { u8("Mix") };
     Knob reverbDecay_ { u8("Decay") };

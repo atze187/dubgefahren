@@ -75,9 +75,22 @@ juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout(const 
                           { "1/16T", "1/16", "1/16D", "1/8T", "1/8", "1/8D", "1/4T", "1/4", "1/4D", "1/2T", "1/2", "1/2D", "1/1" },
                           static_cast<int>(fx.delayDiv)));
     layout.add(makeFloat(pid::delayFeedback, "Delay Feedback", 0.0f, 1.1f, fx.delayFeedback, 0.0f, ""));
-    layout.add(makeFloat(pid::delayTone, "Delay Tone", 0.0f, 1.0f, fx.delayTone, 0.0f, ""));
     layout.add(makeFloat(pid::delayWow, "Delay Wow", 0.0f, 1.0f, fx.delayWow, 0.0f, ""));
     layout.add(makeFloat(pid::delayMix, "Delay Mix", 0.0f, 1.0f, fx.delayMix, 0.0f, ""));
+    const auto fv = kDelayFilterParameterVersion;
+    layout.add(makeChoice(pid::delayFltType, "Delay Filter Type", { "LP", "BP", "HP", "Notch" },
+                          static_cast<int>(fx.delayFilterType), fv));
+    layout.add(makeFloat(pid::delayFltCutoff, "Delay Filter Cutoff", 20.0f, 20000.0f, fx.delayFilterCutoffHz, 1000.0f, "Hz", fv));
+    layout.add(makeFloat(pid::delayFltRes, "Delay Filter Resonance", 0.0f, 1.0f, fx.delayFilterRes, 0.0f, "", fv));
+    layout.add(makeChoice(pid::delayLfoShape, "Delay LFO Shape", toStringArray(fieldSpec(SlotField::LfoShape).choices),
+                          static_cast<int>(fx.delayLfoShape), fv));
+    layout.add(makeFloat(pid::delayLfoRate, "Delay LFO Rate", 0.05f, 40.0f, fx.delayLfoRateHz, 2.0f, "Hz", fv));
+    layout.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID { pid::delayLfoSync, fv }, "Delay LFO Sync",
+                                                          fx.delayLfoSync));
+    layout.add(makeChoice(pid::delayLfoSyncDiv, "Delay LFO Sync Rate", toStringArray(fieldSpec(SlotField::LfoSyncDiv).choices),
+                          static_cast<int>(fx.delayLfoSyncDiv), fv));
+    layout.add(makeFloat(pid::delayLfoCutDepth, "Delay LFO Cutoff Depth", 0.0f, 4.0f, fx.delayLfoCutDepthOct, 0.0f, "oct", fv));
+    layout.add(makeFloat(pid::delayLfoResDepth, "Delay LFO Resonance Depth", 0.0f, 1.0f, fx.delayLfoResDepth, 0.0f, "", fv));
     layout.add(makeFloat(pid::reverbDecay, "Reverb Decay", 0.0f, 1.0f, fx.reverbDecay, 0.0f, ""));
     layout.add(makeFloat(pid::reverbTone, "Reverb Tone", 0.0f, 1.0f, fx.reverbTone, 0.0f, ""));
     layout.add(makeFloat(pid::reverbMix, "Reverb Mix", 0.0f, 1.0f, fx.reverbMix, 0.0f, ""));
@@ -155,8 +168,13 @@ void writeSlotToParameters(juce::AudioProcessorValueTreeState& apvts, int slot, 
 
 ParamCache::ParamCache(juce::AudioProcessorValueTreeState& apvts)
     : drive_(raw(apvts, pid::drive)), delayTime_(raw(apvts, pid::delayTime)),
-      delayFeedback_(raw(apvts, pid::delayFeedback)), delayTone_(raw(apvts, pid::delayTone)),
+      delayFeedback_(raw(apvts, pid::delayFeedback)),
       delayWow_(raw(apvts, pid::delayWow)), delayMix_(raw(apvts, pid::delayMix)),
+      delayFltType_(raw(apvts, pid::delayFltType)), delayFltCutoff_(raw(apvts, pid::delayFltCutoff)),
+      delayFltRes_(raw(apvts, pid::delayFltRes)), delayLfoShape_(raw(apvts, pid::delayLfoShape)),
+      delayLfoRate_(raw(apvts, pid::delayLfoRate)), delayLfoSync_(raw(apvts, pid::delayLfoSync)),
+      delayLfoSyncDiv_(raw(apvts, pid::delayLfoSyncDiv)), delayLfoCutDepth_(raw(apvts, pid::delayLfoCutDepth)),
+      delayLfoResDepth_(raw(apvts, pid::delayLfoResDepth)),
       reverbDecay_(raw(apvts, pid::reverbDecay)), reverbTone_(raw(apvts, pid::reverbTone)),
       reverbMix_(raw(apvts, pid::reverbMix)), masterVol_(raw(apvts, pid::masterVol)),
       perfPitch_(raw(apvts, pid::perfPitch)), perfRate_(raw(apvts, pid::perfRate)),
@@ -186,9 +204,17 @@ void ParamCache::read(EngineParams& out) const
     fx.drive = load(drive_);
     fx.delayDiv = static_cast<DelayDivision>(loadIndex(delayTime_, kNumDelayDivisions - 1));
     fx.delayFeedback = load(delayFeedback_);
-    fx.delayTone = load(delayTone_);
     fx.delayWow = load(delayWow_);
     fx.delayMix = load(delayMix_);
+    fx.delayFilterType = static_cast<FilterType>(loadIndex(delayFltType_, kNumFilterTypes - 1));
+    fx.delayFilterCutoffHz = load(delayFltCutoff_);
+    fx.delayFilterRes = load(delayFltRes_);
+    fx.delayLfoShape = static_cast<LfoShape>(loadIndex(delayLfoShape_, 4));
+    fx.delayLfoRateHz = load(delayLfoRate_);
+    fx.delayLfoSync = load(delayLfoSync_) > 0.5f;
+    fx.delayLfoSyncDiv = static_cast<SyncDivision>(loadIndex(delayLfoSyncDiv_, 10));
+    fx.delayLfoCutDepthOct = load(delayLfoCutDepth_);
+    fx.delayLfoResDepth = load(delayLfoResDepth_);
     fx.reverbDecay = load(reverbDecay_);
     fx.reverbTone = load(reverbTone_);
     fx.reverbMix = load(reverbMix_);
