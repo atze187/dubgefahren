@@ -1,7 +1,7 @@
 # Delay-Filter im Feedback mit LFO – Design-Spezifikation
 
 **Datum:** 2026-10-01
-**Status:** Entwurf, Review offen
+**Status:** Umgesetzt, Abnahme in Ableton offen
 **Issue:** atze187/dubgefahren#20 (vor #17, Stretching)
 
 ## 1. Ziel
@@ -57,9 +57,9 @@ Main + Send-Summe → Master → Limiter
 - Die stufenlose LP→BP→HP-Überblendung wird durch eine Überblendung zwischen den
   Typgewichten ersetzt: Bei einem Typwechsel gleiten die Gewichte in etwa 10 ms zum
   neuen Typ, damit es nicht knackt.
-- Cutoff und Resonanz werden pro Sample gesetzt (Ein-Pol-Glättung, ca. 5 ms). Die
-  Koeffizienten werden pro Sample aus einer günstigen Näherung statt `tan()` berechnet;
-  die CPU-Last wird gemessen (Abschnitt 8).
+- Cutoff und Resonanz werden alle 8 Abtastwerte neu gesetzt (Ein-Pol-Glättung, ca. 5 ms).
+  Die Koeffizienten werden dabei exakt (mit `tan()`) berechnet und dazwischen nicht
+  interpoliert; die CPU-Last wird gemessen (Abschnitt 8).
 - Die Resonanz wirkt wie bisher als Q-Faktor (0,5 bis 20).
 
 ## 5. LFO
@@ -133,8 +133,8 @@ etwa 60 px Breite (976 px verfügbar):
   globalen Filter in `test_FxChain` und `test_FxUnits` werden angepasst oder entfernt.
 - **Plugin:** 441 Parameter mit den neuen Standardwerten; ein Host-Zustand mit den
   entfernten Parametern lädt fehlerfrei; Render-Test des FX-Panels bei 0,75×, 1× und
-  2× ohne abgeschnittene Zellen; CPU-Last des Delays mit LFO unter einer festgelegten
-  Schwelle (wird im Plan konkretisiert).
+  2× ohne abgeschnittene Zellen; CPU-Last: 10 s Audio durch die FX-Kette mit allen
+  Modulationen in unter 2 s (Release; gemessen: etwa 0,09 s).
 - **Abnahme in Ableton:** Echos klingen mit allen vier Typen plausibel; LFO auf
   Cutoff und Resonanz hörbar; Sync folgt dem Tempo; Selbstoszillation bei Resonanz 1
   und Feedback 1,1 bleibt kontrolliert.
@@ -146,5 +146,5 @@ etwa 60 px Breite (976 px verfügbar):
 - Das Klangbild ändert sich bewusst: Der Dry-Weg und der Reverb werden nicht mehr
   gefiltert, und ohne Tone klingt der Delay anders als vorher. Alte Projekte klingen
   deshalb nicht identisch.
-- Filter pro Sample zu aktualisieren kostet CPU; gemessen und notfalls auf eine
-  Update-Rate von wenigen Samples reduziert.
+- Die Koeffizienten werden nur alle 8 Abtastwerte neu berechnet; die CPU-Last ist
+  gemessen und liegt bei rund einem Prozent der Echtzeit.

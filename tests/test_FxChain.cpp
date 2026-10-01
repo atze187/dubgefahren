@@ -1,6 +1,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 #include <algorithm>
+#include <chrono>
 #include <limits>
 #include <vector>
 #include "engine/FxChain.h"
@@ -204,3 +205,32 @@ TEST_CASE("persistent NaN input is contained without per-sample resets", "[fxcha
     CHECK(dgtest::allFinite(b.sr));
     CHECK(dgtest::peakAbs(b.ml, 48000 + 24000) > 0.4f);
 }
+
+#ifdef NDEBUG
+TEST_CASE("the FX chain with the delay filter LFO runs far faster than real time", "[fxchain][perf]")
+{
+    FxParams p;
+    p.delayMix = 0.5f;
+    p.delayFeedback = 0.8f;
+    p.delayLfoShape = LfoShape::Triangle;
+    p.delayLfoRateHz = 5.0f;
+    p.delayLfoCutDepthOct = 3.0f;
+    p.delayLfoResDepth = 0.5f;
+    p.reverbMix = 0.3f;
+
+    constexpr int kSeconds = 10;
+    FxChain fx;
+    fx.prepare(kSr);
+    Buses b(48000 * kSeconds);
+    b.ml = dgtest::noise(48000 * kSeconds, 0.3f, 1);
+    b.mr = dgtest::noise(48000 * kSeconds, 0.3f, 2);
+    b.sl = dgtest::noise(48000 * kSeconds, 0.3f, 3);
+    b.sr = dgtest::noise(48000 * kSeconds, 0.3f, 4);
+
+    const auto start = std::chrono::steady_clock::now();
+    run(fx, b, p);
+    const double elapsed = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+    INFO("elapsed " << elapsed << " s for " << kSeconds << " s of audio");
+    CHECK(elapsed < 2.0); // unter 20 % der Echtzeit
+}
+#endif
