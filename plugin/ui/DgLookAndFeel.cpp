@@ -143,8 +143,8 @@ void DgLookAndFeel::drawComboBox(juce::Graphics& g, int width, int height, bool 
         return;
     drawRaisedBody(g, juce::Rectangle<int>(0, 0, width, height).toFloat(), box.findColour(juce::ComboBox::backgroundColourId),
                    isButtonDown, box.isMouseOver(true), box.isEnabled());
-    if (width < 30)
-        return;
+    if (width < kCompactComboWidth)
+        return; // kompakt: der Text bekommt die ganze Breite
     const float cx = static_cast<float>(width) - 14.0f;
     const float cy = static_cast<float>(height) * 0.5f;
     juce::Path arrow;
@@ -196,7 +196,22 @@ juce::Font DgLookAndFeel::getTextButtonFont(juce::TextButton&, int buttonHeight)
 
 juce::Font DgLookAndFeel::getComboBoxFont(juce::ComboBox& box)
 {
+    if (box.getWidth() < kCompactComboWidth)
+        return juce::Font(font(std::min(12.0f, static_cast<float>(box.getHeight()) * 0.85f)));
     return juce::Font(font(std::min(15.0f, static_cast<float>(box.getHeight()) * 0.85f)));
+}
+
+void DgLookAndFeel::positionComboBoxText(juce::ComboBox& box, juce::Label& label)
+{
+    if (box.getWidth() >= kCompactComboWidth)
+    {
+        juce::LookAndFeel_V4::positionComboBoxText(box, label);
+        return;
+    }
+    label.setBounds(0, 1, box.getWidth(), box.getHeight() - 2);
+    label.setBorderSize(juce::BorderSize<int>(1, 2, 1, 2));
+    label.setJustificationType(juce::Justification::centred);
+    label.setFont(getComboBoxFont(box));
 }
 
 juce::Font DgLookAndFeel::getPopupMenuFont() { return juce::Font(font(15.0f)); }

@@ -43,6 +43,9 @@ public:
     juce::Font getLabelFont(juce::Label& label) override;
     juce::Font getTextButtonFont(juce::TextButton& button, int buttonHeight) override;
     juce::Font getComboBoxFont(juce::ComboBox& box) override;
+    // Schmale Auswahlboxen (unter kCompactComboWidth) laufen kompakt: ohne Pfeil, kleine Schrift, zentriert.
+    void positionComboBoxText(juce::ComboBox& box, juce::Label& label) override;
+    static constexpr int kCompactComboWidth = 72;
     juce::Font getPopupMenuFont() override;
     juce::Font getAlertWindowTitleFont() override;
     juce::Font getAlertWindowMessageFont() override;

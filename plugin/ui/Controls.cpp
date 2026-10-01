@@ -1,3 +1,4 @@
+#include <algorithm>
 #include "plugin/ui/Controls.h"
 #include "plugin/ui/DgLookAndFeel.h"
 #include "plugin/ui/Fonts.h"
@@ -85,6 +86,6 @@ void Toggle::attach(juce::AudioProcessorValueTreeState& apvts, const juce::Strin
     attachment_ = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(apvts, paramId, button);
 }
 
-void Toggle::resized() { button.setBounds(getLocalBounds().withSizeKeepingCentre(getWidth(), 24)); }
+void Toggle::resized() { button.setBounds(getLocalBounds().withSizeKeepingCentre(getWidth(), std::min(24, getHeight()))); }
 
 } // namespace dg::ui
