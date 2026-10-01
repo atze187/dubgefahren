@@ -1,5 +1,6 @@
 #include "engine/FxParams.h"
 #include <algorithm>
+#include "engine/Lfo.h"
 
 namespace dg {
 
@@ -14,6 +15,11 @@ double delayDivisionSeconds(DelayDivision d, double bpm)
     };
     const double clampedBpm = std::clamp(bpm, 30.0, 400.0);
     return kBeats[static_cast<int>(d)] * 60.0 / clampedBpm;
+}
+
+float resolveDelayLfoRate(const FxParams& p, double bpm)
+{
+    return p.delayLfoSync ? lfoRateFromSync(p.delayLfoSyncDiv, std::max(30.0, bpm)) : p.delayLfoRateHz;
 }
 
 } // namespace dg

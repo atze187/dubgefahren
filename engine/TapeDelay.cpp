@@ -12,6 +12,9 @@ void TapeDelay::prepare(double sampleRate)
     for (auto& b : buf_)
         b.assign(size, 0.0f);
     glideCoeff_ = onePoleCoeff(0.25f, sampleRate);
+    filter_.prepare(sampleRate);
+    lfo_.prepare(sampleRate);
+    controlCoeff_ = onePoleCoeff(0.005f, sampleRate / kControlInterval);
     reset();
 }
 
@@ -20,12 +23,15 @@ void TapeDelay::reset()
     for (auto& b : buf_)
         std::fill(b.begin(), b.end(), 0.0f);
     write_ = 0;
-    lp_ = { 0.0f, 0.0f };
+    filter_.reset();
+    lfo_.reset(1);
+    controlCounter_ = 0;
+    filterSnapped_ = false;
     wowPhase1_ = wowPhase2_ = 0.0f;
     snapped_ = false;
 }
 
-void TapeDelay::setParams(float timeSeconds, float feedback, float tone, float wow)
+void TapeDelay::setParams(float timeSeconds, float feedback, float wow, const DelayFilterParams& filter)
 {
     const float sr = static_cast<float>(sampleRate_);
     target_ = std::clamp(timeSeconds, 0.001f, kMaxDelaySeconds - 0.1f) * sr;
@@ -36,8 +42,31 @@ void TapeDelay::setParams(float timeSeconds, float feedback, float tone, float w
     }
     feedback_ = std::clamp(feedback, 0.0f, 1.1f);
     wow_ = std::clamp(wow, 0.0f, 1.0f);
-    const float cutoff = 500.0f * std::pow(24.0f, std::clamp(tone, 0.0f, 1.0f)); // 500 Hz .. 12 kHz
-    lpCoeff_ = 1.0f - std::exp(-kTwoPi * cutoff / sr);
+
+    filterParams_ = filter;
+    filterParams_.cutoffHz = std::clamp(filter.cutoffHz, 20.0f, 20000.0f);
+    filterParams_.resonance = std::clamp(filter.resonance, 0.0f, 1.0f);
+    filterParams_.lfoRateHz = std::clamp(filter.lfoRateHz, 0.0f, 40.0f);
+    filterParams_.cutDepthOct = std::clamp(filter.cutDepthOct, 0.0f, 4.0f);
+    filterParams_.resDepth = std::clamp(filter.resDepth, 0.0f, 1.0f);
+    filter_.setType(filterParams_.type, !filterSnapped_);
+    if (!filterSnapped_)
+    {
+        cutLog2_ = std::log2(filterParams_.cutoffHz);
+        resBase_ = filterParams_.resonance;
+        filterSnapped_ = true;
+        controlCounter_ = 0;
+    }
+}
+
+void TapeDelay::updateFilter(float lfo)
+{
+    const float sr = static_cast<float>(sampleRate_);
+    cutLog2_ += controlCoeff_ * (std::log2(filterParams_.cutoffHz) - cutLog2_);
+    resBase_ += controlCoeff_ * (filterParams_.resonance - resBase_);
+    const float cutoff = std::clamp(std::exp2(cutLog2_ + filterParams_.cutDepthOct * lfo), 20.0f, 0.49f * sr);
+    const float res = std::clamp(resBase_ + filterParams_.resDepth * lfo, 0.0f, 1.0f);
+    filter_.setParams(cutoff, res);
 }
 
 float TapeDelay::read(const std::vector<float>& buf, float delaySamples) const
@@ -61,14 +90,20 @@ void TapeDelay::process(float inL, float inR, float& wetL, float& wetR)
     if (wowPhase1_ >= kTwoPi) wowPhase1_ -= kTwoPi;
     if (wowPhase2_ >= kTwoPi) wowPhase2_ -= kTwoPi;
 
+    // LFO zentriert um den eingestellten Wert (c in [-1, 1]).
+    const float lfo = 2.0f * lfo_.process(filterParams_.lfoShape, filterParams_.lfoRateHz) - 1.0f;
+    if (controlCounter_ == 0)
+        updateFilter(lfo);
+    controlCounter_ = (controlCounter_ + 1) % kControlInterval;
+    filter_.tick();
+
     const float delay = std::max(1.0f, current_ + mod);
     const float in[2] = { inL, inR };
     float wet[2] = {};
     for (int ch = 0; ch < 2; ++ch)
     {
         const float r = read(buf_[static_cast<std::size_t>(ch)], delay);
-        lp_[static_cast<std::size_t>(ch)] += lpCoeff_ * (r - lp_[static_cast<std::size_t>(ch)]);
-        wet[ch] = lp_[static_cast<std::size_t>(ch)];
+        wet[ch] = filter_.process(r, ch);
         // Soft-Clipper im Feedback-Weg: auch bei 110 % bleibt alles begrenzt.
         buf_[static_cast<std::size_t>(ch)][write_] = in[ch] + std::tanh(feedback_ * wet[ch]);
     }

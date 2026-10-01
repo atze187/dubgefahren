@@ -69,7 +69,9 @@ TEST_CASE("only the send bus reaches the delay", "[fxchain]")
     auto p = neutral();
     p.delayMix = 1.0f;
     p.delayFeedback = 0.0f;
-    p.delayTone = 1.0f;
+    p.delayFilterType = FilterType::Highpass;
+    p.delayFilterCutoffHz = 20.0f;
+    p.delayFilterRes = 0.0f;
     p.delayWow = 0.0f;
     p.delayDiv = DelayDivision::D1_4; // 0,5 s bei 120 bpm
 
@@ -94,6 +96,13 @@ TEST_CASE("extreme settings stay finite and below the ceiling", "[fxchain]")
     p.drive = 1.0f;
     p.delayFeedback = 1.1f;
     p.delayWow = 1.0f;
+    p.delayFilterType = FilterType::Bandpass;
+    p.delayFilterCutoffHz = 300.0f;
+    p.delayFilterRes = 1.0f;
+    p.delayLfoShape = LfoShape::SampleHold;
+    p.delayLfoRateHz = 40.0f;
+    p.delayLfoCutDepthOct = 4.0f;
+    p.delayLfoResDepth = 1.0f;
     p.delayMix = 1.0f;
     p.reverbDecay = 1.0f;
     p.reverbMix = 1.0f;

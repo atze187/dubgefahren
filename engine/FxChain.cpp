@@ -32,7 +32,15 @@ void FxChain::process(float* mainL, float* mainR, float* sendL, float* sendR, in
         needsReset_ = false;
     }
 
-    delay_.setParams(static_cast<float>(delayDivisionSeconds(p.delayDiv, bpm)), p.delayFeedback, p.delayTone, p.delayWow);
+    DelayFilterParams filter;
+    filter.type = p.delayFilterType;
+    filter.cutoffHz = p.delayFilterCutoffHz;
+    filter.resonance = p.delayFilterRes;
+    filter.lfoShape = p.delayLfoShape;
+    filter.lfoRateHz = resolveDelayLfoRate(p, bpm);
+    filter.cutDepthOct = p.delayLfoCutDepthOct;
+    filter.resDepth = p.delayLfoResDepth;
+    delay_.setParams(static_cast<float>(delayDivisionSeconds(p.delayDiv, bpm)), p.delayFeedback, p.delayWow, filter);
     reverb_.setParams(p.reverbDecay, p.reverbTone);
 
     const float targetMaster = volumeDbToGain(p.masterDb);
