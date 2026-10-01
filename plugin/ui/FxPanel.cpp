@@ -10,16 +10,13 @@ namespace dg::ui {
 namespace {
 constexpr int kCell = 72;
 struct Group { const char* title; int firstCell; int cells; };
-constexpr Group kGroups[] = { { "DRIVE", 0, 1 }, { "FILTER", 1, 3 }, { "DELAY", 4, 5 }, { "REVERB", 9, 3 }, { "MASTER", 12, 1 } };
+constexpr Group kGroups[] = { { "DRIVE", 0, 1 }, { "DELAY", 1, 5 }, { "REVERB", 6, 3 }, { "MASTER", 9, 1 } };
 } // namespace
 
 FxPanel::FxPanel(DubgefahrenProcessor& proc)
 {
     auto& s = proc.state();
     drive_.attach(s, pid::drive);
-    cutoff_.attach(s, pid::cutoff);
-    resonance_.attach(s, pid::resonance);
-    filterType_.attach(s, pid::filterType);
     delayTime_.attach(s, pid::delayTime);
     delayFeedback_.attach(s, pid::delayFeedback);
     delayTone_.attach(s, pid::delayTone);
@@ -30,8 +27,8 @@ FxPanel::FxPanel(DubgefahrenProcessor& proc)
     reverbMix_.attach(s, pid::reverbMix);
     master_.attach(s, pid::masterVol);
     for (juce::Component* c : std::initializer_list<juce::Component*> {
-             &drive_, &cutoff_, &resonance_, &filterType_, &delayTime_, &delayFeedback_, &delayTone_, &delayWow_,
-             &delayMix_, &reverbDecay_, &reverbTone_, &reverbMix_, &master_ })
+             &drive_, &delayTime_, &delayFeedback_, &delayTone_, &delayWow_, &delayMix_, &reverbDecay_, &reverbTone_,
+             &reverbMix_, &master_ })
         addAndMakeVisible(*c);
 }
 
@@ -50,9 +47,9 @@ void FxPanel::paint(juce::Graphics& g)
 
 void FxPanel::resized()
 {
-    juce::Component* order[] = { &drive_, &cutoff_, &resonance_, &filterType_, &delayTime_, &delayFeedback_,
-                                 &delayTone_, &delayWow_, &delayMix_, &reverbDecay_, &reverbTone_, &reverbMix_, &master_ };
-    for (int i = 0; i < 13; ++i)
+    juce::Component* order[] = { &drive_, &delayTime_, &delayFeedback_, &delayTone_, &delayWow_, &delayMix_,
+                                 &reverbDecay_, &reverbTone_, &reverbMix_, &master_ };
+    for (int i = 0; i < 10; ++i)
         order[i]->setBounds(12 + i * kCell, 20, kCell - 6, getHeight() - 24);
 }
 

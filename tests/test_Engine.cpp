@@ -31,7 +31,6 @@ EngineParams testParams()
         s.chokeGroup = 0;
     }
     p.global.fx.drive = 0.0f;
-    p.global.fx.cutoffHz = 20000.0f;
     p.global.fx.delayMix = 0.0f;
     p.global.fx.reverbMix = 0.0f;
     p.global.fx.masterDb = 0.0f;

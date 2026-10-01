@@ -71,9 +71,6 @@ juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout(const 
     const FxParams fx {};
 
     layout.add(makeFloat(pid::drive, "Drive", 0.0f, 1.0f, fx.drive, 0.0f, ""));
-    layout.add(makeFloat(pid::cutoff, "Filter Cutoff", 20.0f, 20000.0f, fx.cutoffHz, 1000.0f, "Hz"));
-    layout.add(makeFloat(pid::resonance, "Filter Resonance", 0.0f, 1.0f, fx.resonance, 0.0f, ""));
-    layout.add(makeFloat(pid::filterType, "Filter Type", 0.0f, 1.0f, fx.filterType, 0.0f, ""));
     layout.add(makeChoice(pid::delayTime, "Delay Time",
                           { "1/16T", "1/16", "1/16D", "1/8T", "1/8", "1/8D", "1/4T", "1/4", "1/4D", "1/2T", "1/2", "1/2D", "1/1" },
                           static_cast<int>(fx.delayDiv)));
@@ -157,8 +154,7 @@ void writeSlotToParameters(juce::AudioProcessorValueTreeState& apvts, int slot, 
 }
 
 ParamCache::ParamCache(juce::AudioProcessorValueTreeState& apvts)
-    : drive_(raw(apvts, pid::drive)), cutoff_(raw(apvts, pid::cutoff)), resonance_(raw(apvts, pid::resonance)),
-      filterType_(raw(apvts, pid::filterType)), delayTime_(raw(apvts, pid::delayTime)),
+    : drive_(raw(apvts, pid::drive)), delayTime_(raw(apvts, pid::delayTime)),
       delayFeedback_(raw(apvts, pid::delayFeedback)), delayTone_(raw(apvts, pid::delayTone)),
       delayWow_(raw(apvts, pid::delayWow)), delayMix_(raw(apvts, pid::delayMix)),
       reverbDecay_(raw(apvts, pid::reverbDecay)), reverbTone_(raw(apvts, pid::reverbTone)),
@@ -188,9 +184,6 @@ void ParamCache::read(EngineParams& out) const
 
     FxParams& fx = out.global.fx;
     fx.drive = load(drive_);
-    fx.cutoffHz = load(cutoff_);
-    fx.resonance = load(resonance_);
-    fx.filterType = load(filterType_);
     fx.delayDiv = static_cast<DelayDivision>(loadIndex(delayTime_, kNumDelayDivisions - 1));
     fx.delayFeedback = load(delayFeedback_);
     fx.delayTone = load(delayTone_);

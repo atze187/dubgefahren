@@ -8,9 +8,6 @@
 
 namespace dg::pid {
 inline constexpr const char* drive = "drive";
-inline constexpr const char* cutoff = "fltCutoff";
-inline constexpr const char* resonance = "fltRes";
-inline constexpr const char* filterType = "fltType";
 inline constexpr const char* delayTime = "dlyTime";
 inline constexpr const char* delayFeedback = "dlyFeedback";
 inline constexpr const char* delayTone = "dlyTone";
@@ -56,7 +53,7 @@ private:
     using Ptr = std::atomic<float>*;
     std::array<std::array<Ptr, kNumSlotFields>, kNumSlots> slots_ {};
     std::array<Ptr, kNumSlots> sources_ {};
-    Ptr drive_, cutoff_, resonance_, filterType_;
+    Ptr drive_;
     Ptr delayTime_, delayFeedback_, delayTone_, delayWow_, delayMix_;
     Ptr reverbDecay_, reverbTone_, reverbMix_, masterVol_;
     Ptr perfPitch_, perfRate_, perfDepth_, perfSweep_, perfTarget_, latchStop_, panic_;

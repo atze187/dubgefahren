@@ -10,9 +10,6 @@ double delayDivisionSeconds(DelayDivision d, double bpm);
 struct FxParams
 {
     float drive = 0.0f;              // 0 .. 1
-    float cutoffHz = 20000.0f;       // 20 .. 20000
-    float resonance = 0.1f;          // 0 .. 1
-    float filterType = 0.0f;         // 0 = LP, 0.5 = BP, 1 = HP
     DelayDivision delayDiv = DelayDivision::D1_8D;
     float delayFeedback = 0.45f;     // 0 .. 1.1
     float delayTone = 0.5f;          // 0 .. 1

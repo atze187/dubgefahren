@@ -17,9 +17,6 @@ FxParams neutral()
 {
     FxParams p;
     p.drive = 0.0f;
-    p.cutoffHz = 20000.0f;
-    p.resonance = 0.1f;
-    p.filterType = 0.0f;
     p.delayMix = 0.0f;
     p.reverbMix = 0.0f;
     p.masterDb = 0.0f;
@@ -56,6 +53,17 @@ TEST_CASE("neutral settings pass the main bus through", "[fxchain]")
     CHECK_THAT(dgtest::peakAbs(b.ml, 24000), WithinAbs(0.5, 0.01));
 }
 
+TEST_CASE("the main bus is not filtered", "[fxchain]")
+{
+    FxChain fx;
+    fx.prepare(kSr);
+    Buses b(48000);
+    b.ml = dgtest::sine(15000.0f, kSr, 48000, 0.5f);
+    b.mr = b.ml;
+    run(fx, b, neutral());
+    CHECK_THAT(dgtest::peakAbs(b.ml, 24000), WithinAbs(0.5, 0.01));
+}
+
 TEST_CASE("only the send bus reaches the delay", "[fxchain]")
 {
     auto p = neutral();
@@ -84,8 +92,6 @@ TEST_CASE("extreme settings stay finite and below the ceiling", "[fxchain]")
 {
     FxParams p;
     p.drive = 1.0f;
-    p.cutoffHz = 1000.0f;
-    p.resonance = 1.0f;
     p.delayFeedback = 1.1f;
     p.delayWow = 1.0f;
     p.delayMix = 1.0f;
