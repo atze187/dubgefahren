@@ -9,6 +9,7 @@
 #include "engine/Kit.h"
 #include "engine/SampleData.h"
 #include "plugin/Config.h"
+#include "plugin/PadMapping.h"
 #include "plugin/ParameterLayout.h"
 #include "plugin/SampleLoader.h"
 
@@ -112,6 +113,8 @@ private:
 
     juce::AudioProcessorValueTreeState apvts_;
     ParamCache cache_;
+    // Prozessweit geteilte Pad-Belegung; hier gehalten, damit das Objekt nie im Audio-Thread entsteht.
+    PadMapping& padMapping_ = PadMapping::instance();
     Engine engine_;
     EngineParams engineParams_;
     std::vector<EngineEvent> events_;

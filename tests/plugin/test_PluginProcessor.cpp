@@ -7,6 +7,8 @@
 #include "engine/SlotFields.h"
 #include "plugin/ParameterLayout.h"
 #include "plugin/PluginProcessor.h"
+#include "plugin/PadMapping.h"
+#include "PadMappingTestHelpers.h"
 
 using namespace dg;
 using Catch::Matchers::WithinAbs;
@@ -49,6 +51,13 @@ void prepare(DubgefahrenProcessor& p)
 {
     p.setPlayConfigDetails(0, 2, 48000.0, 512);
     p.prepareToPlay(48000.0, 512);
+}
+
+juce::MidiBuffer noteMessage(int note, bool on)
+{
+    juce::MidiBuffer b;
+    b.addEvent(on ? juce::MidiMessage::noteOn(1, note, static_cast<juce::uint8>(100)) : juce::MidiMessage::noteOff(1, note), 0);
+    return b;
 }
 } // namespace
 
@@ -157,6 +166,79 @@ TEST_CASE("processBlock plays note 36 and treats velocity 0 as note off", "[plug
     juce::MidiBuffer off;
     off.addEvent(juce::MidiMessage::noteOn(1, 36, static_cast<juce::uint8>(0)), 0);
     processBlocks(p, 60, off); // Classic: Release 0,4 s
+    CHECK(p.activeMask() == 0u);
+}
+
+TEST_CASE("the first pad note moves the note block that triggers the pads", "[plugin][padmapping]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    dgtest::ScopedPadMapping restore;
+    PadMapping::instance().setFirstNote(32); // BU16: Note 32 ist Pad 1
+
+    DubgefahrenProcessor p;
+    prepare(p);
+
+    processBlocks(p, 1, noteMessage(32, true));
+    CHECK(p.activeMask() == (1u << 0));
+    processBlocks(p, 1, noteMessage(36, true));
+    CHECK(p.activeMask() == ((1u << 0) | (1u << 4))); // Note 36 ist jetzt Pad 5
+    processBlocks(p, 1, noteMessage(47, true));
+    CHECK((p.activeMask() & (1u << 15)) != 0u);       // Pad 16
+
+    // Davor und dahinter löst nichts aus.
+    DubgefahrenProcessor q;
+    prepare(q);
+    processBlocks(q, 1, noteMessage(31, true));
+    processBlocks(q, 1, noteMessage(48, true));
+    CHECK(q.activeMask() == 0u);
+}
+
+TEST_CASE("with the default first note nothing changes", "[plugin][padmapping]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    dgtest::ScopedPadMapping restore;
+    PadMapping::instance().setFirstNote(36);
+    PadMapping::instance().setOrigin(PadOrigin::BottomLeft);
+
+    DubgefahrenProcessor p;
+    prepare(p);
+    processBlocks(p, 1, noteMessage(35, true));
+    CHECK(p.activeMask() == 0u);
+    processBlocks(p, 1, noteMessage(36, true));
+    CHECK(p.activeMask() == 1u);
+    processBlocks(p, 1, noteMessage(51, true));
+    CHECK((p.activeMask() & (1u << 15)) != 0u);
+}
+
+TEST_CASE("changing the first pad note takes effect for the next block", "[plugin][padmapping]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    dgtest::ScopedPadMapping restore;
+    DubgefahrenProcessor p;
+    prepare(p);
+
+    PadMapping::instance().setFirstNote(36);
+    processBlocks(p, 1, noteMessage(36, true));
+    CHECK(p.activeMask() == 1u);
+
+    PadMapping::instance().setFirstNote(40);
+    processBlocks(p, 1, noteMessage(36, true)); // jetzt vor dem Block: ohne Wirkung
+    CHECK(p.activeMask() == 1u);
+    processBlocks(p, 1, noteMessage(41, true)); // Pad 2
+    CHECK(p.activeMask() == ((1u << 0) | (1u << 1)));
+}
+
+TEST_CASE("note off follows the same mapping and releases the pad", "[plugin][padmapping]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    dgtest::ScopedPadMapping restore;
+    PadMapping::instance().setFirstNote(32);
+    DubgefahrenProcessor p;
+    prepare(p);
+
+    processBlocks(p, 1, noteMessage(32, true));
+    CHECK(p.activeMask() == 1u);
+    processBlocks(p, 60, noteMessage(32, false)); // Classic: Release 0,4 s
     CHECK(p.activeMask() == 0u);
 }
 
