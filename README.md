@@ -1,6 +1,6 @@
 # Dubgefahren
 
-VST3 instrument for Windows: 16 individually adjustable dub sirens, playable via MIDI notes 36–51
+VST3 instrument for Windows: 16 individually adjustable dub sirens, playable via 16 consecutive MIDI notes (default 36–51, adjustable)
 (e.g. Intech Studio Grid BU16), with a shared dub effects chain (drive, filter, tape delay, spring reverb).
 
 *This is an experimental project to evaluate Claude. 
@@ -54,6 +54,16 @@ File: `%CommonProgramFiles%\VST3\Dubgefahren.vst3\Contents\Resources\Dubgefahren
 Environment variables such as `%USERPROFILE%` are allowed. Empty, missing or invalid → `Documents\Dubgefahren\Kits`.
 If the config is invalid, the plugin shows a notice when the kit menu, import or export is opened.
 
+## MIDI mapping
+
+The 16 pads answer to 16 consecutive MIDI notes. By default pad 1 is note 36 and sits at the bottom left
+of the pad grid. The **MIDI** menu in the header changes both: *Pad 1 note* sets the note of the first
+pad, *Pad 1 at top left* flips the grid so that pad 1 is at the top left. The setting is stored per user in
+`%APPDATA%\Dubgefahren\settings.json` and applies to every project and instance.
+
+The Intech Grid BU16 sends its buttons row by row from the top left starting at note 32: set
+*Pad 1 note* to 32 and enable *Pad 1 at top left* to make the grid match the controller.
+
 ## Kits
 
 Kit menu → factory kit, a new empty kit, or kits from the kit folder. Import/export as `.dgkit`
@@ -93,7 +103,7 @@ Third-party components:
 ## Acceptance checklist (Ableton)
 
 - [ ] Plugin appears as an instrument and loads without error messages.
-- [ ] BU16 pads 1–16 play slots 1–16; the pad display in the plugin lights up accordingly.
+- [ ] BU16 (MIDI menu: pad 1 note 32, pad 1 at top left) pads 1–16 play slots 1–16; each button lights up the pad at the same position in the plugin.
 - [ ] Gate: sounds only while held. Latch: on/off per tap. One-shot: fixed length.
 - [ ] Choke: Laser, Riser, Faller, Bleep, Zap and Drop cut each other off without clicks.
 - [ ] Several sirens can sound at the same time.

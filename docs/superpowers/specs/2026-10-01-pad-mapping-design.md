@@ -1,7 +1,7 @@
 # Pad-Belegung: einstellbare Pad-1-Note und Raster-Ursprung – Design-Spezifikation
 
 **Datum:** 2026-10-01
-**Status:** Entwurf, Review offen
+**Status:** Umgesetzt, Abnahme in Ableton offen
 **Issue:** noch keines angelegt
 
 ## 1. Ziel
