@@ -118,17 +118,13 @@ TEST_CASE("the parameter cache reads the delay filter into the engine parameters
     CHECK_THAT(fx.delayLfoResDepth, WithinAbs(0.4, 1e-3));
 }
 
-TEST_CASE("a host state from 0.5.0 still loads", "[plugin]")
+namespace {
+// Schneidet den Zustand von `source` so zurecht, wie ihn 0.5.0 schrieb: alte Filterparameter
+// drin, die neun Delay-Filter-Parameter fehlen.
+juce::MemoryBlock makeOldState(DubgefahrenProcessor& source)
 {
-    juce::ScopedJuceInitialiser_GUI gui;
-    DubgefahrenProcessor a;
-    setParam(a, pid::delayFltCutoff, 500.0f);
-    setParam(a, pid::delayLfoCutDepth, 3.0f);
-    setParam(a, pid::delayMix, 0.8f);
     juce::MemoryBlock mb;
-    a.getStateInformation(mb);
-
-    // Den Zustand so zurechtschneiden, wie ihn 0.5.0 schrieb: alte Filterparameter drin, neue fehlen.
+    source.getStateInformation(mb);
     auto xml = juce::AudioProcessor::getXmlFromBinary(mb.getData(), static_cast<int>(mb.getSize()));
     REQUIRE(xml != nullptr);
     std::vector<juce::XmlElement*> remove;
@@ -149,6 +145,16 @@ TEST_CASE("a host state from 0.5.0 still loads", "[plugin]")
     }
     juce::MemoryBlock old;
     juce::AudioProcessor::copyXmlToBinary(*xml, old);
+    return old;
+}
+} // namespace
+
+TEST_CASE("a host state from 0.5.0 still loads", "[plugin]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    DubgefahrenProcessor a;
+    setParam(a, pid::delayMix, 0.8f);
+    const auto old = makeOldState(a);
 
     DubgefahrenProcessor b;
     b.setStateInformation(old.getData(), static_cast<int>(old.getSize()));
@@ -160,6 +166,31 @@ TEST_CASE("a host state from 0.5.0 still loads", "[plugin]")
 
     prepare(b);
     processBlocks(b, 4);
+}
+
+TEST_CASE("loading a state without the delay filter parameters resets them in an existing instance", "[plugin]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    DubgefahrenProcessor source;
+    const auto old = makeOldState(source);
+
+    // Eine bestehende Instanz mit eigenen Werten lädt einen alten Zustand: Fehlendes fällt auf den Standard.
+    DubgefahrenProcessor target;
+    setParam(target, pid::delayFltCutoff, 200.0f);
+    setParam(target, pid::delayLfoCutDepth, 3.0f);
+    setParam(target, pid::delayFltType, 2.0f);
+    {
+        auto* pre = target.state().getParameter(pid::delayFltCutoff);
+        REQUIRE_THAT(pre->convertFrom0to1(pre->getValue()), WithinAbs(200.0, 1.0)); // Vorbedingung
+    }
+    target.setStateInformation(old.getData(), static_cast<int>(old.getSize()));
+
+    auto* cutoff = target.state().getParameter(pid::delayFltCutoff);
+    auto* depth = target.state().getParameter(pid::delayLfoCutDepth);
+    auto* type = target.state().getParameter(pid::delayFltType);
+    CHECK_THAT(cutoff->convertFrom0to1(cutoff->getValue()), WithinAbs(2400.0, 1.0));
+    CHECK_THAT(depth->convertFrom0to1(depth->getValue()), WithinAbs(0.0, 1e-3));
+    CHECK_THAT(type->convertFrom0to1(type->getValue()), WithinAbs(0.0, 1e-3));
 }
 
 TEST_CASE("default program is named for VST3 hosts and validators", "[plugin]")
