@@ -2,6 +2,7 @@
 #include <memory>
 #include <utility>
 #include <vector>
+#include "plugin/ParameterLayout.h"
 #include "plugin/PluginEditor.h"
 #include "plugin/PluginProcessor.h"
 #include "plugin/SampleFiles.h"
@@ -272,4 +273,108 @@ TEST_CASE("a sample slot whose file is missing is marked on the pad and in the s
     e->selectSlot(2);
     CHECK(e->slotEditorShowsSampleControls());
     CHECK(e->slotEditorSampleText() == "missing.wav (missing)");
+}
+
+namespace {
+// Processor mit Kit-Ordner und horn.wav in Slot 3 (Index 2).
+struct SampleSlotFixture
+{
+    dgtest::TempDir tmp;
+    juce::File kitFile = tmp.dir.getChildFile("Dub.dgkit");
+    DubgefahrenProcessor p;
+    SampleSlotFixture()
+    {
+        sampleFolderFor(kitFile).createDirectory();
+        juce::WavAudioFormat wav;
+        dgtest::writeSine(wav, sampleFolderFor(kitFile).getChildFile("horn.wav"), 441.0f, 48000.0, 4800);
+        p.applyKit(makeFactoryKit(), kitFile);
+        p.setSlotSample(2, "horn.wav");
+        p.waitForSampleLoads();
+    }
+    void set(SlotField f, float v)
+    {
+        auto* param = p.state().getParameter(slotParamId(2, f));
+        param->setValueNotifyingHost(param->convertTo0to1(v));
+    }
+};
+} // namespace
+
+TEST_CASE("a sample slot shows the waveform and the loop controls", "[editor]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    SampleSlotFixture f;
+    std::unique_ptr<juce::AudioProcessorEditor> editor(f.p.createEditor());
+    auto* e = static_cast<DubgefahrenEditor*>(editor.get());
+
+    e->selectSlot(2);
+    auto& slotEditor = e->slotEditor();
+    CHECK(slotEditor.waveform().isVisible());
+    CHECK(slotEditor.waveform().hasData());
+    CHECK(slotEditor.showsLoopControls());
+    // Streifen über die volle Breite, eine Reihe hoch, unter der Kopfzeile.
+    const auto w = slotEditor.waveform().getBounds();
+    CHECK(w.getX() == 12);
+    CHECK(w.getWidth() == slotEditor.getWidth() - 24);
+    CHECK(w.getY() >= 40);
+    CHECK(w.getBottom() <= 40 + 84);
+
+    e->selectSlot(0); // Synth-Slot: unverändert
+    CHECK_FALSE(slotEditor.waveform().isVisible());
+    CHECK_FALSE(slotEditor.showsLoopControls());
+
+    f.p.clearSlot(2);
+    e->pollProcessorState();
+    e->selectSlot(2); // leerer Slot
+    CHECK_FALSE(slotEditor.waveform().isVisible());
+    CHECK_FALSE(slotEditor.showsLoopControls());
+}
+
+TEST_CASE("latch becomes selectable for a sample slot when loop is on", "[editor]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    SampleSlotFixture f;
+    std::unique_ptr<juce::AudioProcessorEditor> editor(f.p.createEditor());
+    auto* e = static_cast<DubgefahrenEditor*>(editor.get());
+    e->selectSlot(2);
+    CHECK_FALSE(e->slotEditorLatchSelectable());
+
+    f.set(SlotField::Loop, 1.0f); // wie Automation oder ein Klick auf den Schalter
+    CHECK(e->slotEditorLatchSelectable());
+    CHECK(e->slotEditor().waveform().isMarkerVisible(ui::WaveformView::Marker::Loop));
+
+    f.set(SlotField::Loop, 0.0f);
+    CHECK_FALSE(e->slotEditorLatchSelectable());
+
+    // Ein anderer Sample-Slot mit Loop an: der Zustand folgt dem Slot.
+    f.p.setSlotSample(4, "horn.wav");
+    auto* loop5 = f.p.state().getParameter(slotParamId(4, SlotField::Loop));
+    loop5->setValueNotifyingHost(1.0f);
+    e->pollProcessorState();
+    e->selectSlot(4);
+    CHECK(e->slotEditorLatchSelectable());
+    e->selectSlot(2);
+    CHECK_FALSE(e->slotEditorLatchSelectable());
+    e->selectSlot(0); // Synth: Latch immer wählbar
+    CHECK(e->slotEditorLatchSelectable());
+}
+
+TEST_CASE("the waveform follows a sample that finishes loading or goes missing", "[editor]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    SampleSlotFixture f;
+    std::unique_ptr<juce::AudioProcessorEditor> editor(f.p.createEditor());
+    auto* e = static_cast<DubgefahrenEditor*>(editor.get());
+    e->selectSlot(2);
+    REQUIRE(e->slotEditor().waveform().hasData());
+
+    f.p.setSlotSample(2, "gone.wav");
+    f.p.waitForSampleLoads();
+    e->pollProcessorState();
+    CHECK_FALSE(e->slotEditor().waveform().hasData());
+    CHECK(e->slotEditor().waveform().hintText() == "Sample missing");
+
+    f.p.setSlotSample(2, "horn.wav");
+    f.p.waitForSampleLoads();
+    e->pollProcessorState();
+    CHECK(e->slotEditor().waveform().hasData());
 }

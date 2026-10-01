@@ -1,6 +1,7 @@
 #include "plugin/PluginProcessor.h"
 #include <algorithm>
 #include <cmath>
+#include "engine/SlotFields.h"
 #include "plugin/KitFile.h"
 #include "plugin/PluginEditor.h"
 #include "plugin/SampleFiles.h"
@@ -289,6 +290,8 @@ void DubgefahrenProcessor::setSlotSample(int slot, const juce::String& fileName)
 {
     JUCE_ASSERT_MESSAGE_THREAD
     SlotParams p = readSlotFromParameters(apvts_, slot);
+    // Marker, Loop und Reverse gehören zu einer bestimmten Datei: bei einem anderen Sample zurücksetzen.
+    const bool otherSample = p.source != SourceType::Sample || slotSample(slot) != fileName;
     if (p.source != SourceType::Sample)
     {
         // Startwerte beim Wechsel auf Sample; Choke, Volume, Pan und Send bleiben.
@@ -298,6 +301,8 @@ void DubgefahrenProcessor::setSlotSample(int slot, const juce::String& fileName)
         p.releaseS = 0.05f;
         p.trigMode = TriggerMode::OneShot;
     }
+    if (otherSample)
+        resetSampleRegionFields(p);
     const auto name = fileName.containsChar('.') ? fileName.upToLastOccurrenceOf(".", false, false) : fileName;
     setSlot(slot, p, name, fileName);
 }
@@ -305,6 +310,11 @@ void DubgefahrenProcessor::setSlotSample(int slot, const juce::String& fileName)
 bool DubgefahrenProcessor::isSampleLoaded(int slot) const
 {
     return samplePtrs_[static_cast<std::size_t>(slot)].load() != nullptr;
+}
+std::shared_ptr<const SampleData> DubgefahrenProcessor::slotSampleData(int slot) const
+{
+    JUCE_ASSERT_MESSAGE_THREAD
+    return sampleData_[static_cast<std::size_t>(slot)];
 }
 
 bool DubgefahrenProcessor::isSampleMissing(int slot) const

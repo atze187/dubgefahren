@@ -480,3 +480,86 @@ TEST_CASE("switching a playing slot from synth to sample hands the slot to the s
     CHECK(e.activeMask() == 1u);
     CHECK_THAT(dgtest::estimateFrequency(o.l, kSr, 960, o.l.size()), WithinAbs(880.0, 6.0));
 }
+
+TEST_CASE("a looped sample slot can be latched", "[engine]")
+{
+    Engine e;
+    e.prepare(kSr, 512);
+    auto p = testParams();
+    const auto d = testSample(0.1); // 4800 Samples
+    makeSampleSlot(p, 1, &d, TriggerMode::Latch);
+    p.slots[1].loop = true;
+
+    run(e, p, 4800, { noteOn(37) });
+    CHECK(e.activeMask() == 2u);
+    CHECK(e.latchedMask() == 2u);
+    const auto held = run(e, p, 9600, { noteOff(37) }); // Loslassen ändert nichts, die Schleife läuft weiter
+    CHECK(e.activeMask() == 2u);
+    CHECK(dgtest::peakAbs(held.l, 4800) > 0.1f); // klingt über die Sample-Länge hinaus
+
+    run(e, p, 4800, { noteOn(37) }); // zweite Note stoppt
+    CHECK(e.latchedMask() == 0u);
+    run(e, p, 4800);
+    CHECK(e.activeMask() == 0u);
+}
+
+TEST_CASE("switching the loop off while latched lets the sample end and clears the latch", "[engine]")
+{
+    Engine e;
+    e.prepare(kSr, 512);
+    auto p = testParams();
+    const auto d = testSample(0.1);
+    makeSampleSlot(p, 1, &d, TriggerMode::Latch);
+    p.slots[1].loop = true;
+    run(e, p, 9600, { noteOn(37) });
+    REQUIRE(e.latchedMask() == 2u);
+
+    p.slots[1].loop = false;
+    run(e, p, 9600); // mehr als eine Sample-Länge
+    CHECK(e.activeMask() == 0u);
+    CHECK(e.latchedMask() == 0u);
+
+    // Ohne Loop wirkt Latch wieder wie Gate.
+    run(e, p, 2400, { noteOn(37) });
+    CHECK(e.latchedMask() == 0u);
+    run(e, p, 2400, { noteOff(37) });
+    CHECK(e.activeMask() == 0u);
+}
+
+TEST_CASE("changing the sample data stops a latched looped slot and clears the latch", "[engine]")
+{
+    Engine e;
+    e.prepare(kSr, 512);
+    auto p = testParams();
+    const auto d = testSample(0.1);
+    const auto other = testSample(0.1, 220.0f);
+    makeSampleSlot(p, 1, &d, TriggerMode::Latch);
+    p.slots[1].loop = true;
+    run(e, p, 9600, { noteOn(37) });
+    REQUIRE(e.latchedMask() == 2u);
+
+    p.samples[1] = &other;
+    run(e, p, 512);
+    CHECK(e.activeMask() == 0u);
+    CHECK(e.latchedMask() == 0u);
+
+    p.samples[1] = nullptr;
+    const auto o = run(e, p, 512, { noteOn(37) });
+    CHECK(e.activeMask() == 0u);
+    CHECK(dgtest::peakAbs(o.l) == 0.0f);
+}
+
+TEST_CASE("a looped sample one-shot still plays once to the end of its region", "[engine]")
+{
+    Engine e;
+    e.prepare(kSr, 512);
+    auto p = testParams();
+    const auto d = testSample(0.1);
+    makeSampleSlot(p, 0, &d, TriggerMode::OneShot);
+    p.slots[0].loop = true;
+    p.slots[0].sampleEnd = 0.5f; // 2400 Samples
+    run(e, p, 1200, { noteOn(36) });
+    CHECK(e.activeMask() == 1u);
+    run(e, p, 2400);
+    CHECK(e.activeMask() == 0u);
+}

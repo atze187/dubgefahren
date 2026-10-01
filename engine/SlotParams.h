@@ -41,6 +41,13 @@ struct SlotParams
     float fxSend = 0.3f;           // 0 .. 1
 
     float tuneSemis = 0.0f;        // -24 .. 24, nur für Samples
+    // Nur für Samples: Bereich als Anteil der Sample-Länge, Schleife, Richtung.
+    float sampleStart = 0.0f;      // 0 .. 1
+    float loopStart = 0.0f;        // 0 .. 1
+    float sampleEnd = 1.0f;        // 0 .. 1
+    bool loop = false;
+    bool reverse = false;
+    float loopXfadePct = 5.0f;     // 0 .. 50 % der Schleifenlänge
 
     SourceType source = SourceType::Synth; // kein SlotField, wird gesondert gespeichert
 

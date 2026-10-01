@@ -310,3 +310,24 @@ TEST_CASE("a one-shot until the end starts no length timer and ignores note off"
     r.noteOff(36, v);
     CHECK_FALSE(v.releasing[0]);
 }
+
+TEST_CASE("a latch whose voice has ended is forgotten", "[router]")
+{
+    auto r = makeRouter();
+    FakeVoices v;
+    const auto s = allMode(TriggerMode::Latch);
+    r.noteOn(36, s, v);
+    REQUIRE(r.isLatched(0));
+    r.advance(64, v);
+    CHECK(r.isLatched(0)); // Stimme läuft: Latch bleibt
+
+    v.active[0] = false; // die Stimme hat von selbst geendet
+    r.advance(64, v);
+    CHECK_FALSE(r.isLatched(0));
+    CHECK(r.latchedMask() == 0u);
+
+    // Die nächste Note startet neu, statt einen vergessenen Latch zu lösen.
+    r.noteOn(36, s, v);
+    CHECK(v.log.back() == "start 0");
+    CHECK(r.isLatched(0));
+}

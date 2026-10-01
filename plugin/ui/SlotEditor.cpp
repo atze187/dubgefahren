@@ -1,4 +1,5 @@
 #include "plugin/ui/SlotEditor.h"
+#include <algorithm>
 #include "plugin/ParameterLayout.h"
 #include "plugin/PluginProcessor.h"
 #include "plugin/ui/DgLookAndFeel.h"
@@ -17,11 +18,13 @@ constexpr int kRowHeight = 84;
 constexpr int kRowLabelWidth = 64;
 constexpr int kCellWidth = 104;
 const char* const kRowNames[kNumRows] = { "OSC\nAMP", "LFO", "SWEEP\nTRIG", "MIX" };
+// Sample-Modus: Reihe 0 ist die Wellenform, darunter drei Reihen Regler.
 constexpr int kNumSampleRows = 3;
-const char* const kSampleRowNames[kNumSampleRows] = { "SAMPLE\nAMP", "TRIG", "MIX" };
+const char* const kSampleRowNames[kNumSampleRows] = { "SAMPLE\nAMP", "LOOP\nTRIG", "MIX" };
+constexpr int kWaveformInset = 4; // Abstand der Wellenform zum oberen und unteren Rand ihrer Reihe
 } // namespace
 
-SlotEditor::SlotEditor(DubgefahrenProcessor& proc) : proc_(proc)
+SlotEditor::SlotEditor(DubgefahrenProcessor& proc) : proc_(proc), waveform_(proc)
 {
     header_.setFont(font(18.0f, true));
     header_.setColour(juce::Label::textColourId, colours::text);
@@ -43,8 +46,15 @@ SlotEditor::SlotEditor(DubgefahrenProcessor& proc) : proc_(proc)
     emptyHint_.setFont(font(15.0f));
     addChildComponent(emptyHint_);
 
-    sampleControls_ = { &tune_, &attack_, &release_, &trigMode_, &choke_, &vol_, &pan_, &send_ };
-    addChildComponent(tune_);
+    sampleControls_ = { &waveform_, &tune_, &attack_, &release_, &loop_, &reverse_, &xfade_, &trigMode_, &choke_, &vol_, &pan_, &send_ };
+    for (juce::Component* c : std::initializer_list<juce::Component*> { &waveform_, &tune_, &loop_, &reverse_, &xfade_ })
+        addChildComponent(*c);
+    // Der Latch-Eintrag und die Wellenform folgen dem Loop-Schalter, auch bei Automation.
+    loop_.button.onStateChange = [this] {
+        updateLatchItem();
+        waveform_.repaint();
+    };
+    reverse_.button.onStateChange = [this] { waveform_.repaint(); };
     sampleButton_.onClick = [this] {
         if (onChooseSample)
             onChooseSample();
@@ -77,6 +87,10 @@ void SlotEditor::setSlot(int slot)
     pan_.attach(s, slotParamId(slot, SlotField::Pan));
     send_.attach(s, slotParamId(slot, SlotField::FxSend));
     tune_.attach(s, slotParamId(slot, SlotField::Tune));
+    loop_.attach(s, slotParamId(slot, SlotField::Loop));
+    reverse_.attach(s, slotParamId(slot, SlotField::Reverse));
+    xfade_.attach(s, slotParamId(slot, SlotField::LoopXfade));
+    waveform_.setSlot(slot);
     refresh();
 }
 
@@ -92,7 +106,9 @@ void SlotEditor::refresh()
 
     for (auto* c : controls_)
         c->setVisible(mode_ == Mode::Synth);
-    tune_.setVisible(false);
+    for (auto* c : sampleControls_)
+        if (std::find(controls_.begin(), controls_.end(), c) == controls_.end())
+            c->setVisible(false); // nur im Sample-Modus sichtbare Controls
     if (mode_ == Mode::Sample)
         for (auto* c : sampleControls_)
             c->setVisible(true);
@@ -103,9 +119,16 @@ void SlotEditor::refresh()
         sampleButton_.setColour(juce::TextButton::textColourOffId, colours::warning);
     else
         sampleButton_.removeColour(juce::TextButton::textColourOffId);
-    trigMode_.box.setItemEnabled(kLatchItemId, mode_ != Mode::Sample); // Latch wirkt bei Samples wie Gate
+    waveform_.refresh();
+    updateLatchItem();
     resized();
     repaint(); // Zeilenbeschriftungen
+}
+
+void SlotEditor::updateLatchItem()
+{
+    // Latch gilt bei Samples nur für geloopte Slots; sonst wirkt es wie Gate und ist nicht wählbar.
+    trigMode_.box.setItemEnabled(kLatchItemId, mode_ != Mode::Sample || loop_.button.getToggleState());
 }
 
 void SlotEditor::paint(juce::Graphics& g)
@@ -117,8 +140,9 @@ void SlotEditor::paint(juce::Graphics& g)
     g.setFont(font(12.0f, true));
     const bool sample = mode_ == Mode::Sample;
     const int rows = sample ? kNumSampleRows : kNumRows;
+    const int firstRow = sample ? 1 : 0; // im Sample-Modus gehört Reihe 0 der Wellenform
     for (int row = 0; row < rows; ++row)
-        g.drawFittedText(sample ? kSampleRowNames[row] : kRowNames[row], 12, kTopOffset + row * kRowHeight,
+        g.drawFittedText(sample ? kSampleRowNames[row] : kRowNames[row], 12, kTopOffset + (row + firstRow) * kRowHeight,
                          kRowLabelWidth - 12, kRowHeight, juce::Justification::centredLeft, 2);
 }
 
@@ -135,9 +159,10 @@ void SlotEditor::resized()
     };
     if (mode_ == Mode::Sample)
     {
-        place(0, 0, tune_);     place(0, 1, attack_); place(0, 2, release_);
-        place(1, 0, trigMode_); place(1, 1, choke_);
-        place(2, 0, vol_);      place(2, 1, pan_);    place(2, 2, send_);
+        waveform_.setBounds(12, kTopOffset + kWaveformInset, getWidth() - 24, kRowHeight - 2 * kWaveformInset);
+        place(1, 0, tune_);  place(1, 1, attack_);  place(1, 2, release_);
+        place(2, 0, loop_);  place(2, 1, reverse_); place(2, 2, xfade_); place(2, 3, trigMode_); place(2, 4, choke_);
+        place(3, 0, vol_);   place(3, 1, pan_);     place(3, 2, send_);
     }
     else
     {

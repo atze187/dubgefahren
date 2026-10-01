@@ -36,6 +36,8 @@ target_sources(dg_plugin_shared INTERFACE
     ${CMAKE_CURRENT_SOURCE_DIR}/ui/PadGrid.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/ui/SlotEditor.h
     ${CMAKE_CURRENT_SOURCE_DIR}/ui/SlotEditor.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/ui/WaveformView.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/ui/WaveformView.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/ui/FxPanel.h
     ${CMAKE_CURRENT_SOURCE_DIR}/ui/FxPanel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/ui/PerformancePanel.h

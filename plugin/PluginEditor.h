@@ -46,6 +46,9 @@ public:
     juce::String slotEditorSampleText() const { return slotEditor_.sampleButtonText(); }
     bool slotEditorLatchSelectable() const { return slotEditor_.isLatchSelectable(); }
     juce::String lastMessage() const { return lastMessage_; }
+    // Für Tests: der Slot-Editor mit Wellenform und Loop-Controls.
+    ui::SlotEditor& slotEditor() { return slotEditor_; }
+    const ui::SlotEditor& slotEditor() const { return slotEditor_; }
     // Für Tests: der zuletzt geöffnete, noch offene Dialog (Meldung oder Rename).
     juce::AlertWindow* topDialog() const;
     // Für Tests öffentlich: öffnet das Kontextmenü eines Pads.
