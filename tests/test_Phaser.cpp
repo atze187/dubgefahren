@@ -150,3 +150,36 @@ TEST_CASE("out-of-range parameters are clamped", "[phaser]")
     // Rate 0 -> 0,05 Hz, Depth -1 -> 0
     CHECK(runOutputs(0.0f, -1.0f, 1.0f) == runOutputs(0.05f, 0.0f, 1.0f));
 }
+
+TEST_CASE("reset clears a poisoned phaser state", "[phaser]")
+{
+    const float nan = std::numeric_limits<float>::quiet_NaN();
+    Phaser p;
+    p.prepare(48000.0);
+    p.setParams(0.4f, 0.5f, 1.0f);
+    for (int i = 0; i < 16; ++i)
+    {
+        float l = nan, r = nan;
+        p.process(l, r);
+    }
+    p.reset();
+
+    Phaser q;
+    q.prepare(48000.0);
+    q.setParams(0.4f, 0.5f, 1.0f);
+
+    const auto x = dgtest::noise(4800, 0.5f);
+    std::vector<float> pl, pr, ql, qr;
+    for (float s : x)
+    {
+        float a = s, b = s, c = s, d = s;
+        p.process(a, b);
+        q.process(c, d);
+        pl.push_back(a);
+        pr.push_back(b);
+        ql.push_back(c);
+        qr.push_back(d);
+    }
+    CHECK(pl == ql);
+    CHECK(pr == qr);
+}
