@@ -2,6 +2,7 @@
 #include "engine/FxParams.h"
 #include "engine/Limiter.h"
 #include "engine/SpringReverb.h"
+#include "engine/Saturator.h"
 #include "engine/SvFilter.h"
 #include "engine/TapeDelay.h"
 
@@ -20,6 +21,7 @@ private:
     double sampleRate_ = 44100.0;
     SvFilter filterMain_;
     SvFilter filterSend_;
+    Saturator satMainL_, satMainR_, satSendL_, satSendR_;
     TapeDelay delay_;
     SpringReverb reverb_;
     Limiter limiter_;
