@@ -1,7 +1,7 @@
 # Tape-Delay-Charakter (RE-201) – Design-Spezifikation
 
 **Datum:** 2026-10-02
-**Status:** Spec, Review und Plan offen
+**Status:** Umgesetzt, Abnahme in Ableton offen
 **Teilprojekt 1 von 5** der Überarbeitung des Effekt-Charakters
 
 ## 1. Hintergrund und Ziel
@@ -60,7 +60,8 @@ Eingabe, Zeit-Glättung beim Wechsel der Division und die Parameter bleiben unve
 3. **Bass-Bump:** sanftes Low-Shelf bei ca. 120 Hz, etwa +2 dB.
 4. **Tiefpass** über den bestehenden Tone-Regler (500 Hz bis 12 kHz), ergänzt um eine feste
    leichte Höhenabsenkung bei 9 bis 10 kHz.
-5. **Sättigung:** weicher `tanh` mit kleiner Asymmetrie (gerade Obertöne) und DC-Blocker.
+5. **Sättigung:** weicher `tanh` mit kleiner Asymmetrie (gerade Obertöne). Den Gleichanteil der Asymmetrie fängt der Loop-Hochpass (Punkt 2) beim
+   Lesen ab; ein eigener DC-Blocker war in der Umsetzung überflüssig.
    Sie begrenzt wie bisher auch bei 110 % Feedback.
 6. **Schreiben:** Eingang plus Feedback-Anteil plus leises Bandrauschen (ca. −75 dBFS),
    das im Loop mit umläuft.
@@ -78,7 +79,7 @@ wird so gewählt, dass es erst bei hohem Feedback hörbar wird, und im Test geme
    dazu ein kleiner Jitter-Anteil aus gefiltertem Rauschen.
 3. **Kopplung:** Der bestehende **Wow-Regler** skaliert beide Anteile gemeinsam; Flutter mit
    kleinerem Faktor.
-4. **Stereo:** Die Modulation ist für L und R fast gleich, mit kleinem festem Versatz.
+4. **Stereo:** Die Modulation ist für L und R fast gleich, mit kleinem festem Versatz (0,1 rad, höchstens ca. 0,2 ms Laufzeitunterschied).
 5. **Zufall:** Fester Startwert pro Instanz, damit Tests reproduzierbar sind. Der Generator
    wird bei `reset()` nicht zurückgesetzt.
 6. **Tiefe:** Das heutige Maximum wird nicht überschritten. Deutliches Wabern gibt es erst
@@ -87,7 +88,7 @@ wird so gewählt, dass es erst bei hohem Feedback hörbar wird, und im Test geme
 ## 6. Betroffene Dateien
 
 - `engine/TapeDelay.h`, `engine/TapeDelay.cpp`: neue Loop-Kette und Modulation.
-- `engine/DspMath.h`: falls nötig kubische Interpolation und DC-Blocker.
+- `engine/DspMath.h`: kubische Interpolation.
 - `engine/FxChain.cpp`, `engine/FxParams.h`: unverändert (gleiche `setParams`-Schnittstelle).
 - Keine Änderung an UI, gespeicherten Kits oder Presets.
 
@@ -96,7 +97,7 @@ wird so gewählt, dass es erst bei hohem Feedback hörbar wird, und im Test geme
 1. **Stabilität:** Bei Feedback 1,1 und Dauerrauschen als Eingang bleibt der Ausgang endlich
    und begrenzt, auch nach mehreren Sekunden.
 2. **Höhenverlust:** Ein Impuls verliert mit jeder Wiederholung messbar Höhenenergie.
-3. **Kein Gleichanteil:** Der DC-Blocker verhindert einen Offset trotz asymmetrischer Sättigung.
+3. **Kein Gleichanteil:** Der Ausgang hat trotz asymmetrischer Sättigung keinen Offset.
 4. **Rauschpegel:** Ohne Eingang und mit Feedback 0,45 bleibt das Rauschen unter einer
    festgelegten Schwelle; bei Feedback 1,1 ist es hörbar, aber begrenzt.
 5. **Modulation:** Bei Wow 0 ist die Zeit konstant; bei Wow 1 schwankt sie innerhalb der
