@@ -19,6 +19,20 @@ std::vector<float> saturate(const std::vector<float>& x, float drive, double sr 
         y[i] = s.process(x[i], drive);
     return y;
 }
+
+// Amplitude der k-ten Harmonischen von 1 kHz über die zweiten 0,5 s (ganze Perioden, daher exakt).
+double harmonicAmp(const std::vector<float>& y, int k)
+{
+    constexpr std::size_t kFrom = 24000;
+    double re = 0.0, im = 0.0;
+    for (std::size_t i = kFrom; i < y.size(); ++i)
+    {
+        const double ph = 6.283185307179586 * 1000.0 * k * static_cast<double>(i) / kSr;
+        re += y[i] * std::cos(ph);
+        im -= y[i] * std::sin(ph);
+    }
+    return 2.0 * std::sqrt(re * re + im * im) / static_cast<double>(y.size() - kFrom);
+}
 } // namespace
 
 TEST_CASE("drive 0 is bit-exact transparent", "[saturator]")
@@ -113,4 +127,24 @@ TEST_CASE("stable at 44.1 and 96 kHz", "[saturator]")
         CHECK(dgtest::allFinite(y));
         CHECK(dgtest::peakAbs(y) < 2.0f);
     }
+}
+
+TEST_CASE("full drive is about 6 dB louder than no drive for a -12 dBFS sine", "[saturator]")
+{
+    const auto x = dgtest::sine(1000.0f, kSr, 48000, 0.251f);
+    const float off = dgtest::rms(saturate(x, 0.0f), 24000);
+    const float on = dgtest::rms(saturate(x, 1.0f), 24000);
+    const double gainDb = 20.0 * std::log10(static_cast<double>(on) / static_cast<double>(off));
+    CHECK(gainDb > 4.5);
+    CHECK(gainDb < 7.5);
+}
+
+TEST_CASE("low drive adds even harmonics, high drive gets harder", "[saturator]")
+{
+    const auto x = dgtest::sine(1000.0f, kSr, 48000, 0.5f);
+    const auto soft = saturate(x, 0.3f);
+    const auto hard = saturate(x, 1.0f);
+    const double soft1 = harmonicAmp(soft, 1), hard1 = harmonicAmp(hard, 1);
+    CHECK(harmonicAmp(soft, 2) / soft1 > 0.01);                          // gerade Obertöne (Bias)
+    CHECK(harmonicAmp(hard, 3) / hard1 > harmonicAmp(soft, 3) / soft1);  // härter: stärkere 3. Harmonische
 }
