@@ -6,7 +6,7 @@ add_library(dg_engine STATIC
     Envelope.h Envelope.cpp
     SoundSource.h SampleData.h SampleRegion.h SirenVoice.h SirenVoice.cpp SamplePlayer.h SamplePlayer.cpp
     PadRouter.h PadRouter.cpp
-    Drive.h SvFilter.h SvFilter.cpp Limiter.h
+    Drive.h Saturator.h Saturator.cpp SvFilter.h SvFilter.cpp Limiter.h
     FxParams.h FxParams.cpp TapeDelay.h TapeDelay.cpp
     SpringReverb.h SpringReverb.cpp
     FxChain.h FxChain.cpp
