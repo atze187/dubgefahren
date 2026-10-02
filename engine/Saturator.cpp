@@ -12,6 +12,7 @@ constexpr double kBias = 0.1;           // Asymmetrie für gerade Obertöne
 constexpr double kBeta = 0.32;          // Pegelausgleich g^(-beta): teilweise ausgeglichen
 constexpr double kDcBlockHz = 10.0;
 constexpr double kAdaaEps = 1.0e-6;
+constexpr float kDriveOff = 1.0e-6f;    // der Drive-Glätter nähert sich 0 nur asymptotisch
 constexpr double kLn2 = 0.6931471805599453;
 constexpr double kTwoPi = 6.283185307179586;
 
@@ -51,7 +52,7 @@ void Saturator::reset()
 
 float Saturator::process(float x, float drive)
 {
-    if (drive <= 0.0f)
+    if (drive < kDriveOff)
     {
         reset(); // der erste Sample nach dem Aufdrehen beginnt ohne Altlasten
         return x;

@@ -4,7 +4,7 @@ namespace dg {
 
 // Sättigung für Drive: weich (tanh) bei wenig Drive, ab der Mitte zunehmend hart (Clip), jeweils mit
 // ADAA gegen Aliasing, kleinem Bias für gerade Obertöne, DC-Blocker und teilweisem Pegelausgleich.
-// drive 0..1 (bereits geglättet); 0 ist bit-genau transparent.
+// drive 0..1 (bereits geglättet); unter 1e-6 ist bit-genau transparent.
 class Saturator
 {
 public:

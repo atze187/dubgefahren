@@ -101,6 +101,17 @@ TEST_CASE("drive 0 is bit-exact transparent", "[saturator]")
         CHECK(s.process(x, 0.0f) == x);
 }
 
+TEST_CASE("a vanishing drive is bit-exact transparent", "[saturator]")
+{
+    Saturator s;
+    s.prepare(kSr);
+    for (float x : { -1.5f, -0.3f, 0.0f, 0.2f, 0.9f, 3.0f })
+    {
+        CHECK(s.process(x, 1.0e-7f) == x);
+        CHECK(s.process(x, 1.0e-35f) == x);
+    }
+}
+
 TEST_CASE("drive 1 stays finite and bounded for huge inputs", "[saturator]")
 {
     Saturator s;
