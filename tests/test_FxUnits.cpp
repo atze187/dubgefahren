@@ -24,7 +24,7 @@ float filterGain(float freq, float cutoff, float res, float type)
 }
 } // namespace
 
-TEST_CASE("drive 0 is transparent, drive 1 saturates and stays bounded", "[fx]")
+TEST_CASE("filter low pass, band pass and high pass responses", "[fx]")
 {
     CHECK_THAT(filterGain(100.0f, 1000.0f, 0.0f, 0.0f), WithinAbs(1.0, 0.05));
     CHECK(filterGain(10000.0f, 1000.0f, 0.0f, 0.0f) < 0.05f);
