@@ -15,6 +15,7 @@ void FxChain::prepare(double sampleRate)
     satSendL_.prepare(sampleRate);
     satSendR_.prepare(sampleRate);
     delay_.prepare(sampleRate);
+    phaser_.prepare(sampleRate);
     reverb_.prepare(sampleRate);
     limiter_.prepare(sampleRate);
     reset();
@@ -29,6 +30,7 @@ void FxChain::reset()
     satSendL_.reset();
     satSendR_.reset();
     delay_.reset();
+    phaser_.reset();
     reverb_.reset();
     limiter_.reset();
     cutoffInit_ = false;
@@ -63,6 +65,8 @@ void FxChain::process(float* mainL, float* mainR, float* sendL, float* sendR, in
     const float targetReverbMix = p.reverbMix;
     const float targetDrive = p.drive;
     const float targetFilterType = std::clamp(p.filterType, 0.0f, 1.0f);
+    const float targetPhaserDepth = std::clamp(p.phaserDepth, 0.0f, 1.0f);
+    const float targetPhaserMix = std::clamp(p.phaserMix, 0.0f, 1.0f);
 
     if (!smoothInit_)
     {
@@ -71,6 +75,8 @@ void FxChain::process(float* mainL, float* mainR, float* sendL, float* sendR, in
         smReverbMix_ = targetReverbMix;
         smDrive_ = targetDrive;
         smFilterType_ = targetFilterType;
+        smPhaserDepth_ = targetPhaserDepth;
+        smPhaserMix_ = targetPhaserMix;
         smoothInit_ = true;
     }
     const float smCoeff = onePoleCoeff(0.02f, sampleRate_);
@@ -82,6 +88,8 @@ void FxChain::process(float* mainL, float* mainR, float* sendL, float* sendR, in
         smReverbMix_ += smCoeff * (targetReverbMix - smReverbMix_);
         smDrive_ += smCoeff * (targetDrive - smDrive_);
         smFilterType_ += smCoeff * (targetFilterType - smFilterType_);
+        smPhaserDepth_ += smCoeff * (targetPhaserDepth - smPhaserDepth_);
+        smPhaserMix_ += smCoeff * (targetPhaserMix - smPhaserMix_);
         filterMain_.setTypeWeights(smFilterType_);
         filterSend_.setTypeWeights(smFilterType_);
 
@@ -101,6 +109,8 @@ void FxChain::process(float* mainL, float* mainR, float* sendL, float* sendR, in
 
         float dl = 0.0f, dr = 0.0f;
         delay_.process(sl, sr, dl, dr);
+        phaser_.setParams(p.phaserRate, smPhaserDepth_, smPhaserMix_);
+        phaser_.process(dl, dr); // nur auf den Delay-Rückläufern
         sl += smDelayMix_ * dl;
         sr += smDelayMix_ * dr;
 

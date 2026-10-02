@@ -1,6 +1,7 @@
 #pragma once
 #include "engine/FxParams.h"
 #include "engine/Limiter.h"
+#include "engine/Phaser.h"
 #include "engine/SpringReverb.h"
 #include "engine/Saturator.h"
 #include "engine/SvFilter.h"
@@ -23,6 +24,7 @@ private:
     SvFilter filterSend_;
     Saturator satMainL_, satMainR_, satSendL_, satSendR_;
     TapeDelay delay_;
+    Phaser phaser_;
     SpringReverb reverb_;
     Limiter limiter_;
     float cutoff_ = 20000.0f;
@@ -34,6 +36,8 @@ private:
     float smDelayMix_ = 0.0f;
     float smReverbMix_ = 0.0f;
     float smDrive_ = 0.0f;
+    float smPhaserDepth_ = 0.5f;
+    float smPhaserMix_ = 0.0f;
     float smFilterType_ = 0.0f;
     bool smoothInit_ = false;
 };
