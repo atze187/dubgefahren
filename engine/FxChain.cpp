@@ -2,7 +2,6 @@
 #include <algorithm>
 #include <cmath>
 #include "engine/DspMath.h"
-#include "engine/Drive.h"
 
 namespace dg {
 
@@ -11,6 +10,10 @@ void FxChain::prepare(double sampleRate)
     sampleRate_ = sampleRate;
     filterMain_.prepare(sampleRate);
     filterSend_.prepare(sampleRate);
+    satMainL_.prepare(sampleRate);
+    satMainR_.prepare(sampleRate);
+    satSendL_.prepare(sampleRate);
+    satSendR_.prepare(sampleRate);
     delay_.prepare(sampleRate);
     reverb_.prepare(sampleRate);
     limiter_.prepare(sampleRate);
@@ -21,6 +24,10 @@ void FxChain::reset()
 {
     filterMain_.reset();
     filterSend_.reset();
+    satMainL_.reset();
+    satMainR_.reset();
+    satSendL_.reset();
+    satSendR_.reset();
     delay_.reset();
     reverb_.reset();
     limiter_.reset();
@@ -87,10 +94,10 @@ void FxChain::process(float* mainL, float* mainR, float* sendL, float* sendR, in
             continue;
         }
 
-        const float ml = filterMain_.process(driveSample(mainL[i], smDrive_), 0);
-        const float mr = filterMain_.process(driveSample(mainR[i], smDrive_), 1);
-        float sl = filterSend_.process(driveSample(sendL[i], smDrive_), 0);
-        float sr = filterSend_.process(driveSample(sendR[i], smDrive_), 1);
+        const float ml = filterMain_.process(satMainL_.process(mainL[i], smDrive_), 0);
+        const float mr = filterMain_.process(satMainR_.process(mainR[i], smDrive_), 1);
+        float sl = filterSend_.process(satSendL_.process(sendL[i], smDrive_), 0);
+        float sr = filterSend_.process(satSendR_.process(sendR[i], smDrive_), 1);
 
         float dl = 0.0f, dr = 0.0f;
         delay_.process(sl, sr, dl, dr);

@@ -189,3 +189,25 @@ TEST_CASE("persistent NaN input is contained without per-sample resets", "[fxcha
     CHECK(dgtest::allFinite(b.sr));
     CHECK(dgtest::peakAbs(b.ml, 48000 + 24000) > 0.4f);
 }
+
+TEST_CASE("NaN in the input resets the saturators and the chain recovers", "[fxchain]")
+{
+    auto p = neutral();
+    p.drive = 0.5f;
+
+    FxChain fx;
+    fx.prepare(kSr);
+
+    Buses bad(4800);
+    bad.ml = dgtest::sine(440.0f, kSr, 4800, 0.5f);
+    bad.mr = bad.ml;
+    bad.ml[10] = std::numeric_limits<float>::quiet_NaN();
+    run(fx, bad, p);
+
+    Buses clean(48000);
+    clean.ml = dgtest::sine(440.0f, kSr, 48000, 0.5f);
+    clean.mr = clean.ml;
+    run(fx, clean, p);
+    CHECK(dgtest::allFinite(clean.ml));
+    CHECK(dgtest::peakAbs(clean.ml, 24000) > 0.1f);
+}

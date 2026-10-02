@@ -1,7 +1,6 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 #include <vector>
-#include "engine/Drive.h"
 #include "engine/Limiter.h"
 #include "engine/SvFilter.h"
 #include "TestHelpers.h"
@@ -24,15 +23,6 @@ float filterGain(float freq, float cutoff, float res, float type)
     return dgtest::peakAbs(y, 24000);
 }
 } // namespace
-
-TEST_CASE("drive 0 is transparent, drive 1 saturates and stays bounded", "[fx]")
-{
-    for (float x : { -1.5f, -0.3f, 0.0f, 0.2f, 0.9f })
-        CHECK(driveSample(x, 0.0f) == x);
-    CHECK(std::abs(driveSample(10.0f, 1.0f)) < 0.3f);
-    CHECK(std::abs(driveSample(1.0e6f, 1.0f)) < 0.3f);
-    CHECK(driveSample(0.5f, 0.7f) > driveSample(0.2f, 0.7f));
-}
 
 TEST_CASE("filter low pass, band pass and high pass responses", "[fx]")
 {

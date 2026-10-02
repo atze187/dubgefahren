@@ -10,6 +10,7 @@ add_executable(DubgefahrenTests
     test_SampleRegion.cpp
     test_PadRouter.cpp
     test_FxUnits.cpp
+    test_Saturator.cpp
     test_TapeDelay.cpp
     test_SpringReverb.cpp
     test_FxChain.cpp
