@@ -1,7 +1,7 @@
 # Saturation (weich bis hart, ADAA) – Design-Spezifikation
 
 **Datum:** 2026-10-02
-**Status:** Spec, Review und Plan offen
+**Status:** Umgesetzt, Abnahme in Ableton offen
 **Teilprojekt 2 von 5** der Überarbeitung des Effekt-Charakters
 
 ## 1. Hintergrund und Ziel
@@ -63,6 +63,7 @@ Pro Sample:
 
 **Pegelverhalten (teilweise ausgeglichen):** `β` wird so abgestimmt, dass ein Sinus bei −12 dBFS
 zwischen `d = 0` und `d = 1` um ca. +6 dB lauter wird. Die Abstimmung erfolgt per Messung im Test.
+Gemessen: Bei `β = 0,32` beträgt der Pegelanstieg 5,73 dB, eine weitere Abstimmung war nicht nötig.
 Die Spitzen fängt weiter der Limiter am Ende der Kette ab. `β` und die übrigen Klangkonstanten
 stehen als benannte Werte oben in `Saturator.cpp`.
 
@@ -100,8 +101,13 @@ Erste Ordnung: `y[n] = (F(u[n]) − F(u[n−1])) / (u[n] − u[n−1])` mit der 
 5. **Charakter:** Bei `d = 0,3` ist die 2. Harmonische deutlich vorhanden (gerade Obertöne);
    bei `d = 1` ist die 3. Harmonische stärker als bei `d = 0,3`.
 6. **Kein Gleichanteil:** Der Mittelwert eines Sinus bei `d = 1` liegt unter 0,01.
-7. **Aliasing:** Bei einem 9-kHz-Sinus und `d = 1` hat ADAA mindestens 6 dB weniger Energie auf
-   nicht-harmonischen Frequenzen als dieselbe Kennlinie ohne ADAA (naive Referenz im Test).
+7. **Aliasing:** Bei einem 4,1-kHz-Sinus und `d = 1` hat ADAA mindestens 6 dB weniger Energie auf
+   Alias-Produkten als dieselbe Kennlinie ohne ADAA (naive Referenz im Test). Die Alias-Produkte
+   werden generisch berechnet: ungerade Harmonische oberhalb Nyquist werden in 0..24 kHz
+   gefaltet, wahre Harmonische ausgenommen. Grund: ADAA erster Ordnung wirkt wie ein
+   1-Sample-Boxcar; nahe 9 kHz liegt fast die gesamte Alias-Energie knapp über Nyquist, und ADAA
+   gewinnt dort nur etwa 4 dB (gemessen 4,2 dB bei 9 kHz, 6,5 bis 9 dB zwischen 1,7 und 5,3 kHz,
+   9,0 dB bei 4,1 kHz).
 8. **Robustheit:** stabil bei 44,1 und 96 kHz; ein Sweep von `d` über die Zeit erzeugt keine
    Sprünge im Ausgang; konstantes Eingangssignal (auch Stille) erzeugt keine NaN-Werte.
 9. **Regression:** Die bestehenden `FxChain`-Tests laufen weiter, auch der mit Extremwerten
