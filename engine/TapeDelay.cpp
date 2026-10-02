@@ -15,7 +15,22 @@ constexpr float kSatBias = 0.1f;          // Asymmetrie der Sättigung (gerade O
 constexpr float kNoiseGain = 1.78e-4f;    // ca. -75 dBFS Spitze
 const float kSatBiasOffset = std::tanh(kSatBias);
 
+// Modulationstiefen in Sekunden bei Wow = 1 (Summe der Maxima 0.00286 s, unter dem früheren Maximum 0.0029 s).
+constexpr float kWowSinSec = 0.0015f;   // langsamer Sinus
+constexpr float kWowRandSec = 0.0009f;  // Random Walk
+constexpr float kFlutterSec = 0.0003f;  // schneller Sinus
+constexpr float kJitterSec = 0.0001f;   // feiner Jitter
+constexpr float kWowHz = 0.55f;
+constexpr float kFlutterHz = 7.5f;
+constexpr float kFlutterHzSpread = 1.5f;
+constexpr float kRandWalkHz = 0.5f;
+constexpr float kJitterHz = 25.0f;
+constexpr float kRightOffsetRad = 0.1f; // fester Versatz des rechten Kanals
+
 float onePoleHz(float hz, float sampleRate) { return 1.0f - std::exp(-kTwoPi * hz / sampleRate); }
+
+// Verstärkung, die gefiltertes Gleichverteilungs-Rauschen (Std 0,577) auf Std 0,5 bringt.
+float randomWalkGain(float coeff) { return 0.5f / (0.5774f * std::sqrt(coeff / (2.0f - coeff))); }
 } // namespace
 
 void TapeDelay::prepare(double sampleRate)
@@ -30,6 +45,10 @@ void TapeDelay::prepare(double sampleRate)
     bumpCoeff_ = onePoleHz(kBumpHz, sr);
     bumpGain_ = dbToGain(kBumpDb) - 1.0f;
     headCoeff_ = onePoleHz(kHeadLossHz, sr);
+    rwSlowCoeff_ = onePoleHz(kRandWalkHz, sr);
+    rwSlowGain_ = randomWalkGain(rwSlowCoeff_);
+    rwJitCoeff_ = onePoleHz(kJitterHz, sr);
+    rwJitGain_ = randomWalkGain(rwJitCoeff_);
     reset();
 }
 
@@ -39,7 +58,8 @@ void TapeDelay::reset()
         std::fill(b.begin(), b.end(), 0.0f);
     write_ = 0;
     ch_.fill(ChannelState {});
-    wowPhase1_ = wowPhase2_ = 0.0f;
+    wowPhase_ = flutterPhase_ = 0.0f;
+    rwSlow_ = rwJit_ = 0.0f;
     snapped_ = false;
 }
 
@@ -84,17 +104,26 @@ void TapeDelay::process(float inL, float inR, float& wetL, float& wetR)
     const float sr = static_cast<float>(sampleRate_);
     current_ += (target_ - current_) * glideCoeff_; // Zeitänderung gleitet wie beim Band
 
-    const float mod = wow_ * sr * (0.0025f * std::sin(wowPhase1_) + 0.0004f * std::sin(wowPhase2_));
-    wowPhase1_ += kTwoPi * 0.55f / sr;
-    wowPhase2_ += kTwoPi * 6.5f / sr;
-    if (wowPhase1_ >= kTwoPi) wowPhase1_ -= kTwoPi;
-    if (wowPhase2_ >= kTwoPi) wowPhase2_ -= kTwoPi;
+    rwSlow_ += rwSlowCoeff_ * (nextNoise() - rwSlow_);
+    rwJit_ += rwJitCoeff_ * (nextNoise() - rwJit_);
+    const float slow = std::clamp(rwSlow_ * rwSlowGain_, -1.0f, 1.0f);
+    const float jit = std::clamp(rwJit_ * rwJitGain_, -1.0f, 1.0f);
+    wowPhase_ += kTwoPi * kWowHz / sr;
+    flutterPhase_ += kTwoPi * (kFlutterHz + kFlutterHzSpread * slow) / sr;
+    if (wowPhase_ >= kTwoPi) wowPhase_ -= kTwoPi;
+    if (flutterPhase_ >= kTwoPi) flutterPhase_ -= kTwoPi;
 
-    const float delay = std::max(2.0f, current_ + mod);
     const float in[2] = { inL, inR };
     float wet[2] = {};
     for (std::size_t ch = 0; ch < 2; ++ch)
     {
+        const float off = ch == 0 ? 0.0f : kRightOffsetRad;
+        const float modSeconds = kWowSinSec * std::sin(wowPhase_ + off)
+                               + kWowRandSec * slow
+                               + kFlutterSec * (1.0f + 0.2f * jit) * std::sin(flutterPhase_ + 2.0f * off)
+                               + kJitterSec * jit;
+        const float delay = std::max(2.0f, current_ + wow_ * sr * modSeconds);
+
         auto& s = ch_[ch];
         float x = read(buf_[ch], delay);
         s.hp += hpCoeff_ * (x - s.hp); // Hochpass = Eingang minus Tiefpass

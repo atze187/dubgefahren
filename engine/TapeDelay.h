@@ -43,8 +43,14 @@ private:
     float bumpGain_ = 0.0f;
     float headCoeff_ = 1.0f;
     std::array<ChannelState, 2> ch_ {};
-    float wowPhase1_ = 0.0f;
-    float wowPhase2_ = 0.0f;
+    float wowPhase_ = 0.0f;
+    float flutterPhase_ = 0.0f;
+    float rwSlow_ = 0.0f;       // Random Walk für das langsame Wow
+    float rwJit_ = 0.0f;        // gefiltertes Rauschen für den Flutter-Jitter
+    float rwSlowCoeff_ = 0.0f;
+    float rwSlowGain_ = 1.0f;
+    float rwJitCoeff_ = 0.0f;
+    float rwJitGain_ = 1.0f;
     std::uint32_t rng_ = 0x9E3779B9u; // fester Startwert, wird bei reset() nicht zurückgesetzt
 };
 
