@@ -64,6 +64,24 @@ pad, *Pad 1 at top left* flips the grid so that pad 1 is at the top left. The se
 The Intech Grid BU16 sends its buttons row by row from the top left starting at note 32: set
 *Pad 1 note* to 32 and enable *Pad 1 at top left* to make the grid match the controller.
 
+## Effects
+
+All sirens share one effects chain. Each slot's *FX Send* sets how much of it feeds the send bus.
+
+- **Drive**: saturation in front of the filter, on both buses. Soft and warm in the lower half of the
+  knob, increasingly hard in the upper half. The level rises with the knob for moderate signals; very loud
+  signals get quieter at the top. Highs are slightly softened as soon as Drive is above zero; at 0 the
+  signal passes through untouched.
+- **Filter**: cutoff, resonance and a type knob that morphs low-pass, band-pass and high-pass; on both buses.
+- **Delay** (send bus): tape echo in the style of a Roland RE-201 Space Echo. *Time* is tempo-synced
+  (1/16 triplet up to 1 bar), *Feedback* goes up to 110 % (self-oscillation), *Tone* darkens the repeats,
+  *Wow* adds irregular pitch drift and flutter, *Mix* sets the level. Every repeat gets a little darker and
+  softer, and a faint tape noise runs in the loop.
+- **Phaser** (delay returns only): soft four-stage phaser on the echoes, so the dry signal stays clean.
+  *Rate* 0.05 to 3 Hz, *Depth*, *Mix* (default 0 = off).
+- **Reverb** (send bus): spring reverb with *Decay*, *Tone* and *Mix*.
+- **Master**: output level, followed by a peak limiter at -0.3 dBFS.
+
 ## Kits
 
 Kit menu → factory kit, a new empty kit, or kits from the kit folder. Import/export as `.dgkit`
@@ -114,4 +132,6 @@ Third-party components:
 - [ ] Export a kit, change slots, import the kit: slots restored, effects unchanged.
 - [ ] Scale the window (75–200 %); the size is kept after reloading.
 - [ ] Delay feedback at maximum: self-oscillation without clipping.
+- [ ] Delay: warm tape character, every repeat a little darker, a slight irregular wobble with Wow, no audible hiss at Feedback 0.45.
+- [ ] Drive: 0 changes nothing; soft and warm at low settings, harder and biting towards the top; no aliasing fizz on high notes.
 - [ ] Phaser: Mix up on the delay returns gives a soft sweeping phase on the echoes only; the dry signal stays clean; Mix 0 sounds exactly like before.

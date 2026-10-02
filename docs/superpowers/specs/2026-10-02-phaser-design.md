@@ -1,7 +1,7 @@
 # Phaser auf den Delay-Rückläufern – Design-Spezifikation
 
 **Datum:** 2026-10-02
-**Status:** Umgesetzt, Abnahme in Ableton offen
+**Status:** Umgesetzt, in Ableton abgenommen (2026-10-02)
 **Teilprojekt 3 von 5** der Überarbeitung des Effekt-Charakters
 
 ## 1. Hintergrund und Ziel
