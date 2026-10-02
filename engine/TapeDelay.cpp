@@ -45,9 +45,12 @@ float TapeDelay::read(const std::vector<float>& buf, float delaySamples) const
     const std::size_t size = buf.size();
     const auto di = static_cast<std::size_t>(delaySamples);
     const float frac = delaySamples - static_cast<float>(di);
-    const std::size_t i0 = (write_ + size - (di % size)) % size;      // sample at integer delay
-    const std::size_t i1 = (i0 + size - 1) % size;                    // one sample older
-    return buf[i0] + frac * (buf[i1] - buf[i0]);
+    const std::size_t i0 = (write_ + size - (di % size)) % size;      // Sample bei ganzzahliger Verzögerung
+    const float xm1 = buf[(i0 + 1) % size];                           // ein Sample neuer
+    const float x0 = buf[i0];
+    const float x1 = buf[(i0 + size - 1) % size];                     // ein Sample älter
+    const float x2 = buf[(i0 + size - 2) % size];
+    return cubicInterp(xm1, x0, x1, x2, frac);
 }
 
 void TapeDelay::process(float inL, float inR, float& wetL, float& wetR)
@@ -61,7 +64,7 @@ void TapeDelay::process(float inL, float inR, float& wetL, float& wetR)
     if (wowPhase1_ >= kTwoPi) wowPhase1_ -= kTwoPi;
     if (wowPhase2_ >= kTwoPi) wowPhase2_ -= kTwoPi;
 
-    const float delay = std::max(1.0f, current_ + mod);
+    const float delay = std::max(2.0f, current_ + mod);
     const float in[2] = { inL, inR };
     float wet[2] = {};
     for (int ch = 0; ch < 2; ++ch)
