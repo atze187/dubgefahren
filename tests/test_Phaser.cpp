@@ -113,24 +113,40 @@ TEST_CASE("left and right sweeps are 90 degrees apart", "[phaser]")
     CHECK(maxDiff > 0.05f);
 }
 
-TEST_CASE("out-of-range parameters are clamped", "[phaser]")
+namespace {
+// Verarbeitet identisches Rauschen (links = rechts) durch ein frisches Phaser-Objekt.
+std::vector<float> runOutputs(float rate, float depth, float mix)
 {
     Phaser p;
     p.prepare(kSr);
-    p.setParams(-1.0f, -1.0f, -1.0f); // Mix wird auf 0 begrenzt: durchgereicht
+    p.setParams(rate, depth, mix);
+    const auto x = dgtest::noise(48000, 0.5f);
+    std::vector<float> y;
+    y.reserve(x.size() * 2);
+    for (float v : x)
+    {
+        float l = v, r = v;
+        p.process(l, r);
+        y.push_back(l);
+        y.push_back(r);
+    }
+    return y;
+}
+} // namespace
+
+TEST_CASE("out-of-range parameters are clamped", "[phaser]")
+{
+    // Mix wird auf 0 begrenzt: durchgereicht
+    Phaser p;
+    p.prepare(kSr);
+    p.setParams(-1.0f, -1.0f, -1.0f);
     float l = 0.3f, r = 0.3f;
     p.process(l, r);
     CHECK(l == 0.3f);
     CHECK(r == 0.3f);
 
-    p.setParams(100.0f, 5.0f, 5.0f); // Rate 3 Hz, Depth 1, Mix 1
-    bool finite = true;
-    const auto x = dgtest::noise(48000, 1.0f);
-    for (float v : x)
-    {
-        float a = v, b = v;
-        p.process(a, b);
-        finite = finite && std::isfinite(a) && std::isfinite(b);
-    }
-    CHECK(finite);
+    // Rate 100 -> 3 Hz, Depth 5 -> 1, Mix 5 -> 1: bit-genau wie die Grenzwerte
+    CHECK(runOutputs(100.0f, 5.0f, 5.0f) == runOutputs(3.0f, 1.0f, 1.0f));
+    // Rate 0 -> 0,05 Hz, Depth -1 -> 0
+    CHECK(runOutputs(0.0f, -1.0f, 1.0f) == runOutputs(0.05f, 0.0f, 1.0f));
 }
