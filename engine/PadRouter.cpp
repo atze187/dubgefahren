@@ -11,6 +11,12 @@ int slotForNote(int note)
     return (s >= 0 && s < kNumSlots) ? s : -1;
 }
 
+int translateNote(int note, int firstNote)
+{
+    const int slot = note - firstNote;
+    return (slot >= 0 && slot < kNumSlots) ? kFirstNote + slot : -1;
+}
+
 void PadRouter::prepare(double sampleRate)
 {
     sampleRate_ = sampleRate;

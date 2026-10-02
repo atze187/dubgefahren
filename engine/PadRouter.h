@@ -29,6 +29,13 @@ enum class LatchStopAction { Continue, Release, Stop };
 
 int slotForNote(int note);
 
+// Höchste Note für das erste Pad, bei der alle 16 Pads noch im MIDI-Bereich 0..127 liegen.
+constexpr int kMaxPadFirstNote = 127 - (kNumSlots - 1);
+
+// Rechnet eine MIDI-Note anhand der Note des ersten Pads in die Engine-Note (kFirstNote + Slot) um.
+// Liefert -1, wenn die Note keinem der 16 Pads entspricht.
+int translateNote(int note, int firstNote);
+
 class PadRouter
 {
 public:

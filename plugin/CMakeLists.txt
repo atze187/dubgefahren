@@ -19,6 +19,8 @@ target_sources(dg_plugin_shared INTERFACE
     ${CMAKE_CURRENT_SOURCE_DIR}/SampleLoader.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/Config.h
     ${CMAKE_CURRENT_SOURCE_DIR}/Config.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/PadMapping.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/PadMapping.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/PluginEditor.h
     ${CMAKE_CURRENT_SOURCE_DIR}/PluginEditor.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/ui/DgLookAndFeel.h

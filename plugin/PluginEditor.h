@@ -7,6 +7,7 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_gui_basics/juce_gui_basics.h>
 #include "engine/SlotParams.h"
+#include "plugin/PadMapping.h"
 #include "plugin/ui/CpuMeter.h"
 #include "plugin/ui/DgLookAndFeel.h"
 #include "plugin/ui/FxPanel.h"
@@ -54,6 +55,16 @@ public:
     // Für Tests öffentlich: öffnet das Kontextmenü eines Pads.
     void showPadMenu(int slot);
 
+    // MIDI-Menü: Pad-1-Note (öffnet einen Dialog) und Ursprung des Pad-Rasters. Öffentlich für Tests.
+    enum MidiMenuId { kMidiFirstNote = 1, kMidiOriginTop = 2 };
+    juce::PopupMenu buildMidiMenu() const;
+    void applyMidiMenuResult(int result);
+    void showFirstNoteDialog();
+    // Setzt die Pad-1-Note aus dem Zahlenfeld; liefert false (und ändert nichts), wenn der Text ungültig ist.
+    bool applyFirstNoteText(const juce::String& text);
+    // Position eines Pads im Raster (Koordinaten des Rasters).
+    juce::Point<int> padPosition(int slot) { return pads_.pad(slot).getPosition(); }
+
     // Für Tests öffentlich: bauen die Popup-Menüs von Kit-Button, Pad-Rechtsklick und leerem Pad.
     juce::PopupMenu buildKitMenu(const juce::Array<juce::File>& kitFiles) const;
     juce::PopupMenu buildPadMenu(int slot) const;
@@ -68,6 +79,7 @@ private:
     void refreshAll();
     void setPanic(bool down);
     void showKitMenu();
+    void showMidiMenu();
     void showSourceMenu(int slot);
     void showSampleMenu(int slot);
     void chooseSource(int slot, int result, const juce::StringArray& files);
@@ -92,6 +104,7 @@ private:
     juce::Label title_;
     ui::CpuMeter cpuMeter_;
     juce::TextButton kitButton_ { juce::String::fromUTF8("Kit ▾") };
+    juce::TextButton midiButton_ { juce::String::fromUTF8("MIDI ▾") };
     juce::TextButton importButton_ { "Import" };
     juce::TextButton exportButton_ { "Export" };
     juce::TextButton panicButton_ { "PANIC" };

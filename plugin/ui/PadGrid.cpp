@@ -288,6 +288,16 @@ void PadGrid::setSelected(int slot)
         p->repaint();
 }
 
+bool PadGrid::setOrigin(PadOrigin origin)
+{
+    if (origin == origin_)
+        return false;
+    origin_ = origin;
+    resized();
+    repaint();
+    return true;
+}
+
 void PadGrid::refreshNames()
 {
     for (int s = 0; s < kNumSlots; ++s)
@@ -366,8 +376,10 @@ void PadGrid::resized()
     for (int s = 0; s < kNumSlots; ++s)
     {
         const int col = s % 4;
-        const int rowFromBottom = s / 4; // Pad 1 unten links wie beim BU16
-        pads_[static_cast<std::size_t>(s)]->setBounds(area.getX() + col * w, area.getY() + (3 - rowFromBottom) * h, w, h);
+        const int row = s / 4; // 0 = die Reihe, in der Pad 1 liegt
+        // Unten links: Pad 1 in der untersten Reihe; oben links: in der obersten (wie die Tasten des BU16).
+        const int y = origin_ == PadOrigin::TopLeft ? row : 3 - row;
+        pads_[static_cast<std::size_t>(s)]->setBounds(area.getX() + col * w, area.getY() + y * h, w, h);
     }
 }
 
