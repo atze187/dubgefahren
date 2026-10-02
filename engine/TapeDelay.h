@@ -45,8 +45,8 @@ private:
     std::array<ChannelState, 2> ch_ {};
     float wowPhase_ = 0.0f;
     float flutterPhase_ = 0.0f;
-    float rwSlow_ = 0.0f;       // Random Walk für das langsame Wow
-    float rwJit_ = 0.0f;        // gefiltertes Rauschen für den Flutter-Jitter
+    std::array<float, 3> rwSlow_ {};  // Random Walk für das langsame Wow (3 Pole)
+    std::array<float, 3> rwJit_ {};   // gefiltertes Rauschen für den Flutter-Jitter (3 Pole)
     float rwSlowCoeff_ = 0.0f;
     float rwSlowGain_ = 1.0f;
     float rwJitCoeff_ = 0.0f;

@@ -91,6 +91,47 @@ PitchStats measurePitch(float wow)
     }
     return { hi - lo, dev, diff };
 }
+
+// Mittlere Leistungsdichte weit vom 1-kHz-Träger (3 bis 20 kHz) relativ zur Gesamtleistung in dB,
+// erste Wiederholung. Misst, wie viel breitbandiges Modulationsrauschen auf der Bandgeschwindigkeit liegt.
+double farSidebandDb(float wow)
+{
+    TapeDelay d;
+    d.prepare(kSr);
+    d.setParams(0.25f, 0.0f, 1.0f, wow);
+    const auto x = dgtest::sine(1000.0f, kSr, 96000, 0.5f);
+    std::vector<float> y(x.size());
+    for (std::size_t i = 0; i < x.size(); ++i)
+    {
+        float l = 0.0f, r = 0.0f;
+        d.process(x[i], x[i], l, r);
+        y[i] = l;
+    }
+    constexpr int kN = 16384;
+    constexpr std::size_t kStart = 30000;
+    constexpr double kPi2 = 6.283185307179586;
+    std::vector<double> v(kN);
+    double total = 0.0;
+    for (int n = 0; n < kN; ++n)
+    {
+        v[static_cast<std::size_t>(n)] = (0.5 - 0.5 * std::cos(kPi2 * n / kN)) * y[kStart + static_cast<std::size_t>(n)];
+        total += v[static_cast<std::size_t>(n)] * v[static_cast<std::size_t>(n)];
+    }
+    double sum = 0.0;
+    int bins = 0;
+    for (double f = 3000.0; f <= 20000.0; f += 100.0, ++bins)
+    {
+        double re = 0.0, im = 0.0;
+        for (int n = 0; n < kN; ++n)
+        {
+            const double ph = kPi2 * f * n / kSr;
+            re += v[static_cast<std::size_t>(n)] * std::cos(ph);
+            im -= v[static_cast<std::size_t>(n)] * std::sin(ph);
+        }
+        sum += re * re + im * im;
+    }
+    return 10.0 * std::log10((sum / bins) / (kN * total));
+}
 } // namespace
 
 TEST_CASE("delay division to seconds", "[delay]")
@@ -359,4 +400,12 @@ TEST_CASE("time jumps while the tape is wobbling stay finite", "[delay]")
         finite = finite && std::isfinite(l) && std::isfinite(r);
     }
     CHECK(finite);
+}
+
+TEST_CASE("wow does not put broadband noise on the tape speed", "[delay]")
+{
+    const double still = farSidebandDb(0.0f);
+    const double wobbling = farSidebandDb(1.0f);
+    CAPTURE(still, wobbling);
+    CHECK(wobbling < -95.0);
 }

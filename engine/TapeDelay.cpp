@@ -29,8 +29,27 @@ constexpr float kRightOffsetRad = 0.1f; // fester Versatz des rechten Kanals
 
 float onePoleHz(float hz, float sampleRate) { return 1.0f - std::exp(-kTwoPi * hz / sampleRate); }
 
-// Verstärkung, die gefiltertes Gleichverteilungs-Rauschen (Std 0,577) auf Std 0,5 bringt.
-float randomWalkGain(float coeff) { return 0.5f / (0.5774f * std::sqrt(coeff / (2.0f - coeff))); }
+// Drei gleiche Einpol-Tiefpässe hintereinander: das Zufallssignal fällt oberhalb der Grenzfrequenz
+// mit 18 dB/Okt. ab. Ein einzelner Pol ließe Rauschen bis Nyquist auf der Bandgeschwindigkeit liegen
+// und erzeugte breitbandige Seitenbänder um jedes Echo.
+float cascade3(std::array<float, 3>& st, float coeff, float x)
+{
+    st[0] += coeff * (x - st[0]);
+    st[1] += coeff * (st[0] - st[1]);
+    st[2] += coeff * (st[1] - st[2]);
+    return st[2];
+}
+
+// Verstärkung, die gleichverteiltes Rauschen (Std 0,577) nach cascade3 auf Std 0,5 bringt.
+// Varianz der Kaskade: a^6 * (1 + 4q + q^2) / (1 - q)^5 mit q = (1 - a)^2.
+float randomWalkGain(float coeff)
+{
+    const double a = coeff;
+    const double q = (1.0 - a) * (1.0 - a);
+    const double oneMinusQ = a * (2.0 - a);
+    const double variance = std::pow(a, 6.0) * (1.0 + 4.0 * q + q * q) / std::pow(oneMinusQ, 5.0);
+    return static_cast<float>(0.5 / (0.5774 * std::sqrt(variance)));
+}
 } // namespace
 
 void TapeDelay::prepare(double sampleRate)
@@ -59,7 +78,8 @@ void TapeDelay::reset()
     write_ = 0;
     ch_.fill(ChannelState {});
     wowPhase_ = flutterPhase_ = 0.0f;
-    rwSlow_ = rwJit_ = 0.0f;
+    rwSlow_.fill(0.0f);
+    rwJit_.fill(0.0f);
     snapped_ = false;
 }
 
@@ -104,10 +124,8 @@ void TapeDelay::process(float inL, float inR, float& wetL, float& wetR)
     const float sr = static_cast<float>(sampleRate_);
     current_ += (target_ - current_) * glideCoeff_; // Zeitänderung gleitet wie beim Band
 
-    rwSlow_ += rwSlowCoeff_ * (nextNoise() - rwSlow_);
-    rwJit_ += rwJitCoeff_ * (nextNoise() - rwJit_);
-    const float slow = std::clamp(rwSlow_ * rwSlowGain_, -1.0f, 1.0f);
-    const float jit = std::clamp(rwJit_ * rwJitGain_, -1.0f, 1.0f);
+    const float slow = std::clamp(cascade3(rwSlow_, rwSlowCoeff_, nextNoise()) * rwSlowGain_, -1.0f, 1.0f);
+    const float jit = std::clamp(cascade3(rwJit_, rwJitCoeff_, nextNoise()) * rwJitGain_, -1.0f, 1.0f);
     wowPhase_ += kTwoPi * kWowHz / sr;
     flutterPhase_ += kTwoPi * (kFlutterHz + kFlutterHzSpread * slow) / sr;
     if (wowPhase_ >= kTwoPi) wowPhase_ -= kTwoPi;
