@@ -17,9 +17,9 @@ läuft über denselben Drive-Regler. Das passt zum späteren **Grit**-Knob (Teil
 
 **Erfolgskriterien:**
 
-- Drive 0 ist bit-genau transparent.
+- Drive unter 1e-6 (`kDriveOff`) ist bit-genau transparent; der Drive-Glätter in `FxChain` nähert sich 0 nur asymptotisch.
 - Niedriger Drive klingt warm (gerade Obertöne), hoher Drive hart und bissig.
-- Der Pegel wächst mit dem Drive um ca. 6 dB (Sinus bei −12 dBFS), statt wie bisher zu sinken.
+- Der Pegel wächst mit dem Drive um ca. 6 dB für einen Sinus um −12 dBFS, statt wie bisher zu sinken. Heiße Eingänge werden am oberen Anschlag leiser, jedoch weniger als bisher (siehe Abschnitt 9).
 - Aliasing ist hörbar geringer als beim bisherigen Ansatz, ohne Latenz.
 - Bestehende Projekte und Kits laden unverändert (klingen allerdings anders).
 
@@ -59,7 +59,7 @@ Pro Sample:
 4. Pegel: `y · g^(−β)`
 5. DC-Blocker bei ca. 10 Hz
 6. Mischung wie bisher: `out = x + min(1, 10·d)·(y − x)`. Bei `d = 0` ist das Signal damit
-   bit-genau unverändert.
+   bit-genau unverändert, ebenso für `d < 1e-6` (`kDriveOff`, da der Glätter 0 nur asymptotisch erreicht).
 
 **Pegelverhalten (teilweise ausgeglichen):** `β` wird so abgestimmt, dass ein Sinus bei −12 dBFS
 zwischen `d = 0` und `d = 1` um ca. +6 dB lauter wird. Die Abstimmung erfolgt per Messung im Test.
@@ -118,3 +118,22 @@ Erste Ordnung: `y[n] = (F(u[n]) − F(u[n−1])) / (u[n] − u[n−1])` mit der 
 Die Charakterbeurteilung erfolgt per Gehör in Ableton. Die Konstanten (`β`, Bias, Härte-Bereich,
 Maximalverstärkung) sind leicht nachjustierbar angelegt. Nach dem Bau gibt es ein Urteil, bevor
 die Zahlen festgeschrieben werden.
+
+## 9. Bekannte Eigenschaften (in Ableton prüfen)
+
+**Pegel:** Der Pegel wächst nur bei moderaten Eingangspegeln monoton mit dem Drive. Gemessene
+RMS-Änderung gegenüber `d = 0` für einen 1-kHz-Sinus:
+
+- −12 dBFS: +7,7 dB bei `d = 0,65`, danach +5,7 dB bei `d = 1`.
+- −6 dBFS Spitze: +3,3 dB bei `d = 0,45`, −0,1 dB bei `d = 1`.
+- 0 dBFS: etwa −6 dB bei `d = 1` (der alte Drive mit `1/√g` ergab bei 0 dBFS und vollem Drive etwa −10,5 dB).
+
+Ursache: Sobald das Signal voll im Clip ist, folgt der Pegel `g^(−β)`. Stellschraube ist `kBeta`
+in `Saturator.cpp`; die Beurteilung erfolgt in Ableton mit echten Quellen.
+
+**Höhenverlust durch ADAA:** ADAA erster Ordnung wirkt im nahezu linearen Bereich wie ein
+Zwei-Tap-Mittelwert. Ab `d >= 0,1` verlieren Main und Send daher gegenüber dem alten Drive Höhen
+(relativ zu 1 kHz): ca. −0,45 dB bei 5 kHz, −2,0 dB bei 10 kHz, −5,1 dB bei 15 kHz, −11,7 dB bei
+20 kHz. Das ist schon während der Trocken/Nass-Rampe sichtbar (`d = 0,02`: −1,8 dB bei 20 kHz).
+Das ist ein akzeptierter Kompromiss der Wahl von ADAA statt Oversampling. Die Beurteilung erfolgt
+in Ableton; ein sanfter High-Shelf auf dem Nass-Pfad könnte später ausgleichen.
