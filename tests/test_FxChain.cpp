@@ -211,3 +211,75 @@ TEST_CASE("NaN in the input resets the saturators and the chain recovers", "[fxc
     CHECK(dgtest::allFinite(clean.ml));
     CHECK(dgtest::peakAbs(clean.ml, 24000) > 0.1f);
 }
+
+TEST_CASE("the phaser sits on the delay returns only", "[fxchain]")
+{
+    auto p = neutral();
+    p.delayMix = 1.0f;
+    p.delayFeedback = 0.0f;
+    p.delayTone = 1.0f;
+    p.delayWow = 0.0f;
+    p.delayDiv = DelayDivision::D1_4; // 24000 Samples bei 120 bpm
+    p.phaserDepth = 0.5f;
+
+    // (a) Das Echo klingt mit Phaser anders, der Teil davor ist gleich.
+    auto echoWith = [&](float mix) {
+        auto q = p;
+        q.phaserMix = mix;
+        FxChain fx;
+        fx.prepare(kSr);
+        Buses b(48000);
+        b.sl[0] = b.sr[0] = 1.0f;
+        run(fx, b, q);
+        return b.ml;
+    };
+    const auto plain = echoWith(0.0f);
+    const auto phased = echoWith(1.0f);
+    for (std::size_t i = 0; i < 23990; ++i)
+        CHECK(plain[i] == phased[i]);
+    float maxDiff = 0.0f;
+    for (std::size_t i = 23990; i < 24200; ++i)
+        maxDiff = std::max(maxDiff, std::abs(plain[i] - phased[i]));
+    CHECK(maxDiff > 0.01f);
+
+    // (b) Der trockene Main-Bus bleibt unberührt, auch bei Phaser-Mix 1 (ohne Send-Signal).
+    auto mainWith = [&](float mix) {
+        auto q = p;
+        q.phaserMix = mix;
+        FxChain fx;
+        fx.prepare(kSr);
+        Buses b(48000);
+        b.ml = dgtest::sine(440.0f, kSr, 48000, 0.5f);
+        b.mr = b.ml;
+        run(fx, b, q);
+        return b.ml;
+    };
+    const auto mainPlain = mainWith(0.0f);
+    const auto mainPhased = mainWith(1.0f);
+    for (std::size_t i = 0; i < mainPlain.size(); ++i)
+        CHECK(std::abs(mainPlain[i] - mainPhased[i]) < 1.0e-3f);
+}
+
+TEST_CASE("NaN in the send input resets the phaser and the chain recovers", "[fxchain]")
+{
+    auto p = neutral();
+    p.delayMix = 1.0f;
+    p.delayFeedback = 0.0f;
+    p.delayTone = 1.0f;
+    p.delayWow = 0.0f;
+    p.delayDiv = DelayDivision::D1_16T; // 4000 Samples bei 120 bpm
+    p.phaserMix = 1.0f;
+
+    FxChain fx;
+    fx.prepare(kSr);
+
+    Buses bad(4800);
+    bad.sl[10] = bad.sr[10] = std::numeric_limits<float>::quiet_NaN();
+    run(fx, bad, p);
+
+    Buses clean(12000);
+    clean.sl[0] = clean.sr[0] = 1.0f;
+    run(fx, clean, p);
+    CHECK(dgtest::allFinite(clean.ml));
+    CHECK(dgtest::peakAbs(clean.ml, 3990, 4300) > 0.05f);
+}

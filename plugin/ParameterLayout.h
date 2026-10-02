@@ -19,6 +19,9 @@ inline constexpr const char* delayMix = "dlyMix";
 inline constexpr const char* reverbDecay = "revDecay";
 inline constexpr const char* reverbTone = "revTone";
 inline constexpr const char* reverbMix = "revMix";
+inline constexpr const char* phaserRate = "phsRate";
+inline constexpr const char* phaserDepth = "phsDepth";
+inline constexpr const char* phaserMix = "phsMix";
 inline constexpr const char* masterVol = "masterVol";
 inline constexpr const char* perfPitch = "perfPitch";
 inline constexpr const char* perfRate = "perfRate";
@@ -34,6 +37,8 @@ namespace dg {
 constexpr int kParameterVersion = 1;
 // Versionshinweis für Parameter, die mit dem leeren Slot (#7) hinzugekommen sind.
 constexpr int kSourceParameterVersion = 2;
+// Versionshinweis für die Phaser-Parameter (Teilprojekt 3 der Effekt-Überarbeitung).
+constexpr int kPhaserParameterVersion = 3;
 
 juce::String slotParamId(int slot, SlotField f);
 juce::String slotSourceParamId(int slot);
@@ -59,6 +64,7 @@ private:
     Ptr drive_, cutoff_, resonance_, filterType_;
     Ptr delayTime_, delayFeedback_, delayTone_, delayWow_, delayMix_;
     Ptr reverbDecay_, reverbTone_, reverbMix_, masterVol_;
+    Ptr phaserRate_, phaserDepth_, phaserMix_;
     Ptr perfPitch_, perfRate_, perfDepth_, perfSweep_, perfTarget_, latchStop_, panic_;
 };
 

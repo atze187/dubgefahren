@@ -119,9 +119,9 @@ TEST_CASE("the editor paints at every window scale", "[look]")
         std::unique_ptr<juce::AudioProcessorEditor> editor(p.createEditor());
         const auto img = dgtest::snapshot(*editor);
         REQUIRE(img.isValid());
-        CHECK(img.getWidth() == juce::roundToInt(1000.0f * scale));
+        CHECK(img.getWidth() == juce::roundToInt(1200.0f * scale));
         // Punkt unten rechts im Slot-Editor-Panel (keine Controls) gegen den Fensterrand.
-        const auto panel = img.getPixelAt(juce::roundToInt(970.0f * scale), juce::roundToInt(420.0f * scale));
+        const auto panel = img.getPixelAt(juce::roundToInt(1170.0f * scale), juce::roundToInt(420.0f * scale));
         const auto window = img.getPixelAt(juce::roundToInt(4.0f * scale), juce::roundToInt(4.0f * scale));
         CHECK(panel != window);
         dgtest::savePng(img, "editor-" + juce::String(scale, 2));

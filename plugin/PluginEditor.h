@@ -23,7 +23,7 @@ class DubgefahrenProcessor;
 class DubgefahrenEditor final : public juce::AudioProcessorEditor, private juce::Timer
 {
 public:
-    static constexpr int kBaseWidth = 1000;
+    static constexpr int kBaseWidth = 1200;
     static constexpr int kBaseHeight = 640;
 
     explicit DubgefahrenEditor(DubgefahrenProcessor& proc);

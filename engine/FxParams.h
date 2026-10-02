@@ -21,6 +21,9 @@ struct FxParams
     float reverbDecay = 0.5f;        // 0 .. 1
     float reverbTone = 0.5f;         // 0 .. 1
     float reverbMix = 0.25f;         // 0 .. 1
+    float phaserRate = 0.4f;         // 0.05 .. 3 Hz
+    float phaserDepth = 0.5f;        // 0 .. 1
+    float phaserMix = 0.0f;          // 0 .. 1; 0 = aus (bit-genau durchgereicht)
     float masterDb = 0.0f;           // -60 (stumm) .. 6
 };
 

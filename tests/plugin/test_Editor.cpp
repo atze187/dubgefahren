@@ -21,7 +21,7 @@ TEST_CASE("editor opens with the stored scale and follows focus", "[editor]")
     p.setUiScale(1.5f);
     std::unique_ptr<juce::AudioProcessorEditor> editor(p.createEditor());
     REQUIRE(dynamic_cast<DubgefahrenEditor*>(editor.get()) != nullptr);
-    CHECK(editor->getWidth() == 1500);
+    CHECK(editor->getWidth() == 1800);
     CHECK(editor->getHeight() == 960);
 
     auto* e = static_cast<DubgefahrenEditor*>(editor.get());

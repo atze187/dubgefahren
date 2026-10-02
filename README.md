@@ -1,7 +1,7 @@
 # Dubgefahren
 
 VST3 instrument for Windows: 16 individually adjustable dub sirens, playable via 16 consecutive MIDI notes (default 36–51, adjustable)
-(e.g. Intech Studio Grid BU16), with a shared dub effects chain (drive, filter, tape delay, spring reverb).
+(e.g. Intech Studio Grid BU16), with a shared dub effects chain (drive, filter, tape delay with phaser on the echoes, spring reverb).
 
 *This is an experimental project to evaluate Claude. 
 I do not contribute to code while still reviewing Claude-written code. I do however propose features.*
@@ -114,3 +114,4 @@ Third-party components:
 - [ ] Export a kit, change slots, import the kit: slots restored, effects unchanged.
 - [ ] Scale the window (75–200 %); the size is kept after reloading.
 - [ ] Delay feedback at maximum: self-oscillation without clipping.
+- [ ] Phaser: Mix up on the delay returns gives a soft sweeping phase on the echoes only; the dry signal stays clean; Mix 0 sounds exactly like before.

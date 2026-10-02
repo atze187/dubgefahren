@@ -10,7 +10,7 @@ namespace dg::ui {
 namespace {
 constexpr int kCell = 72;
 struct Group { const char* title; int firstCell; int cells; };
-constexpr Group kGroups[] = { { "DRIVE", 0, 1 }, { "FILTER", 1, 3 }, { "DELAY", 4, 5 }, { "REVERB", 9, 3 }, { "MASTER", 12, 1 } };
+constexpr Group kGroups[] = { { "DRIVE", 0, 1 }, { "FILTER", 1, 3 }, { "DELAY", 4, 5 }, { "PHASER", 9, 3 }, { "REVERB", 12, 3 }, { "MASTER", 15, 1 } };
 } // namespace
 
 FxPanel::FxPanel(DubgefahrenProcessor& proc)
@@ -25,13 +25,16 @@ FxPanel::FxPanel(DubgefahrenProcessor& proc)
     delayTone_.attach(s, pid::delayTone);
     delayWow_.attach(s, pid::delayWow);
     delayMix_.attach(s, pid::delayMix);
+    phaserRate_.attach(s, pid::phaserRate);
+    phaserDepth_.attach(s, pid::phaserDepth);
+    phaserMix_.attach(s, pid::phaserMix);
     reverbDecay_.attach(s, pid::reverbDecay);
     reverbTone_.attach(s, pid::reverbTone);
     reverbMix_.attach(s, pid::reverbMix);
     master_.attach(s, pid::masterVol);
     for (juce::Component* c : std::initializer_list<juce::Component*> {
              &drive_, &cutoff_, &resonance_, &filterType_, &delayTime_, &delayFeedback_, &delayTone_, &delayWow_,
-             &delayMix_, &reverbDecay_, &reverbTone_, &reverbMix_, &master_ })
+             &delayMix_, &phaserRate_, &phaserDepth_, &phaserMix_, &reverbDecay_, &reverbTone_, &reverbMix_, &master_ })
         addAndMakeVisible(*c);
 }
 
@@ -51,8 +54,9 @@ void FxPanel::paint(juce::Graphics& g)
 void FxPanel::resized()
 {
     juce::Component* order[] = { &drive_, &cutoff_, &resonance_, &filterType_, &delayTime_, &delayFeedback_,
-                                 &delayTone_, &delayWow_, &delayMix_, &reverbDecay_, &reverbTone_, &reverbMix_, &master_ };
-    for (int i = 0; i < 13; ++i)
+                                 &delayTone_, &delayWow_, &delayMix_, &phaserRate_, &phaserDepth_,
+                                 &phaserMix_, &reverbDecay_, &reverbTone_, &reverbMix_, &master_ };
+    for (int i = 0; i < 16; ++i)
         order[i]->setBounds(12 + i * kCell, 20, kCell - 6, getHeight() - 24);
 }
 
