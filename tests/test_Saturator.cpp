@@ -33,6 +33,64 @@ double harmonicAmp(const std::vector<float>& y, int k)
     }
     return 2.0 * std::sqrt(re * re + im * im) / static_cast<double>(y.size() - kFrom);
 }
+
+// Leistung bei Frequenz f über 1 s (ganze Perioden bei ganzzahligem f).
+double powerAt(const std::vector<float>& y, double f)
+{
+    double re = 0.0, im = 0.0;
+    for (std::size_t i = 0; i < y.size(); ++i)
+    {
+        const double ph = 6.283185307179586 * f * static_cast<double>(i) / kSr;
+        re += y[i] * std::cos(ph);
+        im -= y[i] * std::sin(ph);
+    }
+    return re * re + im * im;
+}
+
+constexpr double kTestF0 = 4100.0;
+
+// Alias-Energie relativ zur Energie der echten Harmonischen von kTestF0 in dB.
+// Echte Harmonische: m * f0 unterhalb von 24 kHz. Alias-Produkte: ungerade Harmonische k * f0 (k >= 7)
+// oberhalb von 24 kHz, an der Nyquistfrequenz zurück in 0..24 kHz gefaltet. Bins, die auf eine echte
+// Harmonische fallen (innerhalb 2 Hz) oder doppelt vorkommen, zählen nicht.
+double aliasDb(const std::vector<float>& y)
+{
+    constexpr double kNyquist = kSr / 2.0;
+    std::vector<double> wantedBins;
+    double wanted = 0.0;
+    for (int m = 1; m * kTestF0 < kNyquist; ++m)
+    {
+        wantedBins.push_back(m * kTestF0);
+        wanted += powerAt(y, m * kTestF0);
+    }
+
+    std::vector<double> aliasBins;
+    for (int k = 7; k <= 41; k += 2)
+    {
+        double f = std::fmod(k * kTestF0, kSr);
+        if (f > kNyquist)
+            f = kSr - f;
+        const auto close = [f](double b) { return std::abs(b - f) <= 2.0; };
+        if (std::none_of(wantedBins.begin(), wantedBins.end(), close)
+            && std::none_of(aliasBins.begin(), aliasBins.end(), close))
+            aliasBins.push_back(f);
+    }
+
+    double alias = 0.0;
+    for (const double f : aliasBins)
+        alias += powerAt(y, f);
+    return 10.0 * std::log10(alias / wanted);
+}
+
+// Dieselbe Mischkennlinie wie Saturator bei drive 1 (rein hart), aber ohne ADAA.
+std::vector<float> naiveHard(const std::vector<float>& x)
+{
+    const double g = std::pow(10.0, 1.4);
+    std::vector<float> y(x.size());
+    for (std::size_t i = 0; i < x.size(); ++i)
+        y[i] = static_cast<float>(std::clamp(g * x[i] + 0.1, -1.0, 1.0));
+    return y;
+}
 } // namespace
 
 TEST_CASE("drive 0 is bit-exact transparent", "[saturator]")
@@ -147,4 +205,13 @@ TEST_CASE("low drive adds even harmonics, high drive gets harder", "[saturator]"
     const double soft1 = harmonicAmp(soft, 1), hard1 = harmonicAmp(hard, 1);
     CHECK(harmonicAmp(soft, 2) / soft1 > 0.01);                          // gerade Obertöne (Bias)
     CHECK(harmonicAmp(hard, 3) / hard1 > harmonicAmp(soft, 3) / soft1);  // härter: stärkere 3. Harmonische
+}
+
+TEST_CASE("ADAA cuts alias energy by at least 6 dB compared with naive clipping", "[saturator]")
+{
+    const auto x = dgtest::sine(static_cast<float>(kTestF0), kSr, 48000, 0.5f);
+    const double naive = aliasDb(naiveHard(x));
+    const double adaa = aliasDb(saturate(x, 1.0f));
+    CAPTURE(naive, adaa);
+    CHECK(adaa < naive - 6.0);
 }
