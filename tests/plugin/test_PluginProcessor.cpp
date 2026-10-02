@@ -61,7 +61,7 @@ juce::MidiBuffer noteMessage(int note, bool on)
 }
 } // namespace
 
-TEST_CASE("the plugin exposes 436 uniquely named parameters", "[plugin]")
+TEST_CASE("the plugin exposes 439 uniquely named parameters", "[plugin]")
 {
     juce::ScopedJuceInitialiser_GUI gui;
     DubgefahrenProcessor p;
@@ -69,8 +69,8 @@ TEST_CASE("the plugin exposes 436 uniquely named parameters", "[plugin]")
     for (auto* param : p.getParameters())
         if (auto* withId = dynamic_cast<juce::AudioProcessorParameterWithID*>(param))
             ids.insert(withId->paramID);
-    CHECK(p.getParameters().size() == 16 * 26 + 20);
-    CHECK(ids.size() == 436);
+    CHECK(p.getParameters().size() == 16 * 26 + 23);
+    CHECK(ids.size() == 439);
     CHECK(slotParamId(0, SlotField::Wave) == "s01_wave");
     CHECK(slotParamId(15, SlotField::FxSend) == "s16_send");
     CHECK(slotParamId(0, SlotField::Tune) == "s01_tune");
@@ -79,6 +79,22 @@ TEST_CASE("the plugin exposes 436 uniquely named parameters", "[plugin]")
     CHECK(slotSourceParamId(15) == "s16_source");
     CHECK_FALSE(p.state().getParameter("s01_source")->isAutomatable());
     CHECK(p.state().getParameter("s01_tune")->isAutomatable());
+}
+
+TEST_CASE("the phaser parameters default to Mix 0 so existing projects sound the same", "[plugin]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    DubgefahrenProcessor p;
+    CHECK_THAT(p.state().getParameter(pid::phaserMix)->convertFrom0to1(p.state().getParameter(pid::phaserMix)->getValue()), WithinAbs(0.0, 1e-6));
+    CHECK_THAT(p.state().getParameter(pid::phaserRate)->convertFrom0to1(p.state().getParameter(pid::phaserRate)->getValue()), WithinAbs(0.4, 1e-3));
+    CHECK_THAT(p.state().getParameter(pid::phaserDepth)->convertFrom0to1(p.state().getParameter(pid::phaserDepth)->getValue()), WithinAbs(0.5, 1e-3));
+
+    ParamCache cache(p.state());
+    EngineParams params;
+    cache.read(params);
+    CHECK_THAT(params.global.fx.phaserMix, WithinAbs(0.0, 1e-6));
+    CHECK_THAT(params.global.fx.phaserRate, WithinAbs(0.4, 1e-3));
+    CHECK_THAT(params.global.fx.phaserDepth, WithinAbs(0.5, 1e-3));
 }
 
 TEST_CASE("default program is named for VST3 hosts and validators", "[plugin]")
@@ -108,6 +124,7 @@ TEST_CASE("state round-trip keeps parameters, names with umlauts and UI settings
     DubgefahrenProcessor a;
     a.state().getParameter("s03_pitch")->setValueNotifyingHost(0.25f);
     a.state().getParameter(pid::delayMix)->setValueNotifyingHost(0.8f);
+    a.state().getParameter(pid::phaserMix)->setValueNotifyingHost(0.6f);
     a.setSlotName(2, juce::String::fromUTF8("Größe äöü"));
     a.setUiScale(1.5f);
     a.setEditorFollowsFocus(false);
@@ -119,6 +136,7 @@ TEST_CASE("state round-trip keeps parameters, names with umlauts and UI settings
     b.setStateInformation(mb.getData(), static_cast<int>(mb.getSize()));
     CHECK_THAT(b.state().getParameter("s03_pitch")->getValue(), WithinAbs(0.25, 1e-4));
     CHECK_THAT(b.state().getParameter(pid::delayMix)->getValue(), WithinAbs(0.8, 1e-4));
+    CHECK_THAT(b.state().getParameter(pid::phaserMix)->getValue(), WithinAbs(0.6, 1e-4));
     CHECK(b.slotName(2) == juce::String::fromUTF8("Größe äöü"));
     CHECK(b.slotName(0) == "Classic");
     CHECK_THAT(b.uiScale(), WithinAbs(1.5, 1e-6));

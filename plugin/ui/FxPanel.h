@@ -25,6 +25,9 @@ private:
     Knob delayTone_ { u8("Tone") };
     Knob delayWow_ { u8("Wow") };
     Knob delayMix_ { u8("Mix") };
+    Knob phaserRate_ { u8("Rate") };
+    Knob phaserDepth_ { u8("Depth") };
+    Knob phaserMix_ { u8("Mix") };
     Knob reverbDecay_ { u8("Decay") };
     Knob reverbTone_ { u8("Tone") };
     Knob reverbMix_ { u8("Mix") };
