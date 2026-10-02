@@ -12,6 +12,7 @@ constexpr float kBumpHz = 120.0f;         // Kopf-Bump: sanftes Low-Shelf
 constexpr float kBumpDb = 2.0f;
 constexpr float kHeadLossHz = 9500.0f;    // feste leichte Höhenabsenkung
 constexpr float kSatBias = 0.1f;          // Asymmetrie der Sättigung (gerade Obertöne)
+constexpr float kNoiseGain = 1.78e-4f;    // ca. -75 dBFS Spitze
 const float kSatBiasOffset = std::tanh(kSatBias);
 
 float onePoleHz(float hz, float sampleRate) { return 1.0f - std::exp(-kTwoPi * hz / sampleRate); }
@@ -57,6 +58,14 @@ void TapeDelay::setParams(float timeSeconds, float feedback, float tone, float w
     lpCoeff_ = 1.0f - std::exp(-kTwoPi * cutoff / sr);
 }
 
+float TapeDelay::nextNoise()
+{
+    rng_ ^= rng_ << 13;
+    rng_ ^= rng_ >> 17;
+    rng_ ^= rng_ << 5;
+    return static_cast<float>(rng_) / 2147483648.0f - 1.0f; // -1 .. 1
+}
+
 float TapeDelay::read(const std::vector<float>& buf, float delaySamples) const
 {
     const std::size_t size = buf.size();
@@ -98,7 +107,7 @@ void TapeDelay::process(float inL, float inR, float& wetL, float& wetR)
 
         // Weicher, leicht asymmetrischer Clipper im Feedback-Weg: auch bei 110 % bleibt alles begrenzt.
         const float sat = std::tanh(feedback_ * wet[ch] + kSatBias) - kSatBiasOffset;
-        buf_[ch][write_] = in[ch] + sat; // Gleichanteil der Asymmetrie fängt der Loop-Hochpass beim Lesen ab
+        buf_[ch][write_] = in[ch] + sat + kNoiseGain * nextNoise(); // Gleichanteil der Asymmetrie fängt der Loop-Hochpass beim Lesen ab
     }
     write_ = (write_ + 1) % buf_[0].size();
     wetL = wet[0];

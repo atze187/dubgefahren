@@ -26,6 +26,7 @@ private:
     };
 
     float read(const std::vector<float>& buf, float delaySamples) const;
+    float nextNoise();
 
     double sampleRate_ = 44100.0;
     std::array<std::vector<float>, 2> buf_;
@@ -44,6 +45,7 @@ private:
     std::array<ChannelState, 2> ch_ {};
     float wowPhase1_ = 0.0f;
     float wowPhase2_ = 0.0f;
+    std::uint32_t rng_ = 0x9E3779B9u; // fester Startwert, wird bei reset() nicht zurückgesetzt
 };
 
 } // namespace dg

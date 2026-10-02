@@ -110,7 +110,7 @@ TEST_CASE("channels are independent", "[delay]")
         d.process(i == 0 ? 1.0f : 0.0f, 0.0f, l, r);
         maxRight = std::max(maxRight, std::abs(r));
     }
-    CHECK(maxRight == 0.0f);
+    CHECK(maxRight < 1.0e-3f); // nur Bandrauschen (-75 dBFS), kein Übersprechen vom linken Kanal
 }
 
 TEST_CASE("no buffer overflow with edge case delay", "[delay]")
@@ -198,4 +198,61 @@ TEST_CASE("extreme input level stays finite", "[delay]")
     }
     CHECK(finite);
     CHECK(peak < 200.0f);
+}
+
+TEST_CASE("tape noise is inaudible at moderate feedback but audible when the loop rings", "[delay]")
+{
+    {
+        TapeDelay d;
+        d.prepare(kSr);
+        d.setParams(0.05f, 0.45f, 0.5f, 0.0f);
+        float peak = 0.0f;
+        for (int i = 0; i < 48000 * 3; ++i)
+        {
+            float l = 0.0f, r = 0.0f;
+            d.process(0.0f, 0.0f, l, r);
+            peak = std::max({ peak, std::abs(l), std::abs(r) });
+        }
+        CHECK(peak > 1.0e-5f);  // das Rauschen ist da
+        CHECK(peak < 1.0e-3f);  // aber unter -60 dBFS
+    }
+    {
+        TapeDelay d;
+        d.prepare(kSr);
+        d.setParams(0.05f, 1.1f, 0.5f, 0.0f);
+        float peak = 0.0f;
+        bool finite = true;
+        for (int i = 0; i < 48000 * 30; ++i)
+        {
+            float l = 0.0f, r = 0.0f;
+            d.process(0.0f, 0.0f, l, r);
+            finite = finite && std::isfinite(l) && std::isfinite(r);
+            peak = std::max({ peak, std::abs(l), std::abs(r) });
+        }
+        CHECK(finite);
+        CHECK(peak > 0.01f);    // Selbstoszillation aus dem Rauschen
+        CHECK(peak < 4.0f);
+    }
+}
+
+TEST_CASE("reset silences the loop including the noise", "[delay]")
+{
+    TapeDelay d;
+    d.prepare(kSr);
+    d.setParams(0.25f, 0.9f, 0.5f, 0.5f);
+    const auto burst = dgtest::noise(48000, 0.5f);
+    for (int i = 0; i < 48000; ++i)
+    {
+        float l = 0.0f, r = 0.0f;
+        d.process(burst[static_cast<std::size_t>(i)], burst[static_cast<std::size_t>(i)], l, r);
+    }
+    d.reset();
+    float peak = 0.0f;
+    for (int i = 0; i < 11990; ++i)
+    {
+        float l = 0.0f, r = 0.0f;
+        d.process(0.0f, 0.0f, l, r);
+        peak = std::max({ peak, std::abs(l), std::abs(r) });
+    }
+    CHECK(peak == 0.0f);
 }
