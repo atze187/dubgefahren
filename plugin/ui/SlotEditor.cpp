@@ -9,9 +9,9 @@
 namespace dg::ui {
 
 namespace {
-// 4 Zeilen passen in die verfügbare Höhe von 384 px (Basisgröße 1000 × 640,
-// abzüglich 24 px Rand, 36 px Kopfzeile, 84 px Performance-Leiste und 2x 8 px Abstand
-// plus 96 px FX-Panel): kTopOffset + 4 * kRowHeight = 40 + 4*84 = 376 <= 384.
+// 4 Zeilen passen in die verfügbare Höhe von 384 px (Edit-Layout, Basisgröße 1200 × 640,
+// abzüglich 24 px Rand, 36 px Kopfzeile, 84 px Performance-Leiste, 96 px Live-Leiste und
+// 2x 8 px Abstand; das Layout mit Advanced-Leiste ist 1200 × 744 und lässt die Höhe gleich): kTopOffset + 4 * kRowHeight = 40 + 4*84 = 376 <= 384.
 constexpr int kNumRows = 4;
 constexpr int kTopOffset = 40;
 constexpr int kRowHeight = 84;

@@ -1,4 +1,5 @@
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_floating_point.hpp>
 #include <memory>
 #include <utility>
 #include <vector>
@@ -534,4 +535,104 @@ TEST_CASE("the effects bar is split into the live strip and the advanced strip w
     check(e->performancePanel().getBounds(), e->performancePanel().controlBounds());
     CHECK(e->livePanel().controlBounds().size() == 8);     // Space, Grit, Throw, Cutoff, Reso, Typ, Zeit, Master
     CHECK(e->advancedPanel().controlBounds().size() == 11); // Drive, 4x Delay, 3x Phaser, 3x Reverb
+}
+
+TEST_CASE("the editor has three layouts with fixed base sizes", "[editor]")
+{
+    using Layout = DubgefahrenEditor::Layout;
+    CHECK(DubgefahrenEditor::baseSize(Layout::EditAdvanced) == juce::Point<int>(1200, 744));
+    CHECK(DubgefahrenEditor::baseSize(Layout::Edit) == juce::Point<int>(1200, 640));
+    CHECK(DubgefahrenEditor::baseSize(Layout::Live) == juce::Point<int>(880, 460));
+}
+
+TEST_CASE("switching the view resizes the window, keeps the scale and hides what Live does not show", "[editor]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    DubgefahrenProcessor p;
+    p.setUiScale(1.5f);
+    std::unique_ptr<juce::AudioProcessorEditor> editor(p.createEditor());
+    auto* e = static_cast<DubgefahrenEditor*>(editor.get());
+    REQUIRE(e != nullptr);
+    CHECK(e->layout() == DubgefahrenEditor::Layout::EditAdvanced);
+    CHECK(e->getWidth() == 1800);
+    CHECK(e->slotEditorVisible());
+    CHECK(e->advancedPanelVisible());
+
+    e->setLiveView(true);
+    CHECK(e->layout() == DubgefahrenEditor::Layout::Live);
+    CHECK(e->getWidth() == 1320);   // 880 * 1.5
+    CHECK(e->getHeight() == 690);   // 460 * 1.5
+    CHECK(p.liveView());
+    CHECK_FALSE(e->slotEditorVisible());
+    CHECK_FALSE(e->advancedPanelVisible());
+    CHECK_THAT(p.uiScale(), Catch::Matchers::WithinAbs(1.5, 1e-3));
+
+    e->setLiveView(false);
+    CHECK(e->layout() == DubgefahrenEditor::Layout::EditAdvanced);
+    CHECK(e->getWidth() == 1800);
+    CHECK_THAT(p.uiScale(), Catch::Matchers::WithinAbs(1.5, 1e-3));
+
+    e->setAdvancedOpen(false);
+    CHECK(e->layout() == DubgefahrenEditor::Layout::Edit);
+    CHECK(e->getHeight() == 960);   // 640 * 1.5
+    CHECK_FALSE(e->advancedPanelVisible());
+    CHECK(e->slotEditorVisible());
+}
+
+TEST_CASE("in every layout all visible controls lie inside their panel without overlaps", "[editor]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    for (const auto mode : { 0, 1, 2 })
+    {
+        DubgefahrenProcessor p;
+        p.setUiScale(1.0f);
+        p.setLiveView(mode == 2);
+        p.setAdvancedOpen(mode == 0);
+        std::unique_ptr<juce::AudioProcessorEditor> editor(p.createEditor());
+        auto* e = static_cast<DubgefahrenEditor*>(editor.get());
+        REQUIRE(e != nullptr);
+        const auto base = DubgefahrenEditor::baseSize(e->layout());
+        CHECK(e->getWidth() == base.x);
+        CHECK(e->getHeight() == base.y);
+
+        const auto check = [&](const juce::Rectangle<int>& panel, const std::vector<juce::Rectangle<int>>& controls) {
+            const auto local = panel.withZeroOrigin();
+            for (std::size_t i = 0; i < controls.size(); ++i)
+            {
+                CHECK(local.contains(controls[i]));
+                for (std::size_t j = i + 1; j < controls.size(); ++j)
+                    CHECK_FALSE(controls[i].intersects(controls[j]));
+            }
+        };
+        check(e->livePanel().getBounds(), e->livePanel().controlBounds());
+        check(e->performancePanel().getBounds(), e->performancePanel().controlBounds());
+        if (e->advancedPanelVisible())
+            check(e->advancedPanel().getBounds(), e->advancedPanel().controlBounds());
+
+        // Alle Panels liegen im Inhaltsbereich der Basisgröße und überlappen sich nicht.
+        const juce::Rectangle<int> content(0, 0, base.x, base.y);
+        CHECK(content.contains(e->livePanel().getBounds()));
+        CHECK(content.contains(e->performancePanel().getBounds()));
+        CHECK_FALSE(e->livePanel().getBounds().intersects(e->performancePanel().getBounds()));
+    }
+}
+
+TEST_CASE("the layout follows the processor state restored by the host", "[editor]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    DubgefahrenProcessor a;
+    a.setLiveView(true);
+    a.setAdvancedOpen(false);
+    juce::MemoryBlock mb;
+    a.getStateInformation(mb);
+
+    DubgefahrenProcessor b;
+    std::unique_ptr<juce::AudioProcessorEditor> editor(b.createEditor());
+    auto* e = static_cast<DubgefahrenEditor*>(editor.get());
+    REQUIRE(e != nullptr);
+    CHECK(e->layout() == DubgefahrenEditor::Layout::EditAdvanced);
+    b.setStateInformation(mb.getData(), static_cast<int>(mb.getSize()));
+    e->pollProcessorState();
+    CHECK(e->layout() == DubgefahrenEditor::Layout::Live);
+    CHECK_FALSE(e->slotEditorVisible());
 }
