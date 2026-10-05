@@ -1,7 +1,7 @@
 # Dubgefahren – Design-Spezifikation
 
 **Datum:** 2026-09-25
-**Status:** Entwurf zur Freigabe
+**Status:** Umgesetzt (seit Version 0.1.0, danach erweitert)
 **Typ:** VST3-Instrument (Windows x64), JUCE 8
 
 ## 1. Ziel und Kontext

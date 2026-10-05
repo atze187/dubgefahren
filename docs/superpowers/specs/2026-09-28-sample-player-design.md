@@ -1,7 +1,7 @@
 # Sample-Player als Klangquelle pro Slot – Design-Spezifikation
 
 **Datum:** 2026-09-28
-**Status:** Entwurf zur Freigabe
+**Status:** Umgesetzt, in Ableton abgenommen (2026-09-30)
 **Issue:** atze187/dubgefahren#8 (baut auf #7 auf, Branch gestapelt auf `feature/empty-slot`)
 
 ## 1. Ziel
