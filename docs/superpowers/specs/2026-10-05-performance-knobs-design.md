@@ -1,7 +1,7 @@
 # Performance-Knobs Space, Grit, Throw und Live-Ansicht – Design-Spezifikation
 
 **Datum:** 2026-10-05
-**Status:** Spec, Review und Plan offen
+**Status:** Umgesetzt, Abnahme in Ableton offen
 **Teilprojekt 5 von 5** der Überarbeitung des Effekt-Charakters
 
 ## 1. Hintergrund und Ziel
@@ -18,7 +18,7 @@ Parameter sinnvoll koppeln, und eine kompakte **Live-Ansicht** mit deutlich klei
   Einzelregler (bestehende Projekte klingen unverändert).
 - Die Einzelregler bleiben automatierbare Host-Parameter und wandern in einen aufklappbaren
   Advanced-Bereich.
-- Ein Umschalter im Header wechselt zwischen **Live** (kompaktes Fenster, etwa 800 × 540) und **Edit**
+- Ein Umschalter im Header wechselt zwischen **Live** (kompaktes Fenster, 880 × 460) und **Edit**
   (volle Ansicht).
 
 ## 2. Umfang
@@ -106,9 +106,9 @@ Regeln:
 
 | Ansicht | Basisgröße |
 |---|---|
-| Edit mit Advanced | 1200 × 736 (Live-Streifen als zusätzliche Zeile) |
+| Edit mit Advanced | 1200 × 744 (Live-Streifen als zusätzliche Zeile) |
 | Edit ohne Advanced | 1200 × 640 |
-| Live | etwa 800 × 540 |
+| Live | 880 × 460 |
 
 In Live: links die Pads (wie bisher), rechts in Zeilen die drei großen Knobs; dann Cutoff, Reso, Typ und
 Delay-Zeit; dann Pitch, Rate, Depth, Sweep; darunter Master, Target und Latch on Stop. Die endgültigen
