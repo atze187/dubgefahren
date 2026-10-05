@@ -87,6 +87,12 @@ public:
     void setUiScale(float scale);
     bool editorFollowsFocus() const;
     void setEditorFollowsFocus(bool follow);
+    // Ansicht des Editors (Live = kompakt, Edit = voll) und ob der Advanced-Streifen aufgeklappt ist.
+    // Beides liegt im Plugin-Zustand, keine Host-Parameter. Standard: Edit mit Advanced.
+    bool liveView() const;
+    void setLiveView(bool live);
+    bool advancedOpen() const;
+    void setAdvancedOpen(bool open);
     const KitFolderInfo& kitFolder() const { return kitFolder_; }
     // Erhöht sich, wenn sich Slot-Namen/-Parameter oder Editor-Settings von außerhalb des
     // Editors ändern (Host-Restore, applyKit, setSlot, setSlotName), damit der Editor per
