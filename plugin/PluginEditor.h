@@ -10,7 +10,8 @@
 #include "plugin/PadMapping.h"
 #include "plugin/ui/CpuMeter.h"
 #include "plugin/ui/DgLookAndFeel.h"
-#include "plugin/ui/FxPanel.h"
+#include "plugin/ui/AdvancedPanel.h"
+#include "plugin/ui/LivePanel.h"
 #include "plugin/ui/PadGrid.h"
 #include "plugin/ui/PerformancePanel.h"
 #include "plugin/ui/SlotEditor.h"
@@ -23,8 +24,11 @@ class DubgefahrenProcessor;
 class DubgefahrenEditor final : public juce::AudioProcessorEditor, private juce::Timer
 {
 public:
+    const ui::LivePanel& livePanel() const { return live_; }
+    const ui::AdvancedPanel& advancedPanel() const { return advanced_; }
+    const ui::PerformancePanel& performancePanel() const { return perf_; }
     static constexpr int kBaseWidth = 1200;
-    static constexpr int kBaseHeight = 640;
+    static constexpr int kBaseHeight = 744;
 
     explicit DubgefahrenEditor(DubgefahrenProcessor& proc);
     ~DubgefahrenEditor() override;
@@ -111,9 +115,10 @@ private:
     juce::ToggleButton followFocus_ { "Editor follows focus" };
     ui::PadGrid pads_;
     ui::SlotEditor slotEditor_;
-    ui::FxPanel fx_;
+    ui::LivePanel live_;
+    ui::AdvancedPanel advanced_;
     ui::PerformancePanel perf_;
-    std::array<ui::PanelShadow, 3> panelShadows_;
+    std::array<ui::PanelShadow, 4> panelShadows_;
     std::unique_ptr<juce::FileChooser> chooser_;
     struct ClipboardSlot
     {

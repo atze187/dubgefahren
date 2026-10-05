@@ -25,21 +25,39 @@ void PerformancePanel::paint(juce::Graphics& g)
     drawPanelBody(g, getLocalBounds().toFloat());
     g.setColour(colours::textDim);
     g.setFont(font(11.0f, true));
-    g.drawText("PERFORMANCE", 12, 0, 120, getHeight(), juce::Justification::centredLeft);
+    if (getWidth() >= 900)
+        g.drawText("PERFORMANCE", 12, 0, 120, getHeight(), juce::Justification::centredLeft);
+    else
+        g.drawText("PERFORMANCE", 12, 4, 160, 16, juce::Justification::centredLeft);
 }
 
 void PerformancePanel::resized()
 {
-    int x = 130;
-    for (juce::Component* c : std::initializer_list<juce::Component*> { &pitch_, &rate_, &depth_, &sweep_ })
+    if (getWidth() >= 900)
     {
-        c->setBounds(x, 4, 72, getHeight() - 8);
-        x += 76;
+        int x = 130;
+        for (juce::Component* c : std::initializer_list<juce::Component*> { &pitch_, &rate_, &depth_, &sweep_ })
+        {
+            c->setBounds(x, 4, 72, getHeight() - 8);
+            x += 76;
+        }
+        constexpr int kChoiceHeight = 44;
+        const int choiceY = (getHeight() - kChoiceHeight) / 2;
+        target_.setBounds(x + 20, choiceY, 120, kChoiceHeight);
+        latchStop_.setBounds(x + 160, choiceY, 170, kChoiceHeight);
     }
-    constexpr int kChoiceHeight = 44;
-    const int choiceY = (getHeight() - kChoiceHeight) / 2;
-    target_.setBounds(x + 20, choiceY, 120, kChoiceHeight);
-    latchStop_.setBounds(x + 160, choiceY, 170, kChoiceHeight);
+    else
+    {
+        // Compact (Live): four knobs on top, the two choices below
+        int x = 12;
+        for (juce::Component* c : std::initializer_list<juce::Component*> { &pitch_, &rate_, &depth_, &sweep_ })
+        {
+            c->setBounds(x, 22, 72, 84);
+            x += 76;
+        }
+        target_.setBounds(12, 108, 130, 40);
+        latchStop_.setBounds(154, 108, 170, 40);
+    }
 }
 
 } // namespace dg::ui

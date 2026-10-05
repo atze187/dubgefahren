@@ -15,7 +15,7 @@ enum SourceMenuId { kSourceSynth = 1, kSourceSampleDisabled, kSourceNoSamples, k
 } // namespace
 
 DubgefahrenEditor::DubgefahrenEditor(DubgefahrenProcessor& proc)
-    : AudioProcessorEditor(proc), proc_(proc), pads_(proc), slotEditor_(proc), fx_(proc), perf_(proc)
+    : AudioProcessorEditor(proc), proc_(proc), pads_(proc), slotEditor_(proc), live_(proc), advanced_(proc), perf_(proc)
 {
     setLookAndFeel(&lnf_);
     addAndMakeVisible(content_);
@@ -42,7 +42,7 @@ DubgefahrenEditor::DubgefahrenEditor(DubgefahrenProcessor& proc)
     slotEditor_.onChooseSample = [this] { showSampleMenu(selectedSlot_); };
 
     for (juce::Component* c : std::initializer_list<juce::Component*> {
-             &title_, &cpuMeter_, &kitButton_, &midiButton_, &importButton_, &exportButton_, &panicButton_, &followFocus_, &pads_, &slotEditor_, &fx_, &perf_ })
+             &title_, &cpuMeter_, &kitButton_, &midiButton_, &importButton_, &exportButton_, &panicButton_, &followFocus_, &pads_, &slotEditor_, &live_, &advanced_, &perf_ })
         content_.addAndMakeVisible(*c);
 
     content_.setSize(kBaseWidth, kBaseHeight);
@@ -81,8 +81,9 @@ void DubgefahrenEditor::paint(juce::Graphics& g)
     // im Koordinatensystem der skalierten content_-Komponente.
     g.addTransform(content_.getTransform());
     panelShadows_[0].render(g, slotEditor_.getBounds().toFloat());
-    panelShadows_[1].render(g, fx_.getBounds().toFloat());
-    panelShadows_[2].render(g, perf_.getBounds().toFloat());
+    panelShadows_[1].render(g, live_.getBounds().toFloat());
+    panelShadows_[2].render(g, advanced_.getBounds().toFloat());
+    panelShadows_[3].render(g, perf_.getBounds().toFloat());
     g.setOrigin(pads_.getPosition());
     pads_.paintGlows(g);
 }
@@ -111,7 +112,9 @@ void DubgefahrenEditor::layoutContent()
 
     perf_.setBounds(r.removeFromBottom(84));
     r.removeFromBottom(8);
-    fx_.setBounds(r.removeFromBottom(96));
+    advanced_.setBounds(r.removeFromBottom(96));
+    r.removeFromBottom(8);
+    live_.setBounds(r.removeFromBottom(96));
     r.removeFromBottom(8);
     pads_.setBounds(r.removeFromLeft(360));
     r.removeFromLeft(12);

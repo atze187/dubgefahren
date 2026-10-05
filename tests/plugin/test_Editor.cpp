@@ -22,7 +22,7 @@ TEST_CASE("editor opens with the stored scale and follows focus", "[editor]")
     std::unique_ptr<juce::AudioProcessorEditor> editor(p.createEditor());
     REQUIRE(dynamic_cast<DubgefahrenEditor*>(editor.get()) != nullptr);
     CHECK(editor->getWidth() == 1800);
-    CHECK(editor->getHeight() == 960);
+    CHECK(editor->getHeight() == 1116);
 
     auto* e = static_cast<DubgefahrenEditor*>(editor.get());
     CHECK(e->selectedSlot() == 0);
@@ -507,4 +507,31 @@ TEST_CASE("the first note dialog accepts only valid numbers", "[editor][padmappi
     CHECK(e->applyFirstNoteText(field->getText()));
     CHECK(PadMapping::instance().firstNote() == 32);
     CHECK(tickedItems(e->buildMidiMenu())[0].first == juce::String::fromUTF8("Pad 1 note: 32…"));
+}
+
+TEST_CASE("the effects bar is split into the live strip and the advanced strip without overlaps", "[editor]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    DubgefahrenProcessor p;
+    p.setUiScale(1.0f);
+    std::unique_ptr<juce::AudioProcessorEditor> editor(p.createEditor());
+    auto* e = static_cast<DubgefahrenEditor*>(editor.get());
+    REQUIRE(e != nullptr);
+    CHECK(e->getWidth() == 1200);
+    CHECK(e->getHeight() == 744);
+
+    const auto check = [](const juce::Rectangle<int>& panel, const std::vector<juce::Rectangle<int>>& controls) {
+        const auto local = panel.withZeroOrigin();
+        for (std::size_t i = 0; i < controls.size(); ++i)
+        {
+            CHECK(local.contains(controls[i]));
+            for (std::size_t j = i + 1; j < controls.size(); ++j)
+                CHECK_FALSE(controls[i].intersects(controls[j]));
+        }
+    };
+    check(e->livePanel().getBounds(), e->livePanel().controlBounds());
+    check(e->advancedPanel().getBounds(), e->advancedPanel().controlBounds());
+    check(e->performancePanel().getBounds(), e->performancePanel().controlBounds());
+    CHECK(e->livePanel().controlBounds().size() == 8);     // Space, Grit, Throw, Cutoff, Reso, Typ, Zeit, Master
+    CHECK(e->advancedPanel().controlBounds().size() == 11); // Drive, 4x Delay, 3x Phaser, 3x Reverb
 }
