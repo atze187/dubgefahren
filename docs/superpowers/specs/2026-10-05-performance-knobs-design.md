@@ -41,7 +41,8 @@ synchroner Throw, Hochformat-Layout, ein zusätzlicher Throw-Taster.
 
 Drei neue automatierbare Host-Parameter, 0 bis 1, Standard 0: `Space`, `Grit`, `Throw` (IDs
 `fxSpace`, `fxGrit`, `fxThrow`, Versionshinweis 5). Der Plugin-Zustand alter Projekte kennt sie nicht und
-lädt sie mit 0. Die Parameter erscheinen bei den globalen Effekt-Parametern (insgesamt dann
+lädt sie mit 0; das gilt auch, wenn der Zustand in eine laufende Instanz geladen wird (Parameter, die im
+Zustand fehlen, werden auf ihren Default zurückgesetzt). Die Parameter erscheinen bei den globalen Effekt-Parametern (insgesamt dann
 26 globale und 442 Parameter).
 
 Eine neue, reine und JUCE-freie Funktion `applyMacros(const FxParams&, const MacroParams&)`
@@ -76,11 +77,12 @@ Regeln:
 ## 5. Einbau in die Engine
 
 - `GlobalParams` (`engine/Engine.h`) bekommt `MacroParams macros` (space, grit, throw).
-- `FxChain` übernimmt die Knobs mit den Effektparametern, glättet sie mit 20 ms (wie die übrigen Regler)
-  und ruft pro Block `applyMacros` auf. Die wirksamen Werte gehen an die bestehenden Stufen.
+- `FxChain` übernimmt die Knobs mit den Effektparametern, glättet sie pro Block mit 20 ms und ruft pro
+  Block `applyMacros` auf. Die wirksamen Werte gehen an die bestehenden Stufen, deren Einzelwerte ihre
+  eigenen Pro-Sample-Glätter behalten (zwei kaskadierte Glätter, unhörbar).
 - **Throw und FX-Send:** Der FX-Send steckt pro Slot in `engine/Engine.cpp` (`targetSend`). Dort kommt
-  ein globaler Aufschlag dazu: `Send = clamp(Slot-Send + Throw, 0, 1)`. Die bestehende 20-ms-Glättung der
-  Send-Werte bleibt.
+  ein globaler Aufschlag dazu: `Send = clamp(Slot-Send + Throw, 0, 1)`. Der Throw-Aufschlag läuft durch den
+  bestehenden Send-Glätter pro Slot (20 ms).
 
 ## 6. Ansichten und Oberfläche
 
@@ -95,8 +97,8 @@ Regeln:
 
 **Umschalten:**
 
-- Ein Taster im Header wechselt zwischen **Live** und **Edit**. In Edit gibt es am Advanced-Streifen
-  einen Aufklapp-Pfeil **Advanced ▾**.
+- Ein Taster im Header wechselt zwischen **Live** und **Edit**. In Edit gibt es im Header einen
+  Taster **Advanced ▾/▸**, der den Advanced-Streifen auf- und zuklappt.
 - Header in Live: Titel, CPU-Anzeige, Kit-Menü, Umschalter, PANIC. Die Einrichtungs-Dinge (MIDI-Menü,
   Import, Export, "Editor follows focus") gibt es nur in Edit.
 - Beide Zustände (Ansicht, Advanced auf/zu) liegen im Plugin-Zustand (wie die Fensterskalierung, keine
@@ -110,8 +112,9 @@ Regeln:
 | Edit ohne Advanced | 1200 × 640 |
 | Live | 880 × 460 |
 
-In Live: links die Pads (wie bisher), rechts in Zeilen die drei großen Knobs; dann Cutoff, Reso, Typ und
-Delay-Zeit; dann Pitch, Rate, Depth, Sweep; darunter Master, Target und Latch on Stop. Die endgültigen
+In Live: links die Pads (wie bisher), rechts in Zeilen: die drei großen Knobs; dann Cutoff, Reso, Typ,
+Delay-Zeit und Master; dann das Performance-Panel (Pitch, Rate, Depth, Sweep in einer Zeile, darunter
+Target und Latch on Stop). Die endgültigen
 Maße legt der Plan fest. Das Seitenverhältnis ist pro Layout fest; beim Umschalten ändert sich die
 Fenstergröße. Der Pad-Klick (Gate-Vorschau, Kontextmenü, leere Pads) und der Fokus-Slot funktionieren in
 Live unverändert.
@@ -122,7 +125,8 @@ Live unverändert.
   `tests/test_Macros.cpp` (in `tests/CMakeLists.txt` eintragen).
 - Engine: `engine/Engine.h`, `engine/Engine.cpp`, `engine/FxChain.h`, `engine/FxChain.cpp`.
 - Plugin: `plugin/ParameterLayout.h/.cpp`, `plugin/PluginProcessor.h/.cpp`, `plugin/PluginEditor.h/.cpp`,
-  `plugin/ui/FxPanel.h/.cpp` (Live- und Advanced-Streifen), `plugin/ui/PerformancePanel.h/.cpp`
+  `plugin/ui/LivePanel.h/.cpp` (neu), `plugin/ui/AdvancedPanel.h/.cpp` (umbenannt aus `FxPanel`),
+  `plugin/ui/PerformancePanel.h/.cpp`
   (Anordnung anpassbar).
 - Tests: `tests/test_FxChain.cpp`, `tests/test_Engine.cpp`, `tests/plugin/test_PluginProcessor.cpp`,
   `tests/plugin/test_Editor.cpp`, `tests/plugin/test_Look.cpp`.
