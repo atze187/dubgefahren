@@ -1,7 +1,7 @@
 # Leerer Slot mit Klangquellen-Auswahl – Design-Spezifikation
 
 **Datum:** 2026-09-28
-**Status:** Entwurf zur Freigabe
+**Status:** Umgesetzt, in Ableton abgenommen (2026-09-30)
 **Issue:** atze187/dubgefahren#7 (Voraussetzung für #8, Sample-Player)
 
 ## 1. Ziel
