@@ -467,3 +467,35 @@ TEST_CASE("the performance knobs default to zero and a fresh processor opens in 
     cache.read(params);
     CHECK_THAT(params.global.macros.throwAmount, WithinAbs(1.0, 1e-5));
 }
+
+TEST_CASE("loading a state without the newer parameters resets them to their defaults", "[plugin]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    DubgefahrenProcessor a;
+    juce::MemoryBlock saved;
+    a.getStateInformation(saved);
+    auto xml = juce::AudioProcessor::getXmlFromBinary(saved.getData(), static_cast<int>(saved.getSize()));
+    REQUIRE(xml != nullptr);
+    const juce::StringArray removed { pid::space, pid::grit, pid::throwAmount, pid::phaserMix };
+    for (auto* child = xml->getFirstChildElement(); child != nullptr;)
+    {
+        auto* next = child->getNextElement();
+        if (child->hasTagName("PARAM") && removed.contains(child->getStringAttribute("id")))
+            xml->removeChildElement(child, true);
+        child = next;
+    }
+    juce::MemoryBlock old;
+    juce::AudioProcessor::copyXmlToBinary(*xml, old);
+
+    DubgefahrenProcessor b;
+    for (const char* id : { pid::space, pid::grit, pid::throwAmount })
+        b.state().getParameter(id)->setValueNotifyingHost(1.0f);
+    b.state().getParameter(pid::phaserMix)->setValueNotifyingHost(0.6f);
+    b.setLiveView(true);
+    b.setStateInformation(old.getData(), static_cast<int>(old.getSize()));
+
+    for (const char* id : { pid::space, pid::grit, pid::throwAmount, pid::phaserMix })
+        CHECK_THAT(b.state().getParameter(id)->getValue(), WithinAbs(0.0, 1e-6));
+    CHECK_FALSE(b.liveView());
+    CHECK(b.advancedOpen());
+}
