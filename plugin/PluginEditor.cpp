@@ -15,7 +15,7 @@ enum SourceMenuId { kSourceSynth = 1, kSourceSampleDisabled, kSourceNoSamples, k
 } // namespace
 
 DubgefahrenEditor::DubgefahrenEditor(DubgefahrenProcessor& proc)
-    : AudioProcessorEditor(proc), proc_(proc), pads_(proc), slotEditor_(proc), fx_(proc), perf_(proc)
+    : AudioProcessorEditor(proc), proc_(proc), pads_(proc), slotEditor_(proc), live_(proc), advanced_(proc), perf_(proc)
 {
     setLookAndFeel(&lnf_);
     addAndMakeVisible(content_);
@@ -41,25 +41,21 @@ DubgefahrenEditor::DubgefahrenEditor(DubgefahrenProcessor& proc)
     slotEditor_.onRename = [this] { renameSlot(selectedSlot_); };
     slotEditor_.onChooseSample = [this] { showSampleMenu(selectedSlot_); };
 
+    viewButton_.onClick = [this] { setLiveView(!proc_.liveView()); };
+    advancedButton_.onClick = [this] { setAdvancedOpen(!proc_.advancedOpen()); };
+
     for (juce::Component* c : std::initializer_list<juce::Component*> {
-             &title_, &cpuMeter_, &kitButton_, &midiButton_, &importButton_, &exportButton_, &panicButton_, &followFocus_, &pads_, &slotEditor_, &fx_, &perf_ })
+             &title_, &cpuMeter_, &kitButton_, &midiButton_, &importButton_, &exportButton_, &panicButton_, &viewButton_, &advancedButton_,
+             &followFocus_, &pads_, &slotEditor_, &live_, &advanced_, &perf_ })
         content_.addAndMakeVisible(*c);
 
-    content_.setSize(kBaseWidth, kBaseHeight);
     pads_.setOrigin(PadMapping::instance().origin());
-    layoutContent();
     selectSlot(proc_.focusSlot());
     lastStateGeneration_ = proc_.stateGeneration();
     lastSoundMask_ = soundMask();
 
-    // uiScale() wird vorab gelesen: setResizeLimits() zwingt die noch 0x0 große
-    // Editor-Bounds sofort auf die Mindestgröße, was über resized() einen Zwischenwert
-    // in den Processor zurückschreibt. Der hier gemerkte Zielwert überlebt das.
-    const float scale = proc_.uiScale();
     setResizable(true, true);
-    setResizeLimits(kBaseWidth * 3 / 4, kBaseHeight * 3 / 4, kBaseWidth * 2, kBaseHeight * 2);
-    getConstrainer()->setFixedAspectRatio(static_cast<double>(kBaseWidth) / kBaseHeight);
-    setSize(juce::roundToInt(kBaseWidth * scale), juce::roundToInt(kBaseHeight * scale));
+    applyLayout();
     startTimerHz(30);
 }
 
@@ -80,29 +76,84 @@ void DubgefahrenEditor::paint(juce::Graphics& g)
     // Schatten ragen über ihre Komponenten hinaus, deshalb zeichnet sie der Editor darunter,
     // im Koordinatensystem der skalierten content_-Komponente.
     g.addTransform(content_.getTransform());
-    panelShadows_[0].render(g, slotEditor_.getBounds().toFloat());
-    panelShadows_[1].render(g, fx_.getBounds().toFloat());
-    panelShadows_[2].render(g, perf_.getBounds().toFloat());
+    if (slotEditor_.isVisible())
+        panelShadows_[0].render(g, slotEditor_.getBounds().toFloat());
+    panelShadows_[1].render(g, live_.getBounds().toFloat());
+    if (advanced_.isVisible())
+        panelShadows_[2].render(g, advanced_.getBounds().toFloat());
+    panelShadows_[3].render(g, perf_.getBounds().toFloat());
     g.setOrigin(pads_.getPosition());
     pads_.paintGlows(g);
 }
 
 void DubgefahrenEditor::resized()
 {
-    const float scale = static_cast<float>(getWidth()) / static_cast<float>(kBaseWidth);
-    content_.setBounds(0, 0, kBaseWidth, kBaseHeight);
+    const auto base = baseSize(layout_);
+    const float scale = static_cast<float>(getWidth()) / static_cast<float>(base.x);
+    content_.setBounds(0, 0, base.x, base.y);
     content_.setTransform(juce::AffineTransform::scale(scale));
     proc_.setUiScale(scale);
 }
 
+void DubgefahrenEditor::applyLayout()
+{
+    layout_ = proc_.liveView() ? Layout::Live : proc_.advancedOpen() ? Layout::EditAdvanced : Layout::Edit;
+    const bool live = layout_ == Layout::Live;
+    const auto base = baseSize(layout_);
+
+    slotEditor_.setVisible(!live);
+    advanced_.setVisible(layout_ == Layout::EditAdvanced);
+    for (juce::Component* c : std::initializer_list<juce::Component*> { &followFocus_, &midiButton_, &importButton_, &exportButton_, &advancedButton_ })
+        c->setVisible(!live);
+    viewButton_.setButtonText(live ? "Edit" : "Live");
+    advancedButton_.setButtonText(juce::String::fromUTF8(proc_.advancedOpen() ? "Advanced ▾" : "Advanced ▸"));
+
+    content_.setSize(base.x, base.y);
+    layoutContent();
+
+    // uiScale() vorab lesen: setResizeLimits() zwingt die Editor-Bounds sofort auf die Mindestgröße,
+    // was über resized() einen Zwischenwert in den Processor zurückschreibt.
+    const float scale = proc_.uiScale();
+    setResizeLimits(base.x * 3 / 4, base.y * 3 / 4, base.x * 2, base.y * 2);
+    getConstrainer()->setFixedAspectRatio(static_cast<double>(base.x) / base.y);
+    setSize(juce::roundToInt(base.x * scale), juce::roundToInt(base.y * scale));
+    repaint();
+}
+
+void DubgefahrenEditor::setLiveView(bool live)
+{
+    proc_.setLiveView(live);
+    applyLayout();
+}
+
+void DubgefahrenEditor::setAdvancedOpen(bool open)
+{
+    proc_.setAdvancedOpen(open);
+    applyLayout();
+}
+
 void DubgefahrenEditor::layoutContent()
 {
-    auto r = juce::Rectangle<int>(0, 0, kBaseWidth, kBaseHeight).reduced(12);
+    const auto base = baseSize(layout_);
+    auto r = juce::Rectangle<int>(0, 0, base.x, base.y).reduced(12);
     auto header = r.removeFromTop(36);
     title_.setBounds(header.removeFromLeft(220));
     cpuMeter_.setBounds(header.removeFromLeft(90));
     panicButton_.setBounds(header.removeFromRight(90).reduced(2));
     header.removeFromRight(12);
+    viewButton_.setBounds(header.removeFromRight(80).reduced(2));
+    if (layout_ == Layout::Live)
+    {
+        kitButton_.setBounds(header.removeFromRight(110).reduced(2));
+        r.removeFromTop(8);
+        pads_.setBounds(r.removeFromLeft(360));
+        r.removeFromLeft(12);
+        live_.setBounds(r.removeFromTop(232));
+        r.removeFromTop(8);
+        perf_.setBounds(r);
+        return;
+    }
+    advancedButton_.setBounds(header.removeFromRight(110).reduced(2));
     exportButton_.setBounds(header.removeFromRight(80).reduced(2));
     importButton_.setBounds(header.removeFromRight(80).reduced(2));
     kitButton_.setBounds(header.removeFromRight(110).reduced(2));
@@ -111,7 +162,12 @@ void DubgefahrenEditor::layoutContent()
 
     perf_.setBounds(r.removeFromBottom(84));
     r.removeFromBottom(8);
-    fx_.setBounds(r.removeFromBottom(96));
+    if (layout_ == Layout::EditAdvanced)
+    {
+        advanced_.setBounds(r.removeFromBottom(96));
+        r.removeFromBottom(8);
+    }
+    live_.setBounds(r.removeFromBottom(96));
     r.removeFromBottom(8);
     pads_.setBounds(r.removeFromLeft(360));
     r.removeFromLeft(12);
@@ -135,6 +191,11 @@ void DubgefahrenEditor::refreshAll()
 
 void DubgefahrenEditor::pollProcessorState()
 {
+    // Ansicht und Advanced-Zustand kommen auch vom Host (Projekt laden, Undo): dem Layout folgen.
+    const Layout wanted = proc_.liveView() ? Layout::Live : proc_.advancedOpen() ? Layout::EditAdvanced : Layout::Edit;
+    if (wanted != layout_)
+        applyLayout();
+
     // Die Pad-Belegung gilt für alle Instanzen: Eine Änderung in einem anderen Editor übernehmen.
     if (pads_.setOrigin(PadMapping::instance().origin()))
         repaint();

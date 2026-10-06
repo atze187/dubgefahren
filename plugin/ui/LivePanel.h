@@ -9,10 +9,10 @@ class DubgefahrenProcessor;
 
 namespace dg::ui {
 
-class PerformancePanel final : public juce::Component
+class LivePanel final : public juce::Component
 {
 public:
-    explicit PerformancePanel(DubgefahrenProcessor& proc);
+    explicit LivePanel(DubgefahrenProcessor& proc);
     void paint(juce::Graphics& g) override;
     void resized() override;
     std::vector<juce::Rectangle<int>> controlBounds() const
@@ -24,12 +24,14 @@ public:
     }
 
 private:
-    Knob pitch_ { u8("Pitch") };
-    Knob rate_ { u8("Rate") };
-    Knob depth_ { u8("Depth") };
-    Knob sweep_ { u8("Sweep") };
-    Choice target_ { u8("Target") };
-    Choice latchStop_ { u8("Latch on Stop") };
+    Knob space_ { u8("Space") };
+    Knob grit_ { u8("Grit") };
+    Knob throw_ { u8("Throw") };
+    Knob cutoff_ { u8("Cutoff") };
+    Knob resonance_ { u8("Reso") };
+    Knob filterType_ { u8("LP·BP·HP") };
+    Choice delayTime_ { u8("Time") };
+    Knob master_ { u8("Master") };
 };
 
 } // namespace dg::ui

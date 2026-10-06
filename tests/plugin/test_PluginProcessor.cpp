@@ -61,7 +61,7 @@ juce::MidiBuffer noteMessage(int note, bool on)
 }
 } // namespace
 
-TEST_CASE("the plugin exposes 439 uniquely named parameters", "[plugin]")
+TEST_CASE("the plugin exposes 442 uniquely named parameters", "[plugin]")
 {
     juce::ScopedJuceInitialiser_GUI gui;
     DubgefahrenProcessor p;
@@ -69,8 +69,8 @@ TEST_CASE("the plugin exposes 439 uniquely named parameters", "[plugin]")
     for (auto* param : p.getParameters())
         if (auto* withId = dynamic_cast<juce::AudioProcessorParameterWithID*>(param))
             ids.insert(withId->paramID);
-    CHECK(p.getParameters().size() == 16 * 26 + 23);
-    CHECK(ids.size() == 439);
+    CHECK(p.getParameters().size() == 16 * 26 + 26);
+    CHECK(ids.size() == 442);
     CHECK(slotParamId(0, SlotField::Wave) == "s01_wave");
     CHECK(slotParamId(15, SlotField::FxSend) == "s16_send");
     CHECK(slotParamId(0, SlotField::Tune) == "s01_tune");
@@ -125,6 +125,9 @@ TEST_CASE("state round-trip keeps parameters, names with umlauts and UI settings
     a.state().getParameter("s03_pitch")->setValueNotifyingHost(0.25f);
     a.state().getParameter(pid::delayMix)->setValueNotifyingHost(0.8f);
     a.state().getParameter(pid::phaserMix)->setValueNotifyingHost(0.6f);
+    a.state().getParameter(pid::space)->setValueNotifyingHost(0.4f);
+    a.setLiveView(true);
+    a.setAdvancedOpen(false);
     a.setSlotName(2, juce::String::fromUTF8("Größe äöü"));
     a.setUiScale(1.5f);
     a.setEditorFollowsFocus(false);
@@ -137,6 +140,9 @@ TEST_CASE("state round-trip keeps parameters, names with umlauts and UI settings
     CHECK_THAT(b.state().getParameter("s03_pitch")->getValue(), WithinAbs(0.25, 1e-4));
     CHECK_THAT(b.state().getParameter(pid::delayMix)->getValue(), WithinAbs(0.8, 1e-4));
     CHECK_THAT(b.state().getParameter(pid::phaserMix)->getValue(), WithinAbs(0.6, 1e-4));
+    CHECK_THAT(b.state().getParameter(pid::space)->getValue(), WithinAbs(0.4, 1e-4));
+    CHECK(b.liveView());
+    CHECK_FALSE(b.advancedOpen());
     CHECK(b.slotName(2) == juce::String::fromUTF8("Größe äöü"));
     CHECK(b.slotName(0) == "Classic");
     CHECK_THAT(b.uiScale(), WithinAbs(1.5, 1e-6));
@@ -434,4 +440,62 @@ TEST_CASE("applyKit with an empty kit keeps the plugin silent", "[plugin]")
     p.processBlock(buf, on);
     CHECK(buf.getMagnitude(0, 0, 512) == 0.0f);
     CHECK(p.activeMask() == 0u);
+}
+
+TEST_CASE("the performance knobs default to zero and a fresh processor opens in Edit with Advanced", "[plugin]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    DubgefahrenProcessor p;
+    for (const char* id : { pid::space, pid::grit, pid::throwAmount })
+    {
+        auto* param = p.state().getParameter(id);
+        REQUIRE(param != nullptr);
+        CHECK(param->isAutomatable());
+        CHECK_THAT(param->convertFrom0to1(param->getValue()), WithinAbs(0.0, 1e-6));
+    }
+    CHECK_FALSE(p.liveView());
+    CHECK(p.advancedOpen());
+
+    ParamCache cache(p.state());
+    EngineParams params;
+    cache.read(params);
+    CHECK(params.global.macros.space == 0.0f);
+    CHECK(params.global.macros.grit == 0.0f);
+    CHECK(params.global.macros.throwAmount == 0.0f);
+
+    p.state().getParameter(pid::throwAmount)->setValueNotifyingHost(1.0f);
+    cache.read(params);
+    CHECK_THAT(params.global.macros.throwAmount, WithinAbs(1.0, 1e-5));
+}
+
+TEST_CASE("loading a state without the newer parameters resets them to their defaults", "[plugin]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    DubgefahrenProcessor a;
+    juce::MemoryBlock saved;
+    a.getStateInformation(saved);
+    auto xml = juce::AudioProcessor::getXmlFromBinary(saved.getData(), static_cast<int>(saved.getSize()));
+    REQUIRE(xml != nullptr);
+    const juce::StringArray removed { pid::space, pid::grit, pid::throwAmount, pid::phaserMix };
+    for (auto* child = xml->getFirstChildElement(); child != nullptr;)
+    {
+        auto* next = child->getNextElement();
+        if (child->hasTagName("PARAM") && removed.contains(child->getStringAttribute("id")))
+            xml->removeChildElement(child, true);
+        child = next;
+    }
+    juce::MemoryBlock old;
+    juce::AudioProcessor::copyXmlToBinary(*xml, old);
+
+    DubgefahrenProcessor b;
+    for (const char* id : { pid::space, pid::grit, pid::throwAmount })
+        b.state().getParameter(id)->setValueNotifyingHost(1.0f);
+    b.state().getParameter(pid::phaserMix)->setValueNotifyingHost(0.6f);
+    b.setLiveView(true);
+    b.setStateInformation(old.getData(), static_cast<int>(old.getSize()));
+
+    for (const char* id : { pid::space, pid::grit, pid::throwAmount, pid::phaserMix })
+        CHECK_THAT(b.state().getParameter(id)->getValue(), WithinAbs(0.0, 1e-6));
+    CHECK_FALSE(b.liveView());
+    CHECK(b.advancedOpen());
 }

@@ -5,6 +5,7 @@
 #include <vector>
 #include "engine/FxChain.h"
 #include "engine/FxParams.h"
+#include "engine/Macros.h"
 #include "engine/PadRouter.h"
 #include "engine/SamplePlayer.h"
 #include "engine/SirenVoice.h"
@@ -16,6 +17,7 @@ enum class PerfTarget { Focus, All };
 struct GlobalParams
 {
     FxParams fx {};
+    MacroParams macros {};
     PerfOffsets perf {};
     PerfTarget perfTarget = PerfTarget::Focus;
     LatchStopAction latchStop = LatchStopAction::Release;

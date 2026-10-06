@@ -7,7 +7,7 @@ add_library(dg_engine STATIC
     SoundSource.h SampleData.h SampleRegion.h SirenVoice.h SirenVoice.cpp SamplePlayer.h SamplePlayer.cpp
     PadRouter.h PadRouter.cpp
     Saturator.h Saturator.cpp SvFilter.h SvFilter.cpp Limiter.h
-    FxParams.h FxParams.cpp Phaser.h Phaser.cpp TapeDelay.h TapeDelay.cpp
+    FxParams.h FxParams.cpp Macros.h Macros.cpp Phaser.h Phaser.cpp TapeDelay.h TapeDelay.cpp
     SpringReverb.h SpringReverb.cpp
     FxChain.h FxChain.cpp
     Kit.h Kit.cpp

@@ -12,6 +12,8 @@ namespace {
 const juce::Identifier kNamesId { "SLOTNAMES" };
 const juce::Identifier kUiScaleId { "uiScale" };
 const juce::Identifier kFollowFocusId { "followFocus" };
+const juce::Identifier kLiveViewId { "liveView" };
+const juce::Identifier kAdvancedOpenId { "advancedOpen" };
 const juce::Identifier kVersionId { "version" };
 
 const juce::Identifier kSamplesId { "SLOTSAMPLES" };
@@ -468,6 +470,26 @@ bool DubgefahrenProcessor::editorFollowsFocus() const
 void DubgefahrenProcessor::setEditorFollowsFocus(bool follow)
 {
     apvts_.state.setProperty(kFollowFocusId, follow, nullptr);
+}
+
+bool DubgefahrenProcessor::liveView() const
+{
+    return static_cast<bool>(apvts_.state.getProperty(kLiveViewId, false));
+}
+
+void DubgefahrenProcessor::setLiveView(bool live)
+{
+    apvts_.state.setProperty(kLiveViewId, live, nullptr);
+}
+
+bool DubgefahrenProcessor::advancedOpen() const
+{
+    return static_cast<bool>(apvts_.state.getProperty(kAdvancedOpenId, true));
+}
+
+void DubgefahrenProcessor::setAdvancedOpen(bool open)
+{
+    apvts_.state.setProperty(kAdvancedOpenId, open, nullptr);
 }
 
 } // namespace dg
