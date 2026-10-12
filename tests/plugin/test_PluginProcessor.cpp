@@ -61,7 +61,7 @@ juce::MidiBuffer noteMessage(int note, bool on)
 }
 } // namespace
 
-TEST_CASE("the plugin exposes 442 uniquely named parameters", "[plugin]")
+TEST_CASE("the plugin exposes 490 uniquely named parameters", "[plugin]")
 {
     juce::ScopedJuceInitialiser_GUI gui;
     DubgefahrenProcessor p;
@@ -69,13 +69,17 @@ TEST_CASE("the plugin exposes 442 uniquely named parameters", "[plugin]")
     for (auto* param : p.getParameters())
         if (auto* withId = dynamic_cast<juce::AudioProcessorParameterWithID*>(param))
             ids.insert(withId->paramID);
-    CHECK(p.getParameters().size() == 16 * 26 + 26);
-    CHECK(ids.size() == 442);
+    CHECK(p.getParameters().size() == 16 * 29 + 26);
+    CHECK(ids.size() == 490);
     CHECK(slotParamId(0, SlotField::Wave) == "s01_wave");
     CHECK(slotParamId(15, SlotField::FxSend) == "s16_send");
     CHECK(slotParamId(0, SlotField::Tune) == "s01_tune");
     CHECK(slotParamId(0, SlotField::SampleStart) == "s01_smpStart");
     CHECK(slotParamId(15, SlotField::LoopXfade) == "s16_xfade");
+    CHECK(slotParamId(0, SlotField::StretchMode) == "s01_stretch");
+    CHECK(slotParamId(15, SlotField::StretchFactor) == "s16_stretchPct");
+    CHECK(slotParamId(3, SlotField::StretchGrain) == "s04_grainMs");
+    CHECK(p.state().getParameter("s01_stretch")->isAutomatable());
     CHECK(slotSourceParamId(15) == "s16_source");
     CHECK_FALSE(p.state().getParameter("s01_source")->isAutomatable());
     CHECK(p.state().getParameter("s01_tune")->isAutomatable());
@@ -476,7 +480,7 @@ TEST_CASE("loading a state without the newer parameters resets them to their def
     a.getStateInformation(saved);
     auto xml = juce::AudioProcessor::getXmlFromBinary(saved.getData(), static_cast<int>(saved.getSize()));
     REQUIRE(xml != nullptr);
-    const juce::StringArray removed { pid::space, pid::grit, pid::throwAmount, pid::phaserMix };
+    const juce::StringArray removed { pid::space, pid::grit, pid::throwAmount, pid::phaserMix, "s01_stretch", "s01_stretchPct", "s01_grainMs" };
     for (auto* child = xml->getFirstChildElement(); child != nullptr;)
     {
         auto* next = child->getNextElement();
@@ -491,11 +495,21 @@ TEST_CASE("loading a state without the newer parameters resets them to their def
     for (const char* id : { pid::space, pid::grit, pid::throwAmount })
         b.state().getParameter(id)->setValueNotifyingHost(1.0f);
     b.state().getParameter(pid::phaserMix)->setValueNotifyingHost(0.6f);
+    b.state().getParameter("s01_stretch")->setValueNotifyingHost(1.0f);
+    b.state().getParameter("s01_stretchPct")->setValueNotifyingHost(1.0f);
+    b.state().getParameter("s01_grainMs")->setValueNotifyingHost(1.0f);
     b.setLiveView(true);
     b.setStateInformation(old.getData(), static_cast<int>(old.getSize()));
 
     for (const char* id : { pid::space, pid::grit, pid::throwAmount, pid::phaserMix })
         CHECK_THAT(b.state().getParameter(id)->getValue(), WithinAbs(0.0, 1e-6));
     CHECK_FALSE(b.liveView());
+    CHECK_THAT(b.state().getParameter("s01_stretch")->getValue(), WithinAbs(0.0, 1e-6));
+    {
+        auto* pct = b.state().getParameter("s01_stretchPct");
+        auto* grain = b.state().getParameter("s01_grainMs");
+        CHECK_THAT(pct->convertFrom0to1(pct->getValue()), WithinAbs(100.0, 1e-3));
+        CHECK_THAT(grain->convertFrom0to1(grain->getValue()), WithinAbs(20.0, 1e-3));
+    }
     CHECK(b.advancedOpen());
 }
