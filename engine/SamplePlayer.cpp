@@ -15,11 +15,15 @@ constexpr double kRetrigFadeS = 0.005; // Ausblendzeit des alten Lesekopfs beim 
 
 bool usable(const SampleData* d) { return d != nullptr && !d->samples.empty() && d->sampleRate > 0.0; }
 
-float stretchTarget(const SlotParams& p) { return std::clamp(p.stretchPct, 50.0f, 200.0f) / 100.0f; }
+float stretchTarget(const SlotParams& p)
+{
+    return std::isfinite(p.stretchPct) ? std::clamp(p.stretchPct, 50.0f, 200.0f) / 100.0f : 1.0f;
+}
 
 int grainSamples(const SlotParams& p, double sampleRate)
 {
-    return std::max(4, static_cast<int>(std::lround(std::clamp(p.grainMs, 5.0f, 100.0f) * 0.001 * sampleRate)));
+    const float ms = std::isfinite(p.grainMs) ? std::clamp(p.grainMs, 5.0f, 100.0f) : 20.0f;
+    return std::max(4, static_cast<int>(std::lround(ms * 0.001 * sampleRate)));
 }
 
 // Die Stimme loopt nur, wenn Loop an ist und der Slot nicht als One Shot spielt. Eine als One Shot
@@ -143,7 +147,10 @@ void SamplePlayer::render(float* out, int numSamples, const VoiceContext& ctx)
 
         // Stretch ein- oder ausschalten. Im Modus Loop beginnt er, sobald die Position die Loop-Region erreicht.
         const bool inLoopRegion = looping && (dir_ > 0.0 ? pos_ >= seg.lo : pos_ < seg.hi);
-        const bool wantStretch = p.stretchMode == StretchMode::All || (p.stretchMode == StretchMode::Loop && inLoopRegion);
+        bool wantStretch = p.stretchMode == StretchMode::All || (p.stretchMode == StretchMode::Loop && inLoopRegion);
+        // Ein laufender Fade (Retrigger, Sprung) gehört dem alten Kopf: Der Wechsel wartet, bis er fertig ist.
+        if (wantStretch != stretching_ && fadeGain_ > 0.0f)
+            wantStretch = stretching_;
         if (wantStretch && !stretching_)
         {
             // Der einfache Kopf läuft als zweiter Lesekopf aus, das erste Stück beginnt an der Quellposition.

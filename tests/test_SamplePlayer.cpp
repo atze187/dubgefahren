@@ -2,6 +2,7 @@
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <vector>
 #include "engine/SamplePlayer.h"
 #include "TestHelpers.h"
@@ -1007,4 +1008,118 @@ TEST_CASE("switching the stretch off while playing stays continuous", "[sampler]
     for (std::size_t i = 1; i < out.size(); ++i)
         maxJump = std::max(maxJump, std::abs(out[i] - out[i - 1]));
     CHECK(maxJump < 0.25f);
+}
+
+namespace {
+float maxStep(const std::vector<float>& x, std::size_t from = 1)
+{
+    float m = 0.0f;
+    for (std::size_t i = std::max<std::size_t>(from, 1); i < x.size(); ++i)
+        m = std::max(m, std::abs(x[i] - x[i - 1]));
+    return m;
+}
+} // namespace
+
+TEST_CASE("a retrigger in loop mode with the loop at the start keeps the old tail", "[sampler][stretch]")
+{
+    const auto d = sineData(220.0f, kSr, 2.0);
+    SamplePlayer v;
+    v.prepare(kSr);
+    SlotParams p = sampleParams();
+    p.stretchMode = StretchMode::Loop;
+    p.stretchPct = 150.0f;
+    p.loop = true;
+    p.trigMode = TriggerMode::Gate;
+    p.loopStart = 0.0f;
+    VoiceContext ctx { &p, 120.0, {}, &d };
+    v.start(ctx, 1);
+    auto out = renderN(v, ctx, 5073); // Spitze der Sinuswelle
+    v.start(ctx, 2);
+    const auto after = renderN(v, ctx, 5000);
+    out.insert(out.end(), after.begin(), after.end());
+    CHECK(dgtest::allFinite(out));
+    CHECK(maxStep(out) < 0.25f);
+}
+
+TEST_CASE("loop mode in reverse stretches the loop region after the first pass", "[sampler][stretch]")
+{
+    const auto d = rampData(24000);
+    SamplePlayer v;
+    v.prepare(kSr);
+    SlotParams p = sampleParams();
+    p.stretchMode = StretchMode::Loop;
+    p.stretchPct = 200.0f;
+    p.loop = true;
+    p.reverse = true;
+    p.trigMode = TriggerMode::Gate;
+    p.loopStart = 0.5f; // Schleife [0, 12000]: Rückwärts läuft zuerst 23999 bis 12000 normal
+    VoiceContext ctx { &p, 120.0, {}, &d };
+    v.start(ctx, 1);
+    const auto out = renderN(v, ctx, 40000);
+    CHECK_THAT(out[5000], WithinAbs(rampAt(23999 - 5000), 1e-3)); // vor der Loop-Region: normal, ungestretcht
+    CHECK(v.isActive());
+    CHECK(dgtest::allFinite(out));
+    float hi = -1e9f;
+    for (std::size_t i = 20000; i < out.size(); ++i)
+        hi = std::max(hi, out[i]);
+    CHECK(hi <= rampAt(12000) + 1e-3f); // danach nur Material der Loop-Region
+}
+
+TEST_CASE("moving the end marker under a stretching loop does not click", "[sampler][stretch]")
+{
+    const auto d = sineData(220.0f, kSr, 2.0);
+    SamplePlayer v;
+    v.prepare(kSr);
+    SlotParams p = sampleParams();
+    p.stretchMode = StretchMode::All;
+    p.stretchPct = 150.0f;
+    p.loop = true;
+    p.trigMode = TriggerMode::Gate;
+    VoiceContext ctx { &p, 120.0, {}, &d };
+    v.start(ctx, 1);
+    auto out = renderN(v, ctx, 20000);
+    p.sampleEnd = 0.1f; // 9600: weit hinter der aktuellen Position, die Quellposition springt zurück
+    const auto after = renderN(v, ctx, 20000);
+    out.insert(out.end(), after.begin(), after.end());
+    CHECK(v.isActive());
+    CHECK(dgtest::allFinite(out));
+    CHECK(maxStep(out) < 0.25f);
+}
+
+TEST_CASE("switching the stretch off right after a retrigger keeps both tails", "[sampler][stretch]")
+{
+    const auto d = sineData(220.0f, kSr, 2.0);
+    SamplePlayer v;
+    v.prepare(kSr);
+    SlotParams p = sampleParams();
+    p.stretchMode = StretchMode::All;
+    p.stretchPct = 150.0f;
+    VoiceContext ctx { &p, 120.0, {}, &d };
+    v.start(ctx, 1);
+    auto out = renderN(v, ctx, 5000);
+    v.start(ctx, 2);
+    auto more = renderN(v, ctx, 20); // der Retrigger-Fade läuft noch
+    out.insert(out.end(), more.begin(), more.end());
+    p.stretchMode = StretchMode::Off;
+    more = renderN(v, ctx, 5000);
+    out.insert(out.end(), more.begin(), more.end());
+    CHECK(dgtest::allFinite(out));
+    CHECK(maxStep(out) < 0.25f);
+}
+
+TEST_CASE("a non-finite stretch factor cannot derail the voice", "[sampler][stretch]")
+{
+    const auto d = rampData(24000);
+    SamplePlayer v;
+    v.prepare(kSr);
+    SlotParams p = sampleParams();
+    p.stretchMode = StretchMode::All;
+    p.stretchPct = std::numeric_limits<float>::quiet_NaN();
+    p.grainMs = std::numeric_limits<float>::quiet_NaN();
+    VoiceContext ctx { &p, 120.0, {}, &d };
+    v.start(ctx, 1);
+    const auto out = renderUntilDone(v, ctx, 100000);
+    CHECK_FALSE(v.isActive()); // spielt wie bei 100 % und endet
+    CHECK(dgtest::allFinite(out));
+    CHECK(static_cast<int>(out.size()) <= 24000 + 300);
 }
