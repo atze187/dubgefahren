@@ -15,6 +15,13 @@ constexpr double kRetrigFadeS = 0.005; // Ausblendzeit des alten Lesekopfs beim 
 
 bool usable(const SampleData* d) { return d != nullptr && !d->samples.empty() && d->sampleRate > 0.0; }
 
+float stretchTarget(const SlotParams& p) { return std::clamp(p.stretchPct, 50.0f, 200.0f) / 100.0f; }
+
+int grainSamples(const SlotParams& p, double sampleRate)
+{
+    return std::max(4, static_cast<int>(std::lround(std::clamp(p.grainMs, 5.0f, 100.0f) * 0.001 * sampleRate)));
+}
+
 // Die Stimme loopt nur, wenn Loop an ist und der Slot nicht als One Shot spielt. Eine als One Shot
 // gestartete Stimme beginnt auch dann nicht zu loopen, wenn der Modus während des Spielens
 // umgestellt wird: Keine Note und kein Latch würde sie mehr beenden.
@@ -34,6 +41,9 @@ void SamplePlayer::prepare(double sampleRate)
     dir_ = 1.0;
     fadeDir_ = 1.0;
     overrun_ = false;
+    grains_.reset();
+    stretching_ = false;
+    smFactor_ = 1.0f;
 }
 
 void SamplePlayer::start(const VoiceContext& ctx, std::uint32_t)
@@ -49,14 +59,29 @@ void SamplePlayer::start(const VoiceContext& ctx, std::uint32_t)
         fadeDir_ = dir_;
         fadeGain_ = 1.0f;
         fadeRaw_ = false;
+        fadeStretching_ = stretching_;
+        if (stretching_)
+        {
+            fadeGrains_ = grains_;
+            fadeAdv_ = lastAdv_;
+        }
     }
     else
+    {
         fadeGain_ = 0.0f;
+        fadeStretching_ = false;
+    }
     dir_ = p.reverse ? -1.0 : 1.0;
     pos_ = p.reverse ? std::max(region.start, region.end - 1.0) : region.start;
     overrun_ = false;
     startedAsOneShot_ = p.trigMode == TriggerMode::OneShot;
     smPitch_ = ctx.perf.pitchSemis;
+    smFactor_ = stretchTarget(p);
+    stretching_ = p.stretchMode == StretchMode::All;
+    if (stretching_)
+        grains_.start(pos_, dir_, grainSamples(p, sampleRate_));
+    else
+        grains_.reset();
     env_.noteOn(p.attackS);
 }
 
@@ -69,6 +94,9 @@ void SamplePlayer::stop()
     env_.prepare(sampleRate_);
     fadeGain_ = 0.0f;
     overrun_ = false;
+    stretching_ = false;
+    fadeStretching_ = false;
+    grains_.reset();
 }
 
 void SamplePlayer::render(float* out, int numSamples, const VoiceContext& ctx)
@@ -88,11 +116,14 @@ void SamplePlayer::render(float* out, int numSamples, const VoiceContext& ctx)
     dir_ = p.reverse ? -1.0 : 1.0; // wirkt sofort, auch während des Spielens
     const bool looping = loops(p, startedAsOneShot_);
     const LoopSegment seg = resolveLoopSegment(region, p.reverse, x.size());
+    const bool stretchWanted = p.stretchMode != StretchMode::Off;
+    const float factorTarget = stretchTarget(p);
+    const int grainLen = grainSamples(p, sampleRate_);
     const double segLen = seg.hi - seg.lo;
     // X-Fade: Anteil der Segmentlänge, begrenzt auf das Material, das in Laufrichtung vor dem
     // Schleifenanfang liegt (vorwärts unterhalb von lo, rückwärts oberhalb von hi).
     const double n = static_cast<double>(x.size());
-    const double xfWanted = looping ? std::clamp(static_cast<double>(p.loopXfadePct), 0.0, 50.0) / 100.0 * segLen : 0.0;
+    const double xfWanted = (looping && !stretchWanted) ?std::clamp(static_cast<double>(p.loopXfadePct), 0.0, 50.0) / 100.0 * segLen : 0.0;
     const double xf = std::min(xfWanted, dir_ > 0.0 ? seg.lo : n - seg.hi);
 
     const double baseStep = d->sampleRate / sampleRate_;
@@ -108,6 +139,37 @@ void SamplePlayer::render(float* out, int numSamples, const VoiceContext& ctx)
         }
         smPitch_ += perfCoeff_ * (ctx.perf.pitchSemis - smPitch_);
         const double step = baseStep * semitonesToRatio(p.tuneSemis + smPitch_);
+        smFactor_ += perfCoeff_ * (factorTarget - smFactor_);
+
+        // Stretch ein- oder ausschalten. Im Modus Loop beginnt er, sobald die Position die Loop-Region erreicht.
+        const bool inLoopRegion = looping && (dir_ > 0.0 ? pos_ >= seg.lo : pos_ < seg.hi);
+        const bool wantStretch = p.stretchMode == StretchMode::All || (p.stretchMode == StretchMode::Loop && inLoopRegion);
+        if (wantStretch && !stretching_)
+        {
+            // Der einfache Kopf läuft als zweiter Lesekopf aus, das erste Stück beginnt an der Quellposition.
+            fadePos_ = pos_;
+            fadeDir_ = dir_;
+            fadeGain_ = 1.0f;
+            fadeRaw_ = false;
+            fadeStretching_ = false;
+            grains_.start(pos_, dir_, grainLen);
+        }
+        else if (!wantStretch && stretching_)
+        {
+            // Die Stücke laufen als zweiter Kopf aus, der einfache Kopf blendet ein.
+            fadeGrains_ = grains_;
+            fadeStretching_ = true;
+            fadeAdv_ = lastAdv_;
+            fadePos_ = pos_;
+            fadeDir_ = dir_;
+            fadeGain_ = 1.0f;
+            fadeRaw_ = false;
+            grains_.reset();
+        }
+        stretching_ = wantStretch;
+        // Quellposition pro Ausgabesample: mit Stretch Quellrate / Faktor, sonst der Tonhöhenschritt.
+        const double adv = stretching_ ? baseStep / static_cast<double>(smFactor_) : step;
+        lastAdv_ = adv;
 
         // Ende des Bereichs in Laufrichtung erreicht?
         const bool past = dir_ > 0.0 ? pos_ >= region.end : pos_ < region.start;
@@ -116,16 +178,21 @@ void SamplePlayer::render(float* out, int numSamples, const VoiceContext& ctx)
             // Mehr als einen Schritt hinter dem Ende liegt die Position nur, wenn ein Marker
             // unter der Stimme verschoben wurde.
             const double over = dir_ > 0.0 ? pos_ - region.end : region.start - pos_;
-            const bool far = over > step + 1.0;
+            const bool far = over > adv + 1.0;
             if (looping)
             {
                 if (far)
                 {
                     // Sprung an den Schleifenanfang; die alte Position blendet als zweiter Lesekopf aus.
-                    fadePos_ = pos_;
-                    fadeDir_ = dir_;
-                    fadeGain_ = 1.0f;
-                    fadeRaw_ = true; // die alte Position liegt außerhalb des Segments: ohne X-Fade weiterlesen
+                    // Mit Stretch lesen die Stücke unabhängig von pos_ weiter: kein Sprung im Signal.
+                    if (!stretching_)
+                    {
+                        fadePos_ = pos_;
+                        fadeDir_ = dir_;
+                        fadeGain_ = 1.0f;
+                        fadeRaw_ = true; // die alte Position liegt außerhalb des Segments: ohne X-Fade weiterlesen
+                        fadeStretching_ = false;
+                    }
                     pos_ = dir_ > 0.0 ? seg.lo : std::max(seg.lo, seg.hi - 1.0);
                 }
                 else if (dir_ > 0.0)
@@ -147,10 +214,10 @@ void SamplePlayer::render(float* out, int numSamples, const VoiceContext& ctx)
         }
 
         // Am Bereichsende linear auf 0 ausblenden (Restlänge in Ausgabesamples / Rampenlänge).
-        const auto endGain = [&](double pos, double dir) {
+        const auto endGain = [&](double pos, double dir, double rate) {
             if (looping || overrun_)
                 return 1.0f;
-            const double remaining = (dir > 0.0 ? region.end - pos : pos - region.start + 1.0) / step;
+            const double remaining = (dir > 0.0 ? region.end - pos : pos - region.start + 1.0) / rate;
             return remaining < endRampLen ? static_cast<float>(std::max(0.0, remaining) / endRampLen) : 1.0f;
         };
 
@@ -176,16 +243,22 @@ void SamplePlayer::render(float* out, int numSamples, const VoiceContext& ctx)
         };
 
         // Beim Retrigger und beim Sprung Überblendung: neuer Kopf blendet ein, alter aus (Summe der Gewichte = 1).
-        float y = read(pos_, dir_, false) * endGain(pos_, dir_) * (1.0f - fadeGain_);
-        pos_ += dir_ * step;
+        const GrainFrame frame { step, dir_, looping, looping ? seg.lo : region.start, looping ? seg.hi : region.end };
+        const float mainValue = stretching_ ? grains_.process(x, pos_, grainLen, frame) : read(pos_, dir_, false);
+        float y = mainValue * endGain(pos_, dir_, adv) * (1.0f - fadeGain_);
+        pos_ += dir_ * adv;
         if (fadeGain_ > 0.0f)
         {
             // Außerhalb der Datei liest der alte Kopf Nullen; sein Gewicht läuft normal aus,
             // damit das Einblenden des neuen Kopfes stetig bleibt.
             // Der alte Kopf liest mit derselben Überblendung weiter, sonst spränge das Signal, wenn
             // der Retrigger mitten in die X-Fade-Zone fällt.
-            y += read(fadePos_, fadeDir_, fadeRaw_) * endGain(fadePos_, fadeDir_) * fadeGain_;
-            fadePos_ += fadeDir_ * step;
+            const double fadeRate = fadeStretching_ ? fadeAdv_ : step;
+            const GrainFrame fadeFrame { step, fadeDir_, looping, frame.lo, frame.hi };
+            const float fadeValue = fadeStretching_ ? fadeGrains_.process(x, fadePos_, grainLen, fadeFrame)
+                                                    : read(fadePos_, fadeDir_, fadeRaw_);
+            y += fadeValue * endGain(fadePos_, fadeDir_, fadeRate) * fadeGain_;
+            fadePos_ += fadeDir_ * fadeRate;
             fadeGain_ = std::max(0.0f, fadeGain_ - fadeDec);
         }
         out[i] = y * env_.process();

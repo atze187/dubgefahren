@@ -17,6 +17,8 @@ struct GrainFrame
 // Zyklischer Stretch im Stil des Akai S950: Alle grainLen Ausgabesamples startet an der Quellposition
 // ein neues Stück, das alte läuft ein Viertel der Stückdauer weiter und wird linear übergeblendet.
 // Die Tonhöhe kommt allein aus GrainFrame::step; die Quellposition liefert der Aufrufer.
+// Mit jedem neuen Stück laufen alle älteren innerhalb der neuen Überblendzeit aus; es leben daher
+// höchstens zwei Stücke, und die Gewichte bleiben auch bei wechselnder Stückgröße stetig.
 class GrainStretch
 {
 public:
@@ -29,12 +31,13 @@ private:
     struct Grain
     {
         bool active = false;
-        bool fadeIn = false;
+        bool fadingOut = false;
         double pos = 0.0;
         double dir = 1.0;
-        int age = 0;
-        int len = 0;
-        int fade = 1;
+        float gain = 1.0f;
+        float delta = 0.0f; // Gewichtsänderung pro Ausgabesample
+        int remaining = 0;  // Samples bis zum Beginn der Ausblendung
+        int fade = 1;       // Länge der Ausblendung in Samples
     };
 
     void launch(double srcPos, double dir, int grainLen, bool fadeIn);

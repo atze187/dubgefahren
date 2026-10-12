@@ -8,6 +8,7 @@
 
 using namespace dg;
 using Catch::Matchers::WithinAbs;
+using Catch::Matchers::WithinRel;
 
 namespace {
 constexpr double kSr = 48000.0;
@@ -696,4 +697,292 @@ TEST_CASE("a voice started as one shot never starts looping", "[sampler][loop]")
     v.start(ctx, 2);
     renderN(v, ctx, 6000);
     CHECK(v.isActive());
+}
+
+namespace {
+// Rendert, bis die Stimme endet (höchstens maxN Samples), und liefert die Ausgabe.
+std::vector<float> renderUntilDone(SamplePlayer& v, const VoiceContext& ctx, int maxN)
+{
+    std::vector<float> all;
+    std::vector<float> block(256);
+    while (static_cast<int>(all.size()) < maxN && v.isActive())
+    {
+        v.render(block.data(), 256, ctx);
+        all.insert(all.end(), block.begin(), block.end());
+    }
+    return all;
+}
+} // namespace
+
+TEST_CASE("stretch off renders exactly like before whatever the other stretch fields say", "[sampler][stretch]")
+{
+    const auto d = sineData(440.0f, kSr, 0.5);
+    SlotParams a = sampleParams();
+    a.loop = true;
+    a.loopXfadePct = 10.0f;
+    SlotParams b = a;
+    b.stretchMode = StretchMode::Off;
+    b.stretchPct = 170.0f;
+    b.grainMs = 7.0f;
+    SamplePlayer va, vb;
+    va.prepare(kSr);
+    vb.prepare(kSr);
+    VoiceContext ca { &a, 120.0, {}, &d };
+    VoiceContext cb { &b, 120.0, {}, &d };
+    va.start(ca, 1);
+    vb.start(cb, 1);
+    CHECK(renderN(va, ca, 30000) == renderN(vb, cb, 30000));
+}
+
+TEST_CASE("the stretch factor scales the duration", "[sampler][stretch]")
+{
+    const auto d = rampData(24000); // 0,5 s bei 48 kHz
+    struct Case { float pct; int expected; } cases[] = { { 100.0f, 24000 }, { 200.0f, 48000 }, { 50.0f, 12000 } };
+    for (const auto& c : cases)
+    {
+        SamplePlayer v;
+        v.prepare(kSr);
+        SlotParams p = sampleParams();
+        p.stretchMode = StretchMode::All;
+        p.stretchPct = c.pct;
+        VoiceContext ctx { &p, 120.0, {}, &d };
+        v.start(ctx, 1);
+        const auto out = renderUntilDone(v, ctx, 100000);
+        INFO("factor " << c.pct);
+        CHECK(static_cast<int>(out.size()) >= c.expected - 300);
+        CHECK(static_cast<int>(out.size()) <= c.expected + 300);
+    }
+}
+
+TEST_CASE("tune changes the pitch but not the duration while stretching", "[sampler][stretch]")
+{
+    const auto d = sineData(440.0f, kSr, 1.0);
+    SamplePlayer v;
+    v.prepare(kSr);
+    SlotParams p = sampleParams();
+    p.stretchMode = StretchMode::All;
+    p.stretchPct = 200.0f;
+    p.tuneSemis = 12.0f;
+    VoiceContext ctx { &p, 120.0, {}, &d };
+    v.start(ctx, 1);
+    const auto out = renderUntilDone(v, ctx, 200000);
+    CHECK(static_cast<int>(out.size()) >= 96000 - 300); // 1 s * 2
+    CHECK(static_cast<int>(out.size()) <= 96000 + 300);
+    CHECK_THAT(dgtest::estimateFrequency(out, kSr, 12000, 84000), WithinRel(880.0f, 0.08f));
+}
+
+TEST_CASE("stretching keeps the pitch at 50 and 200 percent", "[sampler][stretch]")
+{
+    for (const float pct : { 50.0f, 200.0f })
+    {
+        const auto d = sineData(440.0f, kSr, 1.0);
+        SamplePlayer v;
+        v.prepare(kSr);
+        SlotParams p = sampleParams();
+        p.stretchMode = StretchMode::All;
+        p.stretchPct = pct;
+        VoiceContext ctx { &p, 120.0, {}, &d };
+        v.start(ctx, 1);
+        const auto out = renderUntilDone(v, ctx, 200000);
+        const auto to = static_cast<std::size_t>(out.size() * 9 / 10);
+        INFO("factor " << pct);
+        CHECK_THAT(dgtest::estimateFrequency(out, kSr, 3000, to), WithinRel(440.0f, 0.08f));
+    }
+}
+
+TEST_CASE("grains read from the source position with the pitch step", "[sampler][stretch]")
+{
+    const auto d = rampData(24000);
+    SlotParams p = sampleParams();
+    p.stretchMode = StretchMode::All;
+    p.grainMs = 20.0f; // 960 Samples
+    {
+        p.stretchPct = 200.0f; // Quellposition 0,5 pro Sample
+        SamplePlayer v;
+        v.prepare(kSr);
+        VoiceContext ctx { &p, 120.0, {}, &d };
+        v.start(ctx, 1);
+        const auto out = renderN(v, ctx, 1300);
+        CHECK_THAT(out[400], WithinAbs(rampAt(400), 1e-3));
+        // Das zweite Stück startet bei Aufruf 960 an der Quellposition 480 und liest mit Schritt 1.
+        CHECK_THAT(out[1260], WithinAbs(rampAt(480 + 300), 1e-3));
+    }
+    {
+        p.stretchPct = 50.0f; // Quellposition 2 pro Sample
+        SamplePlayer v;
+        v.prepare(kSr);
+        VoiceContext ctx { &p, 120.0, {}, &d };
+        v.start(ctx, 1);
+        const auto out = renderN(v, ctx, 1300);
+        CHECK_THAT(out[1260], WithinAbs(rampAt(1920 + 300), 1e-3)); // Material wird übersprungen
+    }
+}
+
+TEST_CASE("reverse stretches backwards from the end of the region", "[sampler][stretch]")
+{
+    const auto d = rampData(24000);
+    SamplePlayer v;
+    v.prepare(kSr);
+    SlotParams p = sampleParams();
+    p.stretchMode = StretchMode::All;
+    p.stretchPct = 200.0f;
+    p.reverse = true;
+    VoiceContext ctx { &p, 120.0, {}, &d };
+    v.start(ctx, 1);
+    const auto out = renderN(v, ctx, 1300);
+    CHECK_THAT(out[200], WithinAbs(rampAt(23999 - 200), 1e-3));
+    CHECK_THAT(out[1260], WithinAbs(rampAt(23999 - 480 - 300), 1e-3));
+    SamplePlayer w;
+    w.prepare(kSr);
+    w.start(ctx, 1);
+    const auto all = renderUntilDone(w, ctx, 100000);
+    CHECK(static_cast<int>(all.size()) >= 48000 - 300);
+    CHECK(static_cast<int>(all.size()) <= 48000 + 300);
+}
+
+TEST_CASE("a stretched loop never ends and stays inside the loop segment", "[sampler][stretch]")
+{
+    const auto d = rampData(24000);
+    SamplePlayer v;
+    v.prepare(kSr);
+    SlotParams p = sampleParams();
+    p.stretchMode = StretchMode::All;
+    p.stretchPct = 150.0f;
+    p.loop = true;
+    p.trigMode = TriggerMode::Gate;
+    p.loopStart = 0.5f; // 12000
+    VoiceContext ctx { &p, 120.0, {}, &d };
+    v.start(ctx, 1);
+    const auto out = renderN(v, ctx, 200000);
+    CHECK(v.isActive());
+    CHECK(dgtest::allFinite(out));
+    // Nach dem ersten Durchlauf liest nichts außerhalb des Loop-Segments [12000, 24000).
+    float lo = 1e9f, hi = -1e9f;
+    for (std::size_t i = 100000; i < out.size(); ++i)
+    {
+        lo = std::min(lo, out[i]);
+        hi = std::max(hi, out[i]);
+    }
+    CHECK(lo >= rampAt(12000) - 1e-3f);
+    CHECK(hi <= rampAt(24000) + 1e-3f);
+}
+
+TEST_CASE("loop mode plays normally up to the loop start and stretches the loop region", "[sampler][stretch]")
+{
+    const auto d = rampData(24000);
+    SamplePlayer v;
+    v.prepare(kSr);
+    SlotParams p = sampleParams();
+    p.stretchMode = StretchMode::Loop;
+    p.stretchPct = 200.0f;
+    p.loop = true;
+    p.trigMode = TriggerMode::Gate;
+    p.loopStart = 0.5f; // 12000
+    VoiceContext ctx { &p, 120.0, {}, &d };
+    v.start(ctx, 1);
+    const auto out = renderN(v, ctx, 60000);
+    CHECK_THAT(out[5000], WithinAbs(rampAt(5000), 1e-3)); // vor dem Loop: normal, ungestretcht
+    CHECK(v.isActive());
+    float lo = 1e9f;
+    for (std::size_t i = 14000; i < out.size(); ++i)
+        lo = std::min(lo, out[i]);
+    CHECK(lo >= rampAt(12000) - 1e-3f); // danach nur noch Material der Loop-Region
+}
+
+TEST_CASE("loop mode without loop behaves like stretch off", "[sampler][stretch]")
+{
+    const auto d = sineData(440.0f, kSr, 0.5);
+    SlotParams a = sampleParams();
+    SlotParams b = a;
+    b.stretchMode = StretchMode::Loop;
+    b.stretchPct = 170.0f;
+    SamplePlayer va, vb;
+    va.prepare(kSr);
+    vb.prepare(kSr);
+    VoiceContext ca { &a, 120.0, {}, &d };
+    VoiceContext cb { &b, 120.0, {}, &d };
+    va.start(ca, 1);
+    vb.start(cb, 1);
+    CHECK(renderN(va, ca, 20000) == renderN(vb, cb, 20000));
+}
+
+TEST_CASE("a sample shorter than one grain stretches cleanly", "[sampler][stretch]")
+{
+    const auto d = rampData(100);
+    SamplePlayer v;
+    v.prepare(kSr);
+    SlotParams p = sampleParams();
+    p.stretchMode = StretchMode::All;
+    p.stretchPct = 150.0f;
+    p.grainMs = 100.0f;
+    VoiceContext ctx { &p, 120.0, {}, &d };
+    v.start(ctx, 1);
+    const auto out = renderUntilDone(v, ctx, 20000);
+    CHECK_FALSE(v.isActive());
+    CHECK(dgtest::allFinite(out));
+    CHECK(dgtest::peakAbs(out) <= rampAt(100) + 1e-3f);
+}
+
+TEST_CASE("changing grain size and factor while playing stays continuous", "[sampler][stretch]")
+{
+    const auto d = sineData(220.0f, kSr, 2.0);
+    SamplePlayer v;
+    v.prepare(kSr);
+    SlotParams p = sampleParams();
+    p.stretchMode = StretchMode::All;
+    p.stretchPct = 120.0f;
+    VoiceContext ctx { &p, 120.0, {}, &d };
+    v.start(ctx, 1);
+    std::vector<float> out;
+    for (int block = 0; block < 60; ++block)
+    {
+        if (block == 10) p.grainMs = 60.0f;
+        if (block == 20) p.stretchPct = 70.0f;
+        if (block == 30) p.grainMs = 5.0f;
+        if (block == 40) p.stretchPct = 190.0f;
+        const auto b = renderN(v, ctx, 480);
+        out.insert(out.end(), b.begin(), b.end());
+    }
+    CHECK(dgtest::allFinite(out));
+    float maxJump = 0.0f;
+    for (std::size_t i = 1; i < out.size(); ++i)
+        maxJump = std::max(maxJump, std::abs(out[i] - out[i - 1]));
+    CHECK(maxJump < 0.25f);
+}
+
+TEST_CASE("a retrigger in the middle of a stretch stays continuous", "[sampler][stretch]")
+{
+    const auto d = sineData(220.0f, kSr, 2.0);
+    SamplePlayer v;
+    v.prepare(kSr);
+    SlotParams p = sampleParams();
+    p.stretchMode = StretchMode::All;
+    p.stretchPct = 150.0f;
+    VoiceContext ctx { &p, 120.0, {}, &d };
+    v.start(ctx, 1);
+    auto out = renderN(v, ctx, 5000);
+    v.start(ctx, 2);
+    const auto after = renderN(v, ctx, 5000);
+    out.insert(out.end(), after.begin(), after.end());
+    CHECK(dgtest::allFinite(out));
+    float maxJump = 0.0f;
+    for (std::size_t i = 1; i < out.size(); ++i)
+        maxJump = std::max(maxJump, std::abs(out[i] - out[i - 1]));
+    CHECK(maxJump < 0.25f);
+}
+
+TEST_CASE("pitch from the performance control does not change the stretched duration", "[sampler][stretch]")
+{
+    const auto d = rampData(24000);
+    SamplePlayer v;
+    v.prepare(kSr);
+    SlotParams p = sampleParams();
+    p.stretchMode = StretchMode::All;
+    p.stretchPct = 200.0f;
+    VoiceContext ctx { &p, 120.0, {}, &d };
+    ctx.perf.pitchSemis = 12.0f;
+    v.start(ctx, 1);
+    const auto out = renderUntilDone(v, ctx, 100000);
+    CHECK(static_cast<int>(out.size()) >= 48000 - 300);
+    CHECK(static_cast<int>(out.size()) <= 48000 + 300);
 }

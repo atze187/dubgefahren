@@ -30,7 +30,16 @@ void GrainStretch::reset()
 
 void GrainStretch::launch(double srcPos, double dir, int grainLen, bool fadeIn)
 {
-    // Freien Platz nehmen, sonst das älteste Stück ersetzen (nur bei plötzlich kleinerer Stückgröße).
+    const int fade = std::max(1, grainLen / 4);
+    // Alle älteren Stücke laufen innerhalb der neuen Überblendzeit aus (ihr Gewicht bleibt stetig).
+    for (auto& g : grains_)
+    {
+        if (!g.active)
+            continue;
+        const float shortest = -g.gain / static_cast<float>(fade);
+        g.delta = g.fadingOut ? std::min(g.delta, shortest) : shortest;
+        g.fadingOut = true;
+    }
     Grain* slot = &grains_[0];
     for (auto& g : grains_)
         if (!g.active)
@@ -38,15 +47,14 @@ void GrainStretch::launch(double srcPos, double dir, int grainLen, bool fadeIn)
             slot = &g;
             break;
         }
-        else if (g.age > slot->age)
-            slot = &g;
     slot->active = true;
-    slot->fadeIn = fadeIn;
+    slot->fadingOut = false;
     slot->pos = srcPos;
     slot->dir = dir;
-    slot->age = 0;
-    slot->len = grainLen;
-    slot->fade = std::max(1, grainLen / 4);
+    slot->gain = fadeIn ? 0.0f : 1.0f;
+    slot->delta = fadeIn ? 1.0f / static_cast<float>(fade) : 0.0f;
+    slot->remaining = grainLen;
+    slot->fade = fade;
     untilNext_ = grainLen;
 }
 
@@ -67,15 +75,25 @@ float GrainStretch::process(const std::vector<float>& x, double srcPos, int grai
     {
         if (!g.active)
             continue;
-        float gain = 1.0f;
-        if (g.fadeIn && g.age < g.fade)
-            gain = static_cast<float>(g.age) / static_cast<float>(g.fade);
-        if (g.age >= g.len)
-            gain *= static_cast<float>(g.len + g.fade - g.age) / static_cast<float>(g.fade);
-        y += gain * readGrain(x, g.pos, f);
+        y += g.gain * readGrain(x, g.pos, f);
         g.pos += g.dir * f.step;
-        if (++g.age >= g.len + g.fade)
-            g.active = false;
+        if (g.fadingOut)
+        {
+            g.gain += g.delta;
+            if (g.gain <= 0.0f)
+                g.active = false;
+        }
+        else
+        {
+            if (g.delta > 0.0f)
+                g.gain = std::min(1.0f, g.gain + g.delta);
+            if (--g.remaining <= 0)
+            {
+                // Ausblenden über ein Viertel der Stückdauer, ab dem aktuellen Gewicht.
+                g.fadingOut = true;
+                g.delta = -g.gain / static_cast<float>(g.fade);
+            }
+        }
     }
     return y;
 }
