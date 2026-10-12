@@ -8,9 +8,9 @@
 using namespace dg;
 using Catch::Matchers::WithinAbs;
 
-TEST_CASE("there are 25 slot fields with unique keys", "[fields]")
+TEST_CASE("there are 28 slot fields with unique keys", "[fields]")
 {
-    STATIC_CHECK(kNumSlotFields == 25);
+    STATIC_CHECK(kNumSlotFields == 28);
     std::set<std::string> keys;
     for (int i = 0; i < kNumSlotFields; ++i)
     {
@@ -24,7 +24,7 @@ TEST_CASE("there are 25 slot fields with unique keys", "[fields]")
         if (s.kind == FieldKind::Choice)
             REQUIRE(static_cast<int>(s.choices.size()) == static_cast<int>(s.max) + 1);
     }
-    CHECK(keys.size() == 25);
+    CHECK(keys.size() == 28);
     CHECK_FALSE(slotFieldFromKey("doesNotExist").has_value());
 }
 
@@ -116,7 +116,43 @@ TEST_CASE("the sample region fields default to the whole file without loop", "[f
     CHECK(fieldSpec(SlotField::Tune).versionHint == 3); // bestehende Hinweise bleiben
 }
 
-TEST_CASE("resetSampleRegionFields restores only the six region fields", "[fields]")
+TEST_CASE("the stretch fields default to off, 100 percent and 20 ms", "[fields][stretch]")
+{
+    const SlotParams p = makeDefaultSlotParams();
+    CHECK(p.stretchMode == StretchMode::Off);
+    CHECK(p.stretchPct == 100.0f);
+    CHECK(p.grainMs == 20.0f);
+    CHECK(SlotParams {} == p);
+
+    for (const auto f : { SlotField::StretchMode, SlotField::StretchFactor, SlotField::StretchGrain })
+        CHECK(fieldSpec(f).versionHint == 5);
+    CHECK(std::string(fieldSpec(SlotField::StretchMode).key) == "stretch");
+    CHECK(std::string(fieldSpec(SlotField::StretchFactor).key) == "stretchPct");
+    CHECK(std::string(fieldSpec(SlotField::StretchGrain).key) == "grainMs");
+    CHECK(fieldSpec(SlotField::StretchMode).kind == FieldKind::Choice);
+    CHECK(fieldSpec(SlotField::StretchMode).choices.size() == 3);
+    CHECK(fieldSpec(SlotField::StretchFactor).min == 50.0f);
+    CHECK(fieldSpec(SlotField::StretchFactor).max == 200.0f);
+    CHECK(fieldSpec(SlotField::StretchGrain).min == 5.0f);
+    CHECK(fieldSpec(SlotField::StretchGrain).max == 100.0f);
+    CHECK(fieldSpec(SlotField::LoopXfade).versionHint == 4); // bestehende Hinweise bleiben
+}
+
+TEST_CASE("stretch fields clamp and convert", "[fields][stretch]")
+{
+    SlotParams p = makeDefaultSlotParams();
+    setSlotField(p, SlotField::StretchMode, 2.0f);
+    CHECK(p.stretchMode == StretchMode::Loop);
+    setSlotField(p, SlotField::StretchMode, 9.0f);
+    CHECK(p.stretchMode == StretchMode::Loop); // auf das Maximum begrenzt
+    setSlotField(p, SlotField::StretchFactor, 1000.0f);
+    CHECK(p.stretchPct == 200.0f);
+    setSlotField(p, SlotField::StretchGrain, 0.0f);
+    CHECK(p.grainMs == 5.0f);
+    CHECK(getSlotField(p, SlotField::StretchMode) == 2.0f);
+}
+
+TEST_CASE("resetSampleFields restores the region and the stretch fields only", "[fields]")
 {
     SlotParams p = makeDefaultSlotParams();
     p.sampleStart = 0.3f;
@@ -125,9 +161,12 @@ TEST_CASE("resetSampleRegionFields restores only the six region fields", "[field
     p.loop = true;
     p.reverse = true;
     p.loopXfadePct = 20.0f;
+    p.stretchMode = StretchMode::All;
+    p.stretchPct = 150.0f;
+    p.grainMs = 60.0f;
     p.tuneSemis = 7.0f;
     p.volumeDb = -12.0f;
-    resetSampleRegionFields(p);
+    resetSampleFields(p);
     SlotParams expected = makeDefaultSlotParams();
     expected.tuneSemis = 7.0f;
     expected.volumeDb = -12.0f;

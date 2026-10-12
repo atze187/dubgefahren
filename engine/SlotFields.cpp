@@ -13,6 +13,7 @@ constexpr const char* kSyncDivChoices[] = { "1/32", "1/16T", "1/16", "1/8T", "1/
                                             "1 Bar", "2 Bars", "4 Bars" };
 constexpr const char* kTrigModeChoices[] = { "Gate", "Latch", "One-Shot" };
 constexpr const char* kChokeChoices[] = { "None", "1", "2", "3", "4" };
+constexpr const char* kStretchChoices[] = { "Off", "All", "Loop" };
 
 using C = std::span<const char* const>;
 
@@ -42,6 +43,9 @@ const std::array<FieldSpec, kNumSlotFields> kSpecs { {
     { "loop",       "Loop",           FieldKind::Bool, 0.0f, 1.0f, 0.0f, 0.0f, "", {}, 4 },
     { "reverse",    "Reverse",        FieldKind::Bool, 0.0f, 1.0f, 0.0f, 0.0f, "", {}, 4 },
     { "xfade",      "Loop X-Fade",    FieldKind::Float, 0.0f, 50.0f, 5.0f, 0.0f, "%", {}, 4 },
+    { "stretch",    "Stretch",        FieldKind::Choice, 0.0f, 2.0f, 0.0f, 0.0f, "", C(kStretchChoices), 5 },
+    { "stretchPct", "Stretch Factor", FieldKind::Float, 50.0f, 200.0f, 100.0f, 100.0f, "%", {}, 5 },
+    { "grainMs",    "Stretch Grain",  FieldKind::Float, 5.0f, 100.0f, 20.0f, 20.0f, "ms", {}, 5 },
 } };
 
 } // namespace
@@ -77,6 +81,9 @@ float getSlotField(const SlotParams& p, SlotField f)
         case SlotField::Loop:          return p.loop ? 1.0f : 0.0f;
         case SlotField::Reverse:       return p.reverse ? 1.0f : 0.0f;
         case SlotField::LoopXfade:     return p.loopXfadePct;
+        case SlotField::StretchMode:   return static_cast<float>(p.stretchMode);
+        case SlotField::StretchFactor: return p.stretchPct;
+        case SlotField::StretchGrain:  return p.grainMs;
         case SlotField::Count:         break;
     }
     return 0.0f;
@@ -117,6 +124,9 @@ void setSlotField(SlotParams& p, SlotField f, float value)
         case SlotField::Loop:          p.loop = i != 0; break;
         case SlotField::Reverse:       p.reverse = i != 0; break;
         case SlotField::LoopXfade:     p.loopXfadePct = value; break;
+        case SlotField::StretchMode:   p.stretchMode = static_cast<StretchMode>(i); break;
+        case SlotField::StretchFactor: p.stretchPct = value; break;
+        case SlotField::StretchGrain:  p.grainMs = value; break;
         case SlotField::Count:         break;
     }
 }
@@ -140,10 +150,10 @@ std::optional<SlotField> slotFieldFromKey(std::string_view key)
     return std::nullopt;
 }
 
-void resetSampleRegionFields(SlotParams& p)
+void resetSampleFields(SlotParams& p)
 {
     for (const auto f : { SlotField::SampleStart, SlotField::LoopStart, SlotField::SampleEnd, SlotField::Loop, SlotField::Reverse,
-                          SlotField::LoopXfade })
+                          SlotField::LoopXfade, SlotField::StretchMode, SlotField::StretchFactor, SlotField::StretchGrain })
         setSlotField(p, f, fieldSpec(f).def);
 }
 
