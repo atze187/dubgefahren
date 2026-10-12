@@ -1,7 +1,7 @@
 # Performance-Knobs Space, Grit, Throw und Live-Ansicht – Design-Spezifikation
 
 **Datum:** 2026-10-05
-**Status:** Umgesetzt, Abnahme in Ableton offen
+**Status:** Umgesetzt, in Ableton abgenommen (2026-10-12)
 **Teilprojekt 5 von 5** der Überarbeitung des Effekt-Charakters
 
 ## 1. Hintergrund und Ziel
