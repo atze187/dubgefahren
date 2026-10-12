@@ -563,3 +563,26 @@ TEST_CASE("a looped sample one-shot still plays once to the end of its region", 
     run(e, p, 2400);
     CHECK(e.activeMask() == 0u);
 }
+
+TEST_CASE("throw sends every slot into the delay even with FX send 0", "[engine][macros]")
+{
+    auto makeParams = [] {
+        auto p = testParams();
+        p.global.fx.delayMix = 1.0f;
+        p.global.fx.delayFeedback = 0.0f;
+        p.global.fx.delayTone = 1.0f;
+        p.global.fx.delayWow = 0.0f;
+        p.global.fx.delayDiv = DelayDivision::D1_4; // 24000 Samples bei 120 bpm
+        return p;
+    };
+    auto echo = [&](float throwAmount) {
+        Engine e;
+        e.prepare(kSr, 512);
+        auto p = makeParams();
+        p.global.macros.throwAmount = throwAmount;
+        const auto o = run(e, p, 48000, { noteOn(36), noteOff(36, 2400) });
+        return dgtest::peakAbs(o.l, 24500, 26500);
+    };
+    CHECK(echo(0.0f) < 1.0e-3f);  // FX-Send 0: nichts im Send-Bus, kein Echo
+    CHECK(echo(1.0f) > 0.1f);     // Throw: der Slot geht in den Send-Bus
+}

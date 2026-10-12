@@ -173,7 +173,7 @@ void Engine::processChunk(float* outL, float* outR, int n, const EngineEvent* ev
     if (pos < n)
         renderSegment(pos, n - pos);
 
-    fx_.process(mainL_.data(), mainR_.data(), sendL_.data(), sendR_.data(), n, params_->global.fx, bpm_);
+    fx_.process(mainL_.data(), mainR_.data(), sendL_.data(), sendR_.data(), n, params_->global.fx, bpm_, params_->global.macros);
     std::copy_n(mainL_.begin(), len, outL);
     std::copy_n(mainR_.begin(), len, outR);
 }
@@ -248,7 +248,7 @@ void Engine::renderSubSegment(int start, int len)
         const float angle = (std::clamp(sp.pan, -1.0f, 1.0f) + 1.0f) * kPi * 0.25f;
         const float targetGl = std::cos(angle) * gain;
         const float targetGr = std::sin(angle) * gain;
-        const float targetSend = std::clamp(sp.fxSend, 0.0f, 1.0f);
+        const float targetSend = std::clamp(sp.fxSend + throwSendBoost(params_->global.macros), 0.0f, 1.0f);
 
         if (!smInit_[s])
         {

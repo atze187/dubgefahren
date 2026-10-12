@@ -35,16 +35,30 @@ void FxChain::reset()
     limiter_.reset();
     cutoffInit_ = false;
     smoothInit_ = false;
+    macrosInit_ = false;
+    smMacros_ = MacroParams {};
 }
 
 void FxChain::process(float* mainL, float* mainR, float* sendL, float* sendR, int numSamples,
-                      const FxParams& p, double bpm)
+                      const FxParams& pIn, double bpm, const MacroParams& macros)
 {
     if (needsReset_)
     {
         reset();
         needsReset_ = false;
     }
+
+    // Knobs glätten (pro Block, 20 ms) und als Aufschlag auf die Einzelwerte anwenden.
+    if (!macrosInit_)
+    {
+        smMacros_ = macros;
+        macrosInit_ = true;
+    }
+    const float macroA = 1.0f - std::exp(-static_cast<float>(numSamples) / (0.02f * static_cast<float>(sampleRate_)));
+    smMacros_.space += macroA * (macros.space - smMacros_.space);
+    smMacros_.grit += macroA * (macros.grit - smMacros_.grit);
+    smMacros_.throwAmount += macroA * (macros.throwAmount - smMacros_.throwAmount);
+    const FxParams p = applyMacros(pIn, smMacros_);
 
     const float target = std::clamp(p.cutoffHz, 20.0f, 20000.0f);
     if (!cutoffInit_)

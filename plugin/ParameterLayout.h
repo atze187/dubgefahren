@@ -22,6 +22,9 @@ inline constexpr const char* reverbMix = "revMix";
 inline constexpr const char* phaserRate = "phsRate";
 inline constexpr const char* phaserDepth = "phsDepth";
 inline constexpr const char* phaserMix = "phsMix";
+inline constexpr const char* space = "fxSpace";
+inline constexpr const char* grit = "fxGrit";
+inline constexpr const char* throwAmount = "fxThrow";
 inline constexpr const char* masterVol = "masterVol";
 inline constexpr const char* perfPitch = "perfPitch";
 inline constexpr const char* perfRate = "perfRate";
@@ -39,6 +42,8 @@ constexpr int kParameterVersion = 1;
 constexpr int kSourceParameterVersion = 2;
 // Versionshinweis für die Phaser-Parameter (Teilprojekt 3 der Effekt-Überarbeitung).
 constexpr int kPhaserParameterVersion = 3;
+// Versionshinweis für die Performance-Knobs Space, Grit und Throw.
+constexpr int kMacroParameterVersion = 5;
 
 juce::String slotParamId(int slot, SlotField f);
 juce::String slotSourceParamId(int slot);
@@ -65,6 +70,7 @@ private:
     Ptr delayTime_, delayFeedback_, delayTone_, delayWow_, delayMix_;
     Ptr reverbDecay_, reverbTone_, reverbMix_, masterVol_;
     Ptr phaserRate_, phaserDepth_, phaserMix_;
+    Ptr macroSpace_, macroGrit_, macroThrow_;
     Ptr perfPitch_, perfRate_, perfDepth_, perfSweep_, perfTarget_, latchStop_, panic_;
 };
 

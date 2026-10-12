@@ -40,8 +40,10 @@ target_sources(dg_plugin_shared INTERFACE
     ${CMAKE_CURRENT_SOURCE_DIR}/ui/SlotEditor.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/ui/WaveformView.h
     ${CMAKE_CURRENT_SOURCE_DIR}/ui/WaveformView.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/ui/FxPanel.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/ui/FxPanel.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/ui/AdvancedPanel.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/ui/AdvancedPanel.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/ui/LivePanel.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/ui/LivePanel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/ui/PerformancePanel.h
     ${CMAKE_CURRENT_SOURCE_DIR}/ui/PerformancePanel.cpp)
 target_include_directories(dg_plugin_shared INTERFACE ${PROJECT_SOURCE_DIR})

@@ -68,6 +68,13 @@ The Intech Grid BU16 sends its buttons row by row from the top left starting at 
 
 All sirens share one effects chain. Each slot's *FX Send* sets how much of it feeds the send bus.
 
+Three performance knobs sit on top of the effects: **Space** (longer, wider echoes and reverb), **Grit**
+(saturation, tape wobble, darker echoes, phaser) and **Throw** (the dub throw: more FX send and a delay that
+can run into self-oscillation). They add to the values of the individual controls: at 0 the sound is exactly
+what the individual controls say. Drive, the Delay *Feedback*, *Tone*, *Wow* and *Mix* controls, the Phaser
+and the Reverb live in the collapsible *Advanced* strip in the Edit view; Filter, Delay *Time* and Master
+stay visible in both views.
+
 - **Drive**: saturation in front of the filter, on both buses. Soft and warm in the lower half of the
   knob, increasingly hard in the upper half. The level rises with the knob for moderate signals; very loud
   signals get quieter at the top. Highs are slightly softened as soon as Drive is above zero; at 0 the
@@ -81,6 +88,12 @@ All sirens share one effects chain. Each slot's *FX Send* sets how much of it fe
   *Rate* 0.05 to 3 Hz, *Depth*, *Mix* (default 0 = off).
 - **Reverb** (send bus): spring reverb with *Decay*, *Tone* and *Mix*.
 - **Master**: output level, followed by a peak limiter at -0.3 dBFS.
+
+## Live and Edit view
+
+The *Live* button in the header switches to a compact view with the pads, Space, Grit, Throw, Filter, Delay
+time, Master and the performance controls (window about 880 × 460). *Edit* shows everything, including the
+slot editor and the *Advanced* strip. The choice is saved with the project.
 
 ## Kits
 
@@ -135,3 +148,5 @@ Third-party components:
 - [ ] Delay: warm tape character, every repeat a little darker, a slight irregular wobble with Wow, no audible hiss at Feedback 0.45.
 - [ ] Drive: 0 changes nothing; soft and warm at low settings, harder and biting towards the top; no aliasing fizz on high notes.
 - [ ] Phaser: Mix up on the delay returns gives a soft sweeping phase on the echoes only; the dry signal stays clean; Mix 0 sounds exactly like before.
+- [ ] Space, Grit and Throw: at 0 nothing changes; each knob adds its part (Space: bigger room and echoes, Grit: dirtier, Throw: the delay opens up to self-oscillation).
+- [ ] Live view: the window shrinks, the pads, the three knobs, filter, delay time, master and the performance controls are all reachable; Edit brings everything back; the choice survives saving and reloading the project.

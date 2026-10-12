@@ -1,6 +1,7 @@
 #pragma once
 #include "engine/FxParams.h"
 #include "engine/Limiter.h"
+#include "engine/Macros.h"
 #include "engine/Phaser.h"
 #include "engine/SpringReverb.h"
 #include "engine/Saturator.h"
@@ -16,7 +17,7 @@ public:
     void reset();
     // Ergebnis steht danach in mainL/mainR; sendL/sendR werden überschrieben.
     void process(float* mainL, float* mainR, float* sendL, float* sendR, int numSamples,
-                 const FxParams& p, double bpm);
+                 const FxParams& p, double bpm, const MacroParams& macros = {});
 
 private:
     double sampleRate_ = 44100.0;
@@ -40,6 +41,10 @@ private:
     float smPhaserMix_ = 0.0f;
     float smFilterType_ = 0.0f;
     bool smoothInit_ = false;
+
+    // Die Knobs werden pro Block mit 20 ms geglättet; die Einzelwerte glätten die Stufen darunter wie bisher.
+    MacroParams smMacros_ {};
+    bool macrosInit_ = false;
 };
 
 } // namespace dg

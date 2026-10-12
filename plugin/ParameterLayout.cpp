@@ -87,6 +87,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout(const 
     layout.add(makeFloat(pid::phaserRate, "Phaser Rate", 0.05f, 3.0f, fx.phaserRate, 0.4f, "Hz", kPhaserParameterVersion));
     layout.add(makeFloat(pid::phaserDepth, "Phaser Depth", 0.0f, 1.0f, fx.phaserDepth, 0.0f, "", kPhaserParameterVersion));
     layout.add(makeFloat(pid::phaserMix, "Phaser Mix", 0.0f, 1.0f, fx.phaserMix, 0.0f, "", kPhaserParameterVersion));
+    layout.add(makeFloat(pid::space, "Space", 0.0f, 1.0f, 0.0f, 0.0f, "", kMacroParameterVersion));
+    layout.add(makeFloat(pid::grit, "Grit", 0.0f, 1.0f, 0.0f, 0.0f, "", kMacroParameterVersion));
+    layout.add(makeFloat(pid::throwAmount, "Throw", 0.0f, 1.0f, 0.0f, 0.0f, "", kMacroParameterVersion));
     layout.add(makeFloat(pid::masterVol, "Master", -60.0f, 6.0f, fx.masterDb, 0.0f, "dB"));
 
     layout.add(makeFloat(pid::perfPitch, "Perf Pitch", -24.0f, 24.0f, 0.0f, 0.0f, "st"));
@@ -168,6 +171,7 @@ ParamCache::ParamCache(juce::AudioProcessorValueTreeState& apvts)
       reverbMix_(raw(apvts, pid::reverbMix)), masterVol_(raw(apvts, pid::masterVol)),
       phaserRate_(raw(apvts, pid::phaserRate)), phaserDepth_(raw(apvts, pid::phaserDepth)),
       phaserMix_(raw(apvts, pid::phaserMix)),
+      macroSpace_(raw(apvts, pid::space)), macroGrit_(raw(apvts, pid::grit)), macroThrow_(raw(apvts, pid::throwAmount)),
       perfPitch_(raw(apvts, pid::perfPitch)), perfRate_(raw(apvts, pid::perfRate)),
       perfDepth_(raw(apvts, pid::perfDepth)), perfSweep_(raw(apvts, pid::perfSweep)),
       perfTarget_(raw(apvts, pid::perfTarget)), latchStop_(raw(apvts, pid::latchStop)),
@@ -207,6 +211,7 @@ void ParamCache::read(EngineParams& out) const
     fx.phaserRate = load(phaserRate_);
     fx.phaserDepth = load(phaserDepth_);
     fx.phaserMix = load(phaserMix_);
+    out.global.macros = MacroParams { load(macroSpace_), load(macroGrit_), load(macroThrow_) };
     fx.masterDb = load(masterVol_);
 
     out.global.perf = PerfOffsets { load(perfPitch_), load(perfRate_), load(perfDepth_), load(perfSweep_) };

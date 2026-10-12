@@ -283,3 +283,128 @@ TEST_CASE("NaN in the send input resets the phaser and the chain recovers", "[fx
     CHECK(dgtest::allFinite(clean.ml));
     CHECK(dgtest::peakAbs(clean.ml, 3990, 4300) > 0.05f);
 }
+
+namespace {
+void runWithMacros(FxChain& fx, Buses& b, const FxParams& p, const MacroParams& m, int block = 512)
+{
+    const int n = static_cast<int>(b.ml.size());
+    for (int pos = 0; pos < n; pos += block)
+    {
+        const int len = std::min(block, n - pos);
+        fx.process(b.ml.data() + pos, b.mr.data() + pos, b.sl.data() + pos, b.sr.data() + pos, len, p, 120.0, m);
+    }
+}
+} // namespace
+
+TEST_CASE("knobs at zero sound exactly like no knobs", "[fxchain][macros]")
+{
+    auto p = neutral();
+    p.delayMix = 0.5f;
+    p.reverbMix = 0.3f;
+    p.drive = 0.3f;
+    p.phaserMix = 0.4f;
+
+    FxChain a, b;
+    a.prepare(kSr);
+    b.prepare(kSr);
+    Buses ba(24000), bb(24000);
+    ba.ml = dgtest::sine(440.0f, kSr, 24000, 0.5f);
+    ba.mr = ba.ml;
+    ba.sl = dgtest::noise(24000, 0.3f, 7);
+    ba.sr = ba.sl;
+    bb = ba;
+    run(a, ba, p);
+    runWithMacros(b, bb, p, MacroParams {});
+    CHECK(ba.ml == bb.ml);
+    CHECK(ba.mr == bb.mr);
+}
+
+TEST_CASE("space makes the echo louder, throw makes the repeats stronger", "[fxchain][macros]")
+{
+    auto p = neutral();
+    p.delayMix = 0.2f;
+    p.delayFeedback = 0.3f;
+    p.delayTone = 1.0f;
+    p.delayWow = 0.0f;
+    p.delayDiv = DelayDivision::D1_16T; // 4000 Samples bei 120 bpm
+
+    auto echoes = [&](const MacroParams& m) {
+        FxChain fx;
+        fx.prepare(kSr);
+        Buses b(16000);
+        b.sl[0] = b.sr[0] = 1.0f;
+        runWithMacros(fx, b, p, m);
+        return std::vector<float> { dgtest::peakAbs(b.ml, 3990, 4300), dgtest::peakAbs(b.ml, 7990, 8300) };
+    };
+    const auto base = echoes(MacroParams {});
+    const auto space = echoes(MacroParams { 1.0f, 0.0f, 0.0f });
+    const auto thr = echoes(MacroParams { 0.0f, 0.0f, 1.0f });
+    CHECK(space[0] > 2.0f * base[0]);                 // erstes Echo lauter
+    CHECK(thr[1] / thr[0] > 2.0f * (base[1] / base[0])); // zweites Echo relativ viel stärker
+}
+
+TEST_CASE("all knobs at maximum with extreme settings stay finite and below the ceiling", "[fxchain][macros]")
+{
+    FxParams p;
+    p.drive = 1.0f;
+    p.cutoffHz = 1000.0f;
+    p.resonance = 1.0f;
+    p.delayFeedback = 1.1f;
+    p.delayWow = 1.0f;
+    p.delayMix = 1.0f;
+    p.reverbDecay = 1.0f;
+    p.reverbMix = 1.0f;
+    p.phaserMix = 1.0f;
+    p.phaserDepth = 1.0f;
+    p.masterDb = 6.0f;
+
+    FxChain fx;
+    fx.prepare(kSr);
+    Buses b(48000 * 20);
+    b.ml = dgtest::noise(48000 * 20, 0.5f, 3);
+    b.mr = dgtest::noise(48000 * 20, 0.5f, 4);
+    b.sl = dgtest::noise(48000 * 20, 0.5f, 5);
+    b.sr = dgtest::noise(48000 * 20, 0.5f, 6);
+    runWithMacros(fx, b, p, MacroParams { 1.0f, 1.0f, 1.0f });
+    CHECK(dgtest::allFinite(b.ml));
+    CHECK(dgtest::allFinite(b.mr));
+    CHECK(dgtest::peakAbs(b.ml) <= kLimiterCeiling + 1.0e-6f);
+    CHECK(dgtest::peakAbs(b.mr) <= kLimiterCeiling + 1.0e-6f);
+}
+
+TEST_CASE("a knob jump does not click", "[fxchain][macros]")
+{
+    auto p = neutral();
+    p.delayMix = 0.3f;
+    p.delayFeedback = 0.5f;
+    p.delayDiv = DelayDivision::D1_8;
+
+    auto run1 = [&](bool jump) {
+        FxChain fx;
+        fx.prepare(kSr);
+        Buses b(48000);
+        b.sl = dgtest::sine(300.0f, kSr, 48000, 0.4f);
+        b.sr = b.sl;
+        b.ml = dgtest::sine(200.0f, kSr, 48000, 0.3f);
+        b.mr = b.ml;
+        // zwei Hälften: in der zweiten springen alle Knobs auf 1
+        Buses first(24000), second(24000);
+        std::copy(b.ml.begin(), b.ml.begin() + 24000, first.ml.begin());
+        std::copy(b.mr.begin(), b.mr.begin() + 24000, first.mr.begin());
+        std::copy(b.sl.begin(), b.sl.begin() + 24000, first.sl.begin());
+        std::copy(b.sr.begin(), b.sr.begin() + 24000, first.sr.begin());
+        std::copy(b.ml.begin() + 24000, b.ml.end(), second.ml.begin());
+        std::copy(b.mr.begin() + 24000, b.mr.end(), second.mr.begin());
+        std::copy(b.sl.begin() + 24000, b.sl.end(), second.sl.begin());
+        std::copy(b.sr.begin() + 24000, b.sr.end(), second.sr.begin());
+        runWithMacros(fx, first, p, MacroParams {});
+        runWithMacros(fx, second, p, jump ? MacroParams { 1.0f, 1.0f, 1.0f } : MacroParams {});
+        std::vector<float> all = first.ml;
+        all.insert(all.end(), second.ml.begin(), second.ml.end());
+        return all;
+    };
+    const auto steady = run1(false);
+    const auto jumped = run1(true);
+    // Der Übergang um Sample 24000 darf keinen deutlich größeren Schritt erzeugen als der Dauerton.
+    CHECK(dgtest::maxStep(jumped, 23900, 25000) < 2.5f * dgtest::maxStep(steady, 23900, 25000) + 0.05f);
+}

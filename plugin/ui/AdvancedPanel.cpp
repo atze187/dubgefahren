@@ -1,4 +1,4 @@
-#include "plugin/ui/FxPanel.h"
+#include "plugin/ui/AdvancedPanel.h"
 #include "plugin/ParameterLayout.h"
 #include "plugin/PluginProcessor.h"
 #include "plugin/ui/DgLookAndFeel.h"
@@ -10,17 +10,13 @@ namespace dg::ui {
 namespace {
 constexpr int kCell = 72;
 struct Group { const char* title; int firstCell; int cells; };
-constexpr Group kGroups[] = { { "DRIVE", 0, 1 }, { "FILTER", 1, 3 }, { "DELAY", 4, 5 }, { "PHASER", 9, 3 }, { "REVERB", 12, 3 }, { "MASTER", 15, 1 } };
+constexpr Group kGroups[] = { { "DRIVE", 0, 1 }, { "DELAY", 1, 4 }, { "PHASER", 5, 3 }, { "REVERB", 8, 3 } };
 } // namespace
 
-FxPanel::FxPanel(DubgefahrenProcessor& proc)
+AdvancedPanel::AdvancedPanel(DubgefahrenProcessor& proc)
 {
     auto& s = proc.state();
     drive_.attach(s, pid::drive);
-    cutoff_.attach(s, pid::cutoff);
-    resonance_.attach(s, pid::resonance);
-    filterType_.attach(s, pid::filterType);
-    delayTime_.attach(s, pid::delayTime);
     delayFeedback_.attach(s, pid::delayFeedback);
     delayTone_.attach(s, pid::delayTone);
     delayWow_.attach(s, pid::delayWow);
@@ -31,14 +27,13 @@ FxPanel::FxPanel(DubgefahrenProcessor& proc)
     reverbDecay_.attach(s, pid::reverbDecay);
     reverbTone_.attach(s, pid::reverbTone);
     reverbMix_.attach(s, pid::reverbMix);
-    master_.attach(s, pid::masterVol);
     for (juce::Component* c : std::initializer_list<juce::Component*> {
-             &drive_, &cutoff_, &resonance_, &filterType_, &delayTime_, &delayFeedback_, &delayTone_, &delayWow_,
-             &delayMix_, &phaserRate_, &phaserDepth_, &phaserMix_, &reverbDecay_, &reverbTone_, &reverbMix_, &master_ })
+             &drive_, &delayFeedback_, &delayTone_, &delayWow_, &delayMix_, &phaserRate_, &phaserDepth_,
+             &phaserMix_, &reverbDecay_, &reverbTone_, &reverbMix_ })
         addAndMakeVisible(*c);
 }
 
-void FxPanel::paint(juce::Graphics& g)
+void AdvancedPanel::paint(juce::Graphics& g)
 {
     drawPanelBody(g, getLocalBounds().toFloat());
     g.setFont(font(11.0f, true));
@@ -51,12 +46,11 @@ void FxPanel::paint(juce::Graphics& g)
     }
 }
 
-void FxPanel::resized()
+void AdvancedPanel::resized()
 {
-    juce::Component* order[] = { &drive_, &cutoff_, &resonance_, &filterType_, &delayTime_, &delayFeedback_,
-                                 &delayTone_, &delayWow_, &delayMix_, &phaserRate_, &phaserDepth_,
-                                 &phaserMix_, &reverbDecay_, &reverbTone_, &reverbMix_, &master_ };
-    for (int i = 0; i < 16; ++i)
+    juce::Component* order[] = { &drive_, &delayFeedback_, &delayTone_, &delayWow_, &delayMix_, &phaserRate_,
+                                 &phaserDepth_, &phaserMix_, &reverbDecay_, &reverbTone_, &reverbMix_ };
+    for (int i = 0; i < 11; ++i)
         order[i]->setBounds(12 + i * kCell, 20, kCell - 6, getHeight() - 24);
 }
 

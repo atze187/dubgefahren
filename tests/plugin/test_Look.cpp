@@ -128,6 +128,42 @@ TEST_CASE("the editor paints at every window scale", "[look]")
     }
 }
 
+TEST_CASE("the live view paints at every window scale", "[look]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    for (const float scale : { 0.75f, 1.0f, 2.0f })
+    {
+        DubgefahrenProcessor p;
+        p.setUiScale(scale);
+        p.setLiveView(true);
+        std::unique_ptr<juce::AudioProcessorEditor> editor(p.createEditor());
+        auto* e = static_cast<DubgefahrenEditor*>(editor.get());
+        const auto img = dgtest::snapshot(*editor);
+        REQUIRE(img.isValid());
+        CHECK(img.getWidth() == juce::roundToInt(880.0f * scale));
+        CHECK(img.getHeight() == juce::roundToInt(460.0f * scale));
+        const auto centre = e->livePanel().getBounds().getCentre();
+        const auto panel = img.getPixelAt(juce::roundToInt(centre.x * scale), juce::roundToInt(centre.y * scale));
+        const auto window = img.getPixelAt(juce::roundToInt(4.0f * scale), juce::roundToInt(4.0f * scale));
+        CHECK(panel != window);
+        dgtest::savePng(img, "editor-live-" + juce::String(scale, 2));
+    }
+}
+
+TEST_CASE("the edit view without the advanced strip paints at its base size", "[look]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    DubgefahrenProcessor p;
+    p.setUiScale(1.0f);
+    p.setAdvancedOpen(false);
+    std::unique_ptr<juce::AudioProcessorEditor> editor(p.createEditor());
+    const auto img = dgtest::snapshot(*editor);
+    REQUIRE(img.isValid());
+    CHECK(img.getWidth() == 1200);
+    CHECK(img.getHeight() == 640);
+    dgtest::savePng(img, "editor-edit-1.00");
+}
+
 TEST_CASE("a pad lights up on trigger and fades after release", "[look]")
 {
     juce::ScopedJuceInitialiser_GUI gui;

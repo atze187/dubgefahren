@@ -1,4 +1,5 @@
 #pragma once
+#include <vector>
 #include <juce_gui_basics/juce_gui_basics.h>
 #include "plugin/ui/Controls.h"
 
@@ -14,6 +15,13 @@ public:
     explicit PerformancePanel(DubgefahrenProcessor& proc);
     void paint(juce::Graphics& g) override;
     void resized() override;
+    std::vector<juce::Rectangle<int>> controlBounds() const
+    {
+        std::vector<juce::Rectangle<int>> out;
+        for (auto* c : getChildren())
+            out.push_back(c->getBounds());
+        return out;
+    }
 
 private:
     Knob pitch_ { u8("Pitch") };
