@@ -93,6 +93,8 @@ In `engine/SamplePlayer.cpp`: die Funktion `cubicAt` im anonymen Namespace lösc
 ```cpp
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
+#include <algorithm>
+#include <cmath>
 #include <vector>
 #include "engine/GrainStretch.h"
 
