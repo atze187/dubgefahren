@@ -3,6 +3,7 @@
 #include <cmath>
 #include <cstdint>
 #include "engine/DspMath.h"
+#include "engine/SampleInterp.h"
 #include "engine/SampleRegion.h"
 
 namespace dg {
@@ -13,18 +14,6 @@ constexpr double kEndRampS = 0.002;    // lineare Ausblendung am Ende des Bereic
 constexpr double kRetrigFadeS = 0.005; // Ausblendzeit des alten Lesekopfs beim Retrigger
 
 bool usable(const SampleData* d) { return d != nullptr && !d->samples.empty() && d->sampleRate > 0.0; }
-
-// Catmull-Rom-Interpolation; Werte außerhalb des Puffers gelten als 0.
-float cubicAt(const std::vector<float>& x, double pos)
-{
-    const auto n = static_cast<std::int64_t>(x.size());
-    const double fl = std::floor(pos); // auch für negative Positionen (Rückwärtslauf) abrunden
-    const auto i = static_cast<std::int64_t>(fl);
-    const float t = static_cast<float>(pos - fl);
-    const auto at = [&](std::int64_t k) { return (k < 0 || k >= n) ? 0.0f : x[static_cast<std::size_t>(k)]; };
-    const float y0 = at(i - 1), y1 = at(i), y2 = at(i + 1), y3 = at(i + 2);
-    return y1 + 0.5f * t * (y2 - y0 + t * (2.0f * y0 - 5.0f * y1 + 4.0f * y2 - y3 + t * (3.0f * (y1 - y2) + y3 - y0)));
-}
 
 // Die Stimme loopt nur, wenn Loop an ist und der Slot nicht als One Shot spielt. Eine als One Shot
 // gestartete Stimme beginnt auch dann nicht zu loopen, wenn der Modus während des Spielens
