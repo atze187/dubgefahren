@@ -20,7 +20,7 @@ constexpr int kCellWidth = 104;
 const char* const kRowNames[kNumRows] = { "OSC\nAMP", "LFO", "SWEEP\nTRIG", "MIX" };
 // Sample-Modus: Reihe 0 ist die Wellenform, darunter drei Reihen Regler.
 constexpr int kNumSampleRows = 3;
-const char* const kSampleRowNames[kNumSampleRows] = { "SAMPLE\nAMP", "LOOP\nTRIG", "MIX" };
+const char* const kSampleRowNames[kNumSampleRows] = { "SAMPLE\nSTRETCH", "LOOP\nTRIG", "AMP\nMIX" };
 constexpr int kWaveformInset = 4; // Abstand der Wellenform zum oberen und unteren Rand ihrer Reihe
 } // namespace
 
@@ -46,15 +46,24 @@ SlotEditor::SlotEditor(DubgefahrenProcessor& proc) : proc_(proc), waveform_(proc
     emptyHint_.setFont(font(15.0f));
     addChildComponent(emptyHint_);
 
-    sampleControls_ = { &waveform_, &tune_, &attack_, &release_, &loop_, &reverse_, &xfade_, &trigMode_, &choke_, &vol_, &pan_, &send_ };
-    for (juce::Component* c : std::initializer_list<juce::Component*> { &waveform_, &tune_, &loop_, &reverse_, &xfade_ })
+    sampleControls_ = { &waveform_, &tune_, &attack_, &release_, &loop_, &reverse_, &xfade_, &stretch_, &stretchPct_, &grain_,
+                        &trigMode_, &choke_, &vol_, &pan_, &send_ };
+    for (juce::Component* c : std::initializer_list<juce::Component*> { &waveform_, &tune_, &loop_, &reverse_, &xfade_, &stretch_,
+                                                                       &stretchPct_, &grain_ })
         addChildComponent(*c);
     // Der Latch-Eintrag und die Wellenform folgen dem Loop-Schalter, auch bei Automation.
     loop_.button.onStateChange = [this] {
         updateLatchItem();
+        updateStretchEnabled();
         waveform_.repaint();
     };
     reverse_.button.onStateChange = [this] { waveform_.repaint(); };
+    stretch_.box.onChange = [this] { updateStretchEnabled(); };
+    stretchHint_.setText(u8("needs Loop"), juce::dontSendNotification);
+    stretchHint_.setFont(font(12.0f));
+    stretchHint_.setColour(juce::Label::textColourId, colours::textDim);
+    stretchHint_.setJustificationType(juce::Justification::centredLeft);
+    addChildComponent(stretchHint_);
     sampleButton_.onClick = [this] {
         if (onChooseSample)
             onChooseSample();
@@ -90,6 +99,9 @@ void SlotEditor::setSlot(int slot)
     loop_.attach(s, slotParamId(slot, SlotField::Loop));
     reverse_.attach(s, slotParamId(slot, SlotField::Reverse));
     xfade_.attach(s, slotParamId(slot, SlotField::LoopXfade));
+    stretch_.attach(s, slotParamId(slot, SlotField::StretchMode));
+    stretchPct_.attach(s, slotParamId(slot, SlotField::StretchFactor));
+    grain_.attach(s, slotParamId(slot, SlotField::StretchGrain));
     waveform_.setSlot(slot);
     refresh();
 }
@@ -121,6 +133,7 @@ void SlotEditor::refresh()
         sampleButton_.removeColour(juce::TextButton::textColourOffId);
     waveform_.refresh();
     updateLatchItem();
+    updateStretchEnabled();
     resized();
     repaint(); // Zeilenbeschriftungen
 }
@@ -129,6 +142,16 @@ void SlotEditor::updateLatchItem()
 {
     // Latch gilt bei Samples nur für geloopte Slots; sonst wirkt es wie Gate und ist nicht wählbar.
     trigMode_.box.setItemEnabled(kLatchItemId, mode_ != Mode::Sample || loop_.button.getToggleState());
+}
+void SlotEditor::updateStretchEnabled()
+{
+    const int mode = stretch_.box.getSelectedItemIndex(); // 0 Off, 1 All, 2 Loop
+    const bool loopOn = loop_.button.getToggleState();
+    const bool active = mode > 0 && (mode != 2 || loopOn);
+    stretchPct_.setEnabled(active);
+    grain_.setEnabled(active);
+    xfade_.setEnabled(!(mode > 0 && loopOn)); // bei Stretch mit Loop übernehmen die Stück-Crossfades
+    stretchHint_.setVisible(mode_ == Mode::Sample && mode == 2 && !loopOn);
 }
 
 void SlotEditor::paint(juce::Graphics& g)
@@ -160,9 +183,10 @@ void SlotEditor::resized()
     if (mode_ == Mode::Sample)
     {
         waveform_.setBounds(12, kTopOffset + kWaveformInset, getWidth() - 24, kRowHeight - 2 * kWaveformInset);
-        place(1, 0, tune_);  place(1, 1, attack_);  place(1, 2, release_);
+        place(1, 0, tune_);    place(1, 1, stretch_); place(1, 2, stretchPct_); place(1, 3, grain_);
+        stretchHint_.setBounds(kRowLabelWidth + 4 * kCellWidth, kTopOffset + kRowHeight, kCellWidth - 8, kRowHeight - 6);
         place(2, 0, loop_);  place(2, 1, reverse_); place(2, 2, xfade_); place(2, 3, trigMode_); place(2, 4, choke_);
-        place(3, 0, vol_);   place(3, 1, pan_);     place(3, 2, send_);
+        place(3, 0, attack_);  place(3, 1, release_);  place(3, 2, vol_);        place(3, 3, pan_);      place(3, 4, send_);
     }
     else
     {
