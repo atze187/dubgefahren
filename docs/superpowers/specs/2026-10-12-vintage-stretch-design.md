@@ -1,7 +1,7 @@
 # Vintage-Stretch für Samples (S950-Charakter) – Design-Spezifikation
 
 **Datum:** 2026-10-12
-**Status:** Entwurf, Review offen
+**Status:** Umgesetzt, Abnahme in Ableton offen
 **Issue:** atze187/dubgefahren#17 (baut auf #11 auf)
 
 ## 1. Hintergrund und Ziel
@@ -72,8 +72,8 @@ Der Faktor ist die Dauer relativ zum Original: 200 % heißt doppelt so lang, 50 
   (wie die bestehende Reverse-Richtung).
 - **Tune und Performance-Pitch:** wirken nur auf die Lesegeschwindigkeit der Stücke, also nur auf
   die Tonhöhe.
-- **Loop-X-Fade:** Im Modus Alles mit Loop gilt der Regler nicht; die Stück-Crossfades übernehmen
-  seine Rolle.
+- **Loop-X-Fade:** Bei Stretch (Alles oder Loop) mit eingeschaltetem Loop gilt der Regler nicht; die
+  Stück-Crossfades übernehmen seine Rolle.
 - **Trigger-Modi, Choke, Hüllkurve:** unverändert; ein Latch auf einem geloopten, gestretchten Slot
   funktioniert wie bei einem geloopten Slot ohne Stretch.
 
@@ -105,9 +105,16 @@ Ablauf pro Ausgabesample:
   Quellposition `seg.lo`, das erste Stück blendet ein.
 - Bereichsende ohne Loop: Die Ausblendung am Ende läuft über die Restdauer der Quellposition (in
   Ausgabesamples), wie bisher.
-- Retrigger: Der alte Lesekopf läuft vereinfacht als einfaches Lesen ohne Stretch mit dem
-  bestehenden 5-ms-Fade aus.
-- Kosten: zwei zusätzliche Interpolationen pro Sample und Slot, keine Speicherzuteilung.
+- Retrigger und Abschalten des Stretch während des Spielens: Die alten Stücke laufen in einer zweiten
+  `GrainStretch`-Instanz mit dem bestehenden 5-ms-Fade weiter aus, damit das Signal stetig bleibt.
+- Ein Sprung der Position am Schleifenende (Marker unter der Stimme verschoben) erzeugt bei Stretch
+  keinen zweiten Kopf, weil die Stücke unabhängig von der Quellposition weiterlesen.
+- Ohne Loop halten die Stücke an den Bereichsgrenzen ihren letzten Wert, bis die Ausblendung am Ende
+  greift.
+- Mit jedem neuen Stück laufen alle älteren innerhalb der neuen Überblendzeit aus; es leben höchstens
+  zwei Stücke, und die Gewichte bleiben auch bei wechselnder Stückgröße stetig.
+- Kosten: zwei zusätzliche Interpolationen pro Sample und Slot (vier kurz beim Retrigger), keine
+  Speicherzuteilung.
 
 ## 7. Kit und Plugin-Zustand
 
@@ -124,8 +131,11 @@ Im Slot-Editor des Sample-Slots kommt neben Loop, Reverse und X-Fade eine Gruppe
 ein Auswahlfeld (Aus, Alles, Loop) und die Regler Faktor und Grain.
 
 - Faktor und Grain sind deaktiviert, solange der Modus Aus ist.
-- Im Modus Loop sind sie nur bedienbar, wenn Loop an ist; sonst steht ein Hinweis dabei.
-- Der X-Fade-Regler ist im Modus Alles mit Loop deaktiviert.
+- Im Modus Loop sind sie nur bedienbar, wenn Loop an ist; sonst steht der Hinweis „needs Loop“ dabei.
+- Der X-Fade-Regler ist bei Stretch (Alles oder Loop) mit eingeschaltetem Loop deaktiviert.
+- Anordnung im Sample-Modus: Reihe `SAMPLE/STRETCH` mit Tune, Stretch, Factor, Grain und Hinweis,
+  Reihe `LOOP/TRIG` (Loop, Reverse, X-Fade, Mode, Choke), Reihe `AMP/MIX` (Attack, Release, Volume,
+  Pan, FX-Send).
 - Die Live-Ansicht bleibt unverändert.
 
 ## 9. Betroffene Dateien

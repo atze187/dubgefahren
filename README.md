@@ -107,6 +107,8 @@ folder; exporting to a new kit copies the used samples along. Samples need a kit
 a new kit once before adding samples. A missing sample mutes its pad (shown in orange) and shows a notice;
 the pad keeps its sample and plays again once the file is back (reopen the set or reload the kit).
 
+Sample pads have a vintage time-stretch in the style of the Akai S950: the sample is cut into short grains that are repeated or skipped and joined with short crossfades. Stretch can be Off, All (everything between start and end) or Loop (the beginning plays normally, only the loop region is stretched; needs Loop on). Factor sets the duration (50-200 %, the pitch stays the same; Tune and the performance pitch only change the pitch), Grain sets the grain size (5-100 ms): short grains sound metallic and rough, long ones softer with audible repeats. With Stretch on and Loop on, the Loop X-Fade has no effect.
+
 ## Validation
 
 `build.ps1 validate` builds Steinberg's VST3 validator and checks the plugin. For pluginval, download
@@ -150,3 +152,7 @@ Third-party components:
 - [ ] Phaser: Mix up on the delay returns gives a soft sweeping phase on the echoes only; the dry signal stays clean; Mix 0 sounds exactly like before.
 - [ ] Space, Grit and Throw: at 0 nothing changes; each knob adds its part (Space: bigger room and echoes, Grit: dirtier, Throw: the delay opens up to self-oscillation).
 - [ ] Live view: the window shrinks, the pads, the three knobs, filter, delay time, master and the performance controls are all reachable; Edit brings everything back; the choice survives saving and reloading the project.
+- [ ] Stretch: Factor 100 % with Stretch All sounds like the plain sample; 200 % takes twice as long without changing the pitch, 50 % half as long.
+- [ ] Stretch: Grain 10 ms is metallic and rough, 60 ms softer with audible repeats; a break from 130 to 170 BPM (about 76 %) still grooves.
+- [ ] Stretch with Loop and Reverse: loop regions cycle without clicks; Loop mode plays the beginning normally; Tune only changes the pitch.
+- [ ] Stretch Off sounds exactly like before; old sets and kits load with Stretch Off.
