@@ -123,7 +123,7 @@ void SamplePlayer::render(float* out, int numSamples, const VoiceContext& ctx)
     // X-Fade: Anteil der Segmentlänge, begrenzt auf das Material, das in Laufrichtung vor dem
     // Schleifenanfang liegt (vorwärts unterhalb von lo, rückwärts oberhalb von hi).
     const double n = static_cast<double>(x.size());
-    const double xfWanted = (looping && !stretchWanted) ?std::clamp(static_cast<double>(p.loopXfadePct), 0.0, 50.0) / 100.0 * segLen : 0.0;
+    const double xfWanted = (looping && !stretchWanted) ? std::clamp(static_cast<double>(p.loopXfadePct), 0.0, 50.0) / 100.0 * segLen : 0.0;
     const double xf = std::min(xfWanted, dir_ > 0.0 ? seg.lo : n - seg.hi);
 
     const double baseStep = d->sampleRate / sampleRate_;

@@ -986,3 +986,25 @@ TEST_CASE("pitch from the performance control does not change the stretched dura
     CHECK(static_cast<int>(out.size()) >= 48000 - 300);
     CHECK(static_cast<int>(out.size()) <= 48000 + 300);
 }
+
+TEST_CASE("switching the stretch off while playing stays continuous", "[sampler][stretch]")
+{
+    const auto d = sineData(220.0f, kSr, 2.0);
+    SamplePlayer v;
+    v.prepare(kSr);
+    SlotParams p = sampleParams();
+    p.stretchMode = StretchMode::All;
+    p.stretchPct = 150.0f;
+    VoiceContext ctx { &p, 120.0, {}, &d };
+    v.start(ctx, 1);
+    auto out = renderN(v, ctx, 5000);
+    p.stretchMode = StretchMode::Off;
+    const auto after = renderN(v, ctx, 5000);
+    out.insert(out.end(), after.begin(), after.end());
+    CHECK(dgtest::allFinite(out));
+    CHECK(dgtest::peakAbs(out, 5000) > 0.1f); // spielt nach dem Umschalten weiter
+    float maxJump = 0.0f;
+    for (std::size_t i = 1; i < out.size(); ++i)
+        maxJump = std::max(maxJump, std::abs(out[i] - out[i - 1]));
+    CHECK(maxJump < 0.25f);
+}
