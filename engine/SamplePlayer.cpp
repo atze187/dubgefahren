@@ -17,7 +17,7 @@ bool usable(const SampleData* d) { return d != nullptr && !d->samples.empty() &&
 
 float stretchTarget(const SlotParams& p)
 {
-    return std::isfinite(p.stretchPct) ? std::clamp(p.stretchPct, 50.0f, 200.0f) / 100.0f : 1.0f;
+    return std::isfinite(p.stretchPct) ? std::clamp(p.stretchPct, 50.0f, 800.0f) / 100.0f : 1.0f;
 }
 
 int grainSamples(const SlotParams& p, double sampleRate)

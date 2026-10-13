@@ -51,7 +51,7 @@ struct SlotParams
     bool reverse = false;
     float loopXfadePct = 5.0f;     // 0 .. 50 % der Schleifenlänge
     StretchMode stretchMode = StretchMode::Off;
-    float stretchPct = 100.0f;     // 50 .. 200 % der Dauer
+    float stretchPct = 100.0f;     // 50 .. 800 % der Dauer
     float grainMs = 20.0f;         // 5 .. 100 ms Stückgröße
 
     SourceType source = SourceType::Synth; // kein SlotField, wird gesondert gespeichert

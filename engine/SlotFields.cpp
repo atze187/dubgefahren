@@ -44,7 +44,7 @@ const std::array<FieldSpec, kNumSlotFields> kSpecs { {
     { "reverse",    "Reverse",        FieldKind::Bool, 0.0f, 1.0f, 0.0f, 0.0f, "", {}, 4 },
     { "xfade",      "Loop X-Fade",    FieldKind::Float, 0.0f, 50.0f, 5.0f, 0.0f, "%", {}, 4 },
     { "stretch",    "Stretch",        FieldKind::Choice, 0.0f, 2.0f, 0.0f, 0.0f, "", C(kStretchChoices), 5 },
-    { "stretchPct", "Stretch Factor", FieldKind::Float, 50.0f, 200.0f, 100.0f, 100.0f, "%", {}, 5 },
+    { "stretchPct", "Stretch Factor", FieldKind::Float, 50.0f, 800.0f, 100.0f, 100.0f, "%", {}, 5 },
     { "grainMs",    "Stretch Grain",  FieldKind::Float, 5.0f, 100.0f, 20.0f, 20.0f, "ms", {}, 5 },
 } };
 

@@ -738,7 +738,9 @@ TEST_CASE("stretch off renders exactly like before whatever the other stretch fi
 TEST_CASE("the stretch factor scales the duration", "[sampler][stretch]")
 {
     const auto d = rampData(24000); // 0,5 s bei 48 kHz
-    struct Case { float pct; int expected; } cases[] = { { 100.0f, 24000 }, { 200.0f, 48000 }, { 50.0f, 12000 } };
+    struct Case { float pct; int expected; } cases[] = {
+        { 100.0f, 24000 }, { 200.0f, 48000 }, { 50.0f, 12000 }, { 800.0f, 192000 }, { 2000.0f, 192000 } // über 800 % geklemmt
+    };
     for (const auto& c : cases)
     {
         SamplePlayer v;
@@ -748,7 +750,7 @@ TEST_CASE("the stretch factor scales the duration", "[sampler][stretch]")
         p.stretchPct = c.pct;
         VoiceContext ctx { &p, 120.0, {}, &d };
         v.start(ctx, 1);
-        const auto out = renderUntilDone(v, ctx, 100000);
+        const auto out = renderUntilDone(v, ctx, 400000);
         INFO("factor " << c.pct);
         CHECK(static_cast<int>(out.size()) >= c.expected - 300);
         CHECK(static_cast<int>(out.size()) <= c.expected + 300);
@@ -772,9 +774,9 @@ TEST_CASE("tune changes the pitch but not the duration while stretching", "[samp
     CHECK_THAT(dgtest::estimateFrequency(out, kSr, 12000, 84000), WithinRel(880.0f, 0.08f));
 }
 
-TEST_CASE("stretching keeps the pitch at 50 and 200 percent", "[sampler][stretch]")
+TEST_CASE("stretching keeps the pitch at 50, 200 and 800 percent", "[sampler][stretch]")
 {
-    for (const float pct : { 50.0f, 200.0f })
+    for (const float pct : { 50.0f, 200.0f, 800.0f })
     {
         const auto d = sineData(440.0f, kSr, 1.0);
         SamplePlayer v;
@@ -784,7 +786,7 @@ TEST_CASE("stretching keeps the pitch at 50 and 200 percent", "[sampler][stretch
         p.stretchPct = pct;
         VoiceContext ctx { &p, 120.0, {}, &d };
         v.start(ctx, 1);
-        const auto out = renderUntilDone(v, ctx, 200000);
+        const auto out = renderUntilDone(v, ctx, 500000);
         const auto to = static_cast<std::size_t>(out.size() * 9 / 10);
         INFO("factor " << pct);
         CHECK_THAT(dgtest::estimateFrequency(out, kSr, 3000, to), WithinRel(440.0f, 0.08f));

@@ -132,7 +132,8 @@ TEST_CASE("the stretch fields default to off, 100 percent and 20 ms", "[fields][
     CHECK(fieldSpec(SlotField::StretchMode).kind == FieldKind::Choice);
     CHECK(fieldSpec(SlotField::StretchMode).choices.size() == 3);
     CHECK(fieldSpec(SlotField::StretchFactor).min == 50.0f);
-    CHECK(fieldSpec(SlotField::StretchFactor).max == 200.0f);
+    CHECK(fieldSpec(SlotField::StretchFactor).max == 800.0f);
+    CHECK(fieldSpec(SlotField::StretchFactor).skewCentre == 100.0f); // Knob-Mitte = Originallänge
     CHECK(fieldSpec(SlotField::StretchGrain).min == 5.0f);
     CHECK(fieldSpec(SlotField::StretchGrain).max == 100.0f);
     CHECK(fieldSpec(SlotField::LoopXfade).versionHint == 4); // bestehende Hinweise bleiben
@@ -145,8 +146,10 @@ TEST_CASE("stretch fields clamp and convert", "[fields][stretch]")
     CHECK(p.stretchMode == StretchMode::Loop);
     setSlotField(p, SlotField::StretchMode, 9.0f);
     CHECK(p.stretchMode == StretchMode::Loop); // auf das Maximum begrenzt
+    setSlotField(p, SlotField::StretchFactor, 650.0f);
+    CHECK(p.stretchPct == 650.0f); // über dem alten Maximum von 200 % gültig
     setSlotField(p, SlotField::StretchFactor, 1000.0f);
-    CHECK(p.stretchPct == 200.0f);
+    CHECK(p.stretchPct == 800.0f);
     setSlotField(p, SlotField::StretchGrain, 0.0f);
     CHECK(p.grainMs == 5.0f);
     CHECK(getSlotField(p, SlotField::StretchMode) == 2.0f);

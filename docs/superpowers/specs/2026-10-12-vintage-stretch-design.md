@@ -13,7 +13,8 @@ werden. Die metallischen, leicht robotischen Nähte gehören zum Klang; ein saub
 Algorithmus ist ausdrücklich nicht das Ziel.
 
 Der typische Einsatz ist die Tempoanpassung eines Breaks (z. B. 130 auf 170 BPM, Faktor etwa
-0,76), also Faktoren zwischen 50 % und 200 %.
+0,76), also Faktoren zwischen 50 % und 200 %. Darüber hinaus dehnt der Stretch kurze Samples
+bis auf das Achtfache zu langen Flächen und Drones (bis 800 %).
 
 **Erfolgskriterien:**
 
@@ -29,7 +30,7 @@ Der typische Einsatz ist die Tempoanpassung eines Breaks (z. B. 130 auf 170 BPM,
 **Enthalten:** drei neue Slot-Parameter, die Klasse `GrainStretch`, Anbindung im `SamplePlayer`,
 Bedienelemente im Slot-Editor, Kit-Format Version 5, Tests, README.
 
-**Nicht enthalten:** Tempo-Sync mit dem Host (Originaltempo und Ziel-BPM), Faktoren über 200 %,
+**Nicht enthalten:** Tempo-Sync mit dem Host (Originaltempo und Ziel-BPM), Faktoren über 800 %,
 Tonhöhenkorrektur nach klassischen Algorithmen (WSOLA, Phase-Vocoder), Zeichnung der Stückgrenzen
 in der Wellenform, Stretch für Synth-Slots, ein Stretch-Regler in der Live-Ansicht.
 
@@ -53,13 +54,14 @@ Host-States). Sie sind automatisierbar und stehen im Kit. Sie gelten nur für Sa
 | Feld (`SlotField`) | Schlüssel | Art | Bereich | Standard | Einheit |
 |---|---|---|---|---|---|
 | `StretchMode` | `stretch` | Choice | Aus, Alles, Loop | Aus | – |
-| `StretchFactor` | `stretchPct` | Float | 50 … 200, Mitte 100 | 100 | % |
+| `StretchFactor` | `stretchPct` | Float | 50 … 800, Mitte 100 | 100 | % |
 | `StretchGrain` | `grainMs` | Float | 5 … 100, Mitte 20 | 20 | ms |
 
 In `SlotParams`: `stretchMode` (Enum `StretchMode { Off, All, Loop }`), `stretchPct`, `grainMs`
 (float). Das sind 3 × 16 = 48 neue Host-Parameter.
 
-Der Faktor ist die Dauer relativ zum Original: 200 % heißt doppelt so lang, 50 % halb so lang.
+Der Faktor ist die Dauer relativ zum Original: 200 % heißt doppelt so lang, 800 % achtmal so lang,
+50 % halb so lang.
 
 ## 5. Verhalten
 
