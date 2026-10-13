@@ -10,6 +10,7 @@ namespace dg {
 
 namespace {
 const juce::Identifier kNamesId { "SLOTNAMES" };
+const juce::Identifier kColoursId { "SLOTCOLOURS" };
 const juce::Identifier kUiScaleId { "uiScale" };
 const juce::Identifier kFollowFocusId { "followFocus" };
 const juce::Identifier kLiveViewId { "liveView" };
@@ -21,6 +22,7 @@ const juce::Identifier kKitFileId { "kitFile" };
 
 juce::Identifier sampleKey(int slot) { return juce::Identifier("s" + juce::String(slot + 1)); }
 juce::Identifier nameKey(int slot) { return juce::Identifier("n" + juce::String(slot + 1)); }
+juce::Identifier colourKey(int slot) { return juce::Identifier("c" + juce::String(slot + 1)); }
 } // namespace
 
 DubgefahrenProcessor::DubgefahrenProcessor()
@@ -39,6 +41,7 @@ DubgefahrenProcessor::~DubgefahrenProcessor() { stopTimer(); }
 
 void DubgefahrenProcessor::ensureStateChildren()
 {
+    apvts_.state.getOrCreateChildWithName(kColoursId, nullptr);
     apvts_.state.getOrCreateChildWithName(kSamplesId, nullptr);
     auto names = apvts_.state.getOrCreateChildWithName(kNamesId, nullptr);
     const Kit factory = makeFactoryKit();
@@ -209,6 +212,19 @@ void DubgefahrenProcessor::setSlotName(int slot, const juce::String& name)
     ++stateGeneration_;
 }
 
+int DubgefahrenProcessor::slotColour(int slot) const
+{
+    const auto v = apvts_.state.getChildWithName(kColoursId).getProperty(colourKey(slot));
+    return v.isVoid() ? 0 : clampPadColour(static_cast<int>(v));
+}
+
+void DubgefahrenProcessor::setSlotColour(int slot, int colour)
+{
+    JUCE_ASSERT_MESSAGE_THREAD
+    apvts_.state.getOrCreateChildWithName(kColoursId, nullptr).setProperty(colourKey(slot), clampPadColour(colour), nullptr);
+    ++stateGeneration_;
+}
+
 void DubgefahrenProcessor::setSlot(int slot, const SlotParams& params, const juce::String& name, const juce::String& sample)
 {
     JUCE_ASSERT_MESSAGE_THREAD
@@ -235,6 +251,7 @@ void DubgefahrenProcessor::clearSlot(int slot)
     SlotParams p = readSlotFromParameters(apvts_, slot);
     p.source = SourceType::Empty;
     setSlot(slot, p, {});
+    setSlotColour(slot, 0);
 }
 
 void DubgefahrenProcessor::resetSlotToFactory(int slot)
@@ -242,6 +259,7 @@ void DubgefahrenProcessor::resetSlotToFactory(int slot)
     const Kit factory = makeFactoryKit();
     const auto s = static_cast<std::size_t>(slot);
     setSlot(slot, factory.slots[s], juce::String::fromUTF8(factory.names[s].c_str()));
+    setSlotColour(slot, 0);
 }
 
 Kit DubgefahrenProcessor::currentKit()
@@ -251,6 +269,7 @@ Kit DubgefahrenProcessor::currentKit()
     {
         k.slots[static_cast<std::size_t>(s)] = readSlotFromParameters(apvts_, s);
         k.names[static_cast<std::size_t>(s)] = slotName(s).toStdString();
+        k.colours[static_cast<std::size_t>(s)] = slotColour(s);
         if (k.slots[static_cast<std::size_t>(s)].source == SourceType::Sample)
             k.samples[static_cast<std::size_t>(s)] = slotSample(s).toStdString();
     }
@@ -265,6 +284,7 @@ void DubgefahrenProcessor::applyKit(const Kit& kit, const juce::File& kitFile)
     {
         const auto i = static_cast<std::size_t>(s);
         setSlot(s, kit.slots[i], juce::String::fromUTF8(kit.names[i].c_str()), juce::String::fromUTF8(kit.samples[i].c_str()));
+        setSlotColour(s, kit.colours[i]);
     }
     ++stateGeneration_;
 }

@@ -407,3 +407,16 @@ TEST_CASE("a host state without the region parameters restores their defaults", 
     CHECK_FALSE(sp.loop);
     CHECK_THAT(sp.loopXfadePct, WithinAbs(5.0, 1e-4));
 }
+
+TEST_CASE("replacing a sample keeps the pad colour", "[plugin][samples][padcolour]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    SampleKit kit;
+    DubgefahrenProcessor p;
+    p.applyKit(makeFactoryKit(), kit.kitFile);
+    p.setSlotSample(3, "horn.wav");
+    p.setSlotColour(3, 6);
+    p.setSlotSample(3, "missing.wav"); // anderes Sample: Marker und Stretch werden zurückgesetzt, die Farbe nicht
+    CHECK(p.slotSample(3) == "missing.wav");
+    CHECK(p.slotColour(3) == 6);
+}

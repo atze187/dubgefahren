@@ -51,6 +51,9 @@ public:
     juce::AudioProcessorValueTreeState& state() { return apvts_; }
     juce::String slotName(int slot) const;
     void setSlotName(int slot, const juce::String& name);
+    // Pad-Farbe (Palettenindex 0 … kNumPadColours-1); Metadatum wie der Name, kein Host-Parameter.
+    int slotColour(int slot) const;
+    void setSlotColour(int slot, int colour);
     void setSlot(int slot, const SlotParams& params, const juce::String& name, const juce::String& sample = {});
     SourceType slotSource(int slot) const;
     // Leert den Slot: Quelle Empty, Name leer; die Synth-Parameter bleiben erhalten.

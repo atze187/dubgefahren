@@ -513,3 +513,71 @@ TEST_CASE("loading a state without the newer parameters resets them to their def
     }
     CHECK(b.advancedOpen());
 }
+
+TEST_CASE("slot colours default to 0, clamp and bump the state generation", "[plugin][padcolour]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    DubgefahrenProcessor p;
+    for (int s = 0; s < kNumSlots; ++s)
+        CHECK(p.slotColour(s) == 0);
+    const int gen = p.stateGeneration();
+    p.setSlotColour(4, 6);
+    CHECK(p.slotColour(4) == 6);
+    CHECK(p.stateGeneration() != gen);
+    p.setSlotColour(4, 42);
+    CHECK(p.slotColour(4) == 0);
+}
+
+TEST_CASE("slot colours survive a state round-trip and old states load with 0", "[plugin][padcolour]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    DubgefahrenProcessor a;
+    a.setSlotColour(1, 3);
+    a.setSlotColour(9, 7);
+    juce::MemoryBlock mb;
+    a.getStateInformation(mb);
+
+    DubgefahrenProcessor b;
+    b.setStateInformation(mb.getData(), static_cast<int>(mb.getSize()));
+    CHECK(b.slotColour(1) == 3);
+    CHECK(b.slotColour(9) == 7);
+    CHECK(b.slotColour(0) == 0);
+
+    // Projekt aus einer älteren Version: kein SLOTCOLOURS-Knoten
+    auto xml = juce::AudioProcessor::getXmlFromBinary(mb.getData(), static_cast<int>(mb.getSize()));
+    REQUIRE(xml != nullptr);
+    auto* coloursNode = xml->getChildByName("SLOTCOLOURS");
+    REQUIRE(coloursNode != nullptr);
+    xml->removeChildElement(coloursNode, true);
+    juce::MemoryBlock old;
+    juce::AudioProcessor::copyXmlToBinary(*xml, old);
+    DubgefahrenProcessor c;
+    c.setStateInformation(old.getData(), static_cast<int>(old.getSize()));
+    CHECK(c.slotColour(1) == 0);
+    CHECK(c.slotColour(9) == 0);
+}
+
+TEST_CASE("applyKit and currentKit carry the slot colours", "[plugin][padcolour]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    DubgefahrenProcessor p;
+    Kit k = makeFactoryKit();
+    k.colours[0] = 2;
+    k.colours[12] = 5;
+    p.applyKit(k);
+    CHECK(p.slotColour(0) == 2);
+    CHECK(p.slotColour(12) == 5);
+    CHECK(p.currentKit().colours == k.colours);
+}
+
+TEST_CASE("clearing or resetting a slot resets its colour", "[plugin][padcolour]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    DubgefahrenProcessor p;
+    p.setSlotColour(3, 4);
+    p.clearSlot(3);
+    CHECK(p.slotColour(3) == 0);
+    p.setSlotColour(5, 4);
+    p.resetSlotToFactory(5);
+    CHECK(p.slotColour(5) == 0);
+}
