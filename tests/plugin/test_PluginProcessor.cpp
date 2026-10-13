@@ -581,3 +581,29 @@ TEST_CASE("clearing or resetting a slot resets its colour", "[plugin][padcolour]
     p.resetSlotToFactory(5);
     CHECK(p.slotColour(5) == 0);
 }
+
+namespace {
+struct StateChangeCounter final : juce::AudioProcessorListener
+{
+    int nonParameterChanges = 0;
+    void audioProcessorParameterChanged(juce::AudioProcessor*, int, float) override {}
+    void audioProcessorChanged(juce::AudioProcessor*, const ChangeDetails& d) override
+    {
+        if (d.nonParameterStateChanged)
+            ++nonParameterChanges;
+    }
+};
+} // namespace
+
+TEST_CASE("changing a pad colour or name tells the host the state changed", "[plugin][padcolour]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    DubgefahrenProcessor p;
+    StateChangeCounter counter;
+    p.addListener(&counter);
+    p.setSlotColour(2, 5);
+    CHECK(counter.nonParameterChanges == 1);
+    p.setSlotName(2, "Siren");
+    CHECK(counter.nonParameterChanges == 2);
+    p.removeListener(&counter);
+}

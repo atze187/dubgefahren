@@ -210,6 +210,8 @@ void DubgefahrenProcessor::setSlotName(int slot, const juce::String& name)
     auto names = apvts_.state.getOrCreateChildWithName(kNamesId, nullptr);
     names.setProperty(nameKey(slot), name.substring(0, 32), nullptr);
     ++stateGeneration_;
+    // Kein Host-Parameter: dem Host sagen, dass sich der Zustand geändert hat (Projekt gilt als geändert).
+    updateHostDisplay(ChangeDetails().withNonParameterStateChanged(true));
 }
 
 int DubgefahrenProcessor::slotColour(int slot) const
@@ -223,6 +225,7 @@ void DubgefahrenProcessor::setSlotColour(int slot, int colour)
     JUCE_ASSERT_MESSAGE_THREAD
     apvts_.state.getOrCreateChildWithName(kColoursId, nullptr).setProperty(colourKey(slot), clampPadColour(colour), nullptr);
     ++stateGeneration_;
+    updateHostDisplay(ChangeDetails().withNonParameterStateChanged(true));
 }
 
 void DubgefahrenProcessor::setSlot(int slot, const SlotParams& params, const juce::String& name, const juce::String& sample)

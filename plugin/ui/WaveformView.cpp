@@ -242,9 +242,14 @@ void WaveformView::drawMarker(juce::Graphics& g, float x, juce::Colour colour, c
 {
     const float h = static_cast<float>(getHeight());
     const float w = static_cast<float>(getWidth());
-    g.setColour(colour);
-    g.fillRect(juce::Rectangle<float>(std::clamp(x - 0.75f, 0.0f, std::max(0.0f, w - 1.5f)), 0.0f, 1.5f, h));
+    const juce::Rectangle<float> line(std::clamp(x - 0.75f, 0.0f, std::max(0.0f, w - 1.5f)), 0.0f, 1.5f, h);
     const juce::Rectangle<float> handle(std::clamp(x - kHandle * 0.5f, 0.0f, std::max(0.0f, w - kHandle)), 0.0f, kHandle, kHandle);
+    // Dunkle Kontur unter Linie und Griff: Der Marker bleibt auf jeder Pad-Farbe der Wellenform sichtbar.
+    g.setColour(colours::groove);
+    g.fillRect(line.expanded(1.25f, 0.0f));
+    g.fillRoundedRectangle(handle.expanded(1.0f), 4.0f);
+    g.setColour(colour);
+    g.fillRect(line);
     g.fillRoundedRectangle(handle, 3.0f);
     g.setColour(colours::padEmpty);
     g.setFont(font(10.0f, true));

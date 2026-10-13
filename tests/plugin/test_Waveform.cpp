@@ -325,3 +325,26 @@ TEST_CASE("the waveform is drawn in the slot colour", "[waveform][padcolour]")
                 ++hits;
     CHECK(hits > 0);
 }
+
+TEST_CASE("markers keep a dark outline so they stay visible on any slot colour", "[waveform][padcolour]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    Fixture f;
+    f.p.setSlotColour(2, 2); // Blau: nah an der Farbe des Loop-Markers
+    ui::WaveformView view(f.p);
+    view.setSize(580, 76);
+    view.setSlot(2);
+    REQUIRE(view.hasData());
+    f.set(SlotField::Loop, 1.0f);
+    f.set(SlotField::LoopStart, 0.5f);
+    const auto img = dgtest::snapshot(view);
+    dgtest::savePng(img, "waveform-blue-loop");
+    const int x = juce::roundToInt(view.markerX(Marker::Loop));
+    // Direkt neben der Markerlinie liegt die dunkle Kontur, auch mitten in der Wellenform.
+    for (const int y : { 30, 38, 46 })
+    {
+        INFO("y " << y);
+        CHECK(ui::relativeLuminance(img.getPixelAt(x + 2, y)) < 0.12f);
+        CHECK(ui::relativeLuminance(img.getPixelAt(x - 2, y)) < 0.12f);
+    }
+}
