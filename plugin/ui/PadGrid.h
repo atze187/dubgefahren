@@ -45,9 +45,10 @@ public:
     std::function<void(juce::Rectangle<int>)> onGlowChanged;
 
     float padBrightness(int slot) const;
-    // Grundfarbe eines Pads: ruhend gedämpft, spielend hell. Vorerst für alle gleich (siehe #14).
+    // Grundfarbe eines Pads: ruhend gedämpft, spielend hell. refreshNames() setzt sie aus der Slot-Farbe.
     void setPadBaseColour(int slot, juce::Colour colour);
     juce::Colour padBaseColour(int slot) const;
+    juce::Colour padLitTextColour(int slot) const;
 
     void paint(juce::Graphics& g) override;
     void resized() override;

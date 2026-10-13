@@ -88,6 +88,7 @@ public:
     // Für Tests öffentlich: bauen die Popup-Menüs von Kit-Button, Pad-Rechtsklick und leerem Pad.
     juce::PopupMenu buildKitMenu(const juce::Array<juce::File>& kitFiles) const;
     juce::PopupMenu buildPadMenu(int slot) const;
+    ui::PadGrid& padGrid() { return pads_; }
     juce::PopupMenu buildSourceMenu(const juce::StringArray& sampleFiles) const;
     static juce::PopupMenu buildSampleMenu(const juce::StringArray& sampleFiles);
     // Schreibt das aktuelle Kit nach file, kopiert bei neuem Kit die Samples mit.
