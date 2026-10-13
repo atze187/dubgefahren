@@ -1,7 +1,7 @@
 # Pad-Farben – Design-Spezifikation
 
 **Datum:** 2026-10-13
-**Status:** Entwurf zur Freigabe
+**Status:** Umgesetzt und in Ableton abgenommen (2026-10-13)
 **Issue:** atze187/dubgefahren#14 (baut auf dem UI-Restyle #15 auf)
 
 ## 1. Hintergrund und Ziel
