@@ -1,7 +1,7 @@
 # Vintage-Stretch für Samples (S950-Charakter) – Design-Spezifikation
 
 **Datum:** 2026-10-12
-**Status:** Umgesetzt, Abnahme in Ableton offen
+**Status:** Umgesetzt und in Ableton abgenommen (2026-10-13)
 **Issue:** atze187/dubgefahren#17 (baut auf #11 auf)
 
 ## 1. Hintergrund und Ziel
