@@ -99,7 +99,8 @@ slot editor and the *Advanced* strip. The choice is saved with the project.
 
 Kit menu → factory kit, a new empty kit, or kits from the kit folder. Import/export as `.dgkit`
 (JSON, 16 slots, without effects).
-Right-click a pad: copy, paste, reset to factory settings, rename, clear.
+Right-click a pad: copy, paste, reset to factory settings, rename, clear, colour.
+Pads with a sound source can be given one of eight colours (Green, Turquoise, Blue, Violet, Pink, Red, Orange, Yellow) via right-click → Colour, e.g. to mark groups of sounds. The colour shows dimmed at rest and bright while the pad plays, and the sample waveform uses it too. Copy/Paste carries the colour; Clear Slot and Reset to Factory Default set it back to green. Colours are saved in the project and in kits (kit format version 6; older kits load all green). A latched pad shows a light dot with a dark ring in its top right corner.
 An empty pad is silent; click it to choose a sound source: Synth, or Sample.
 Samples (WAV, AIFF, MP3, FLAC, up to 60 s, played in mono) live in a folder named like the kit,
 next to the `.dgkit` file (`Kits\Dub.dgkit` → `Kits\Dub\`). "Add File…" copies a file into that
@@ -154,5 +155,6 @@ Third-party components:
 - [ ] Live view: the window shrinks, the pads, the three knobs, filter, delay time, master and the performance controls are all reachable; Edit brings everything back; the choice survives saving and reloading the project.
 - [ ] Stretch: Factor 100 % with Stretch All sounds like the plain sample; 200 % takes twice as long and 800 % eight times as long without changing the pitch, 50 % half as long.
 - [ ] Stretch: Grain 10 ms is metallic and rough, 60 ms softer with audible repeats; a break from 130 to 170 BPM (about 76 %) still grooves.
+- [ ] Pad colours: all eight colours are easy to tell apart at rest and while playing; the latch dot is clearly visible on every colour, also in poor light.
 - [ ] Stretch with Loop and Reverse: loop regions cycle without clicks; Loop mode plays the beginning normally; Tune only changes the pitch.
 - [ ] Stretch Off sounds exactly like before; old sets and kits load with Stretch Off.
