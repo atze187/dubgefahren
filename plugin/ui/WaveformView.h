@@ -39,6 +39,8 @@ public:
     void setSlot(int slot);
     // Holt die Sample-Daten des Slots neu (nach dem Laden, einem Sample- oder Slot-Wechsel).
     void refresh();
+    // Farbe der Wellenform: die Pad-Farbe des angezeigten Slots.
+    juce::Colour waveColour() const;
 
     bool hasData() const { return data_ != nullptr && !data_->samples.empty(); }
     // Text statt der Kurve, wenn keine Daten da sind; sonst leer.

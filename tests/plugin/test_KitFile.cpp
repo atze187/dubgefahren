@@ -1,4 +1,5 @@
 #include <catch2/catch_test_macros.hpp>
+#include <algorithm>
 #include <juce_core/juce_core.h>
 #include "engine/Kit.h"
 #include "engine/SlotFields.h"
@@ -55,7 +56,7 @@ TEST_CASE("invalid kit files are rejected with a message", "[kitfile]")
     CHECK_FALSE(reparse(wrongFormat).kit.has_value());
 
     auto newer = parsed(k);
-    newer.getDynamicObject()->setProperty("version", 6);
+    newer.getDynamicObject()->setProperty("version", 7);
     const auto rNewer = reparse(newer);
     CHECK_FALSE(rNewer.kit.has_value());
     CHECK(rNewer.error.isNotEmpty());
@@ -96,7 +97,7 @@ TEST_CASE("kits with empty slots survive a round-trip", "[kitfile]")
     k.names[2].clear();
 
     const auto v = parsed(k);
-    CHECK(static_cast<int>(v["version"]) == 5);
+    CHECK(static_cast<int>(v["version"]) == 6);
     CHECK(v["slots"][0]["source"].toString() == "synth");
     CHECK(v["slots"][2]["source"].toString() == "empty");
     CHECK_FALSE(v["slots"][2].getDynamicObject()->hasProperty("params"));
@@ -153,7 +154,7 @@ TEST_CASE("unknown or missing sound sources are rejected in version 2", "[kitfil
     CHECK_FALSE(reparse(missing).kit.has_value());
 }
 
-TEST_CASE("sample slots survive a version 5 round-trip", "[kitfile]")
+TEST_CASE("sample slots survive a version 6 round-trip", "[kitfile]")
 {
     Kit k = makeFactoryKit();
     k.slots[3].source = SourceType::Sample;
@@ -171,7 +172,7 @@ TEST_CASE("sample slots survive a version 5 round-trip", "[kitfile]")
     k.slots[3].stretchPct = 140.0f;
     k.slots[3].grainMs = 35.0f;
     const auto v = parsed(k);
-    CHECK(static_cast<int>(v["version"]) == 5);
+    CHECK(static_cast<int>(v["version"]) == 6);
     CHECK(v["slots"][3]["source"].toString() == "sample");
     CHECK(v["slots"][3]["sample"].toString() == juce::String::fromUTF8("Hörner.wav"));
     CHECK(static_cast<double>(v["slots"][3]["params"]["tune"]) == 5.0);
@@ -244,10 +245,10 @@ TEST_CASE("version 3 kits load with default region fields", "[kitfile]")
     CHECK(r.kit->samples == k.samples);
 }
 
-TEST_CASE("version 6 kits are rejected as too new", "[kitfile]")
+TEST_CASE("version 7 kits are rejected as too new", "[kitfile]")
 {
     auto v = parsed(makeFactoryKit());
-    v.getDynamicObject()->setProperty("version", 6);
+    v.getDynamicObject()->setProperty("version", 7);
     const auto r = reparse(v);
     CHECK_FALSE(r.kit.has_value());
     CHECK(r.error.contains("newer version"));
@@ -270,4 +271,57 @@ TEST_CASE("a version 4 kit without stretch keys loads with stretch off", "[kitfi
     CHECK(r.kit->slots[3].stretchMode == StretchMode::Off);
     CHECK(r.kit->slots[3].stretchPct == 100.0f);
     CHECK(r.kit->slots[3].grainMs == 20.0f);
+}
+
+TEST_CASE("pad colours survive a version 6 round-trip", "[kitfile][padcolour]")
+{
+    Kit k = makeFactoryKit();
+    k.colours[0] = 3;
+    k.colours[15] = 7;
+    const auto json = kitToJsonString(k);
+    CHECK(static_cast<int>(juce::JSON::parse(json)["version"]) == 6);
+    const auto r = kitFromJsonString(json);
+    REQUIRE(r.kit.has_value());
+    CHECK(r.kit->colours == k.colours);
+}
+
+TEST_CASE("a version 5 kit without colours loads with the default colour", "[kitfile][padcolour]")
+{
+    Kit k = makeFactoryKit();
+    k.colours[2] = 4;
+    auto v = parsed(k);
+    v.getDynamicObject()->setProperty("version", 5);
+    for (int s = 0; s < kNumSlots; ++s)
+        v["slots"][s].getDynamicObject()->removeProperty("colour");
+    const auto r = reparse(v);
+    REQUIRE(r.kit.has_value());
+    CHECK(std::all_of(r.kit->colours.begin(), r.kit->colours.end(), [](int c) { return c == 0; }));
+}
+
+TEST_CASE("invalid colour values load as the default colour", "[kitfile][padcolour]")
+{
+    auto v = parsed(makeFactoryKit());
+    v["slots"][0].getDynamicObject()->setProperty("colour", 9);
+    v["slots"][1].getDynamicObject()->setProperty("colour", -1);
+    v["slots"][2].getDynamicObject()->setProperty("colour", "blau");
+    v["slots"][3].getDynamicObject()->setProperty("colour", true);
+    v["slots"][4].getDynamicObject()->setProperty("colour", 2.0);
+    const auto r = reparse(v);
+    REQUIRE(r.kit.has_value());
+    CHECK(r.kit->colours[0] == 0);
+    CHECK(r.kit->colours[1] == 0);
+    CHECK(r.kit->colours[2] == 0);
+    CHECK(r.kit->colours[3] == 0);
+    CHECK(r.kit->colours[4] == 2);
+}
+
+TEST_CASE("empty slots always load with the default colour", "[kitfile][padcolour]")
+{
+    Kit k = makeFactoryKit();
+    k.slots[6].source = SourceType::Empty;
+    auto v = parsed(k);
+    v["slots"][6].getDynamicObject()->setProperty("colour", 5);
+    const auto r = reparse(v);
+    REQUIRE(r.kit.has_value());
+    CHECK(r.kit->colours[6] == 0);
 }

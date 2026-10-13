@@ -5,6 +5,7 @@
 #include "plugin/ui/DgLookAndFeel.h"
 #include "plugin/ui/Fonts.h"
 #include "plugin/ui/PadGlow.h"
+#include "plugin/ui/PadColours.h"
 
 namespace dg::ui {
 
@@ -72,6 +73,15 @@ public:
         if (c == baseColour_)
             return;
         baseColour_ = c;
+        repaint();
+    }
+
+    juce::Colour litTextColour() const { return litText_; }
+    void setLitTextColour(juce::Colour c)
+    {
+        if (c == litText_)
+            return;
+        litText_ = c;
         repaint();
     }
 
@@ -169,13 +179,13 @@ public:
         const auto text = r.reduced(6.0f);
         // Ab dem Haltewert steht der Text voll in der dunklen Farbe, damit er auf der hellen Fläche lesbar bleibt.
         const float textMix = juce::jlimit(0.0f, 1.0f, brightness_ / 0.6f);
-        const auto dim = colours::textDim.interpolatedWith(colours::padTextLit, textMix);
+        const auto dim = colours::textDim.interpolatedWith(litText_, textMix);
         g.setColour(dim);
         g.setFont(font(11.0f));
         g.drawText(juce::String(slot_ + 1), text, juce::Justification::topLeft);
         // Fehlendes Sample: Name und Symbol in Warnfarbe, der Slot ist stumm.
         g.setColour(empty_ ? colours::textDim
-                           : (missing_ ? colours::warning : colours::text.interpolatedWith(colours::padTextLit, textMix)));
+                           : (missing_ ? colours::warning : colours::text.interpolatedWith(litText_, textMix)));
         g.setFont(font(13.0f));
         g.drawFittedText(empty_ ? juce::String("Empty") : name_, text.toNearestInt(), juce::Justification::centred, 2);
 
@@ -188,11 +198,15 @@ public:
 
         if (latched_)
         {
+            // Heller Kern mit dunklem Ring: lesbar auf jeder Pad-Farbe, gedimmt wie leuchtend.
+            const juce::Rectangle<float> outer(r.getRight() - 15.0f, r.getY() + 5.0f, 10.0f, 10.0f);
             juce::Path dot;
-            dot.addEllipse(r.getRight() - 14.0f, r.getY() + 6.0f, 8.0f, 8.0f);
-            dotGlow_.render(g, dot);
-            g.setColour(colours::latched);
-            g.fillPath(dot);
+            dot.addEllipse(outer);
+            dotShadow_.render(g, dot);
+            g.setColour(latchDotRing);
+            g.fillEllipse(outer);
+            g.setColour(latchDotCore);
+            g.fillEllipse(outer.reduced(1.5f));
         }
     }
 
@@ -236,6 +250,7 @@ private:
     const int slot_;
     juce::String name_;
     juce::Colour baseColour_ { colours::padBase };
+    juce::Colour litText_ { colours::padTextLit };
     juce::Image glowImage_;
     juce::Colour glowColour_;
     float brightness_ = 0.0f;
@@ -247,7 +262,7 @@ private:
     melatonin::InnerShadow inset_ { { juce::Colours::black.withAlpha(0.8f), 6, { 0, 2 } } };
     melatonin::DropShadow playGlow_ { { colours::padBase, 14, { 0, 0 }, 2 } };
     melatonin::DropShadow focusGlow_ { { colours::accent.withAlpha(0.7f), 9, { 0, 0 }, 1 } };
-    melatonin::DropShadow dotGlow_ { { colours::latched.withAlpha(0.9f), 5 } };
+    melatonin::DropShadow dotShadow_ { { juce::Colours::black.withAlpha(0.6f), 4 } };
 };
 
 PadGrid::PadGrid(DubgefahrenProcessor& proc) : proc_(proc)
@@ -303,8 +318,15 @@ void PadGrid::refreshNames()
     for (int s = 0; s < kNumSlots; ++s)
     {
         const auto source = proc_.slotSource(s);
-        pads_[static_cast<std::size_t>(s)]->setContent(proc_.slotName(s), !hasSound(source), source == SourceType::Sample,
-                                                       proc_.isSampleMissing(s));
+        auto& pad = *pads_[static_cast<std::size_t>(s)];
+        pad.setContent(proc_.slotName(s), !hasSound(source), source == SourceType::Sample, proc_.isSampleMissing(s));
+        const auto& colour = padColour(proc_.slotColour(s));
+        if (pad.baseColour() != colour.base)
+        {
+            pad.setBaseColour(colour.base);
+            glowChanged(s);
+        }
+        pad.setLitTextColour(colour.litText);
     }
     // Ein eben geleertes Pad verliert seinen Glow.
     if (onGlowChanged)
@@ -341,6 +363,8 @@ void PadGrid::setPadBaseColour(int slot, juce::Colour colour)
 
 juce::Colour PadGrid::padBaseColour(int slot) const { return pads_[static_cast<std::size_t>(slot)]->baseColour(); }
 
+juce::Colour PadGrid::padLitTextColour(int slot) const { return pads_[static_cast<std::size_t>(slot)]->litTextColour(); }
+
 void PadGrid::paint(juce::Graphics& g)
 {
     // Gezeichnete Marken statt Schriftzeichen: unabhängig von der Glyphen-Abdeckung der Schrift.
@@ -364,7 +388,17 @@ void PadGrid::paint(juce::Graphics& g)
     };
     item(colours::padBase, "playing", 80.0f, false);
     item(colours::accent, "focus", 80.0f, true);
-    item(colours::latched, "latched", 90.0f, false);
+    {
+        // Wie der Punkt auf dem Pad: heller Kern mit dunklem Ring.
+        auto cell = legend.removeFromLeft(90.0f);
+        const auto mark = cell.removeFromLeft(12.0f).withSizeKeepingCentre(9.0f, 9.0f);
+        g.setColour(latchDotRing);
+        g.fillEllipse(mark);
+        g.setColour(latchDotCore);
+        g.fillEllipse(mark.reduced(1.5f));
+        g.setColour(colours::textDim);
+        g.drawText("latched", cell, juce::Justification::centredLeft);
+    }
 }
 
 void PadGrid::resized()

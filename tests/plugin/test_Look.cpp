@@ -8,6 +8,7 @@
 #include "plugin/PluginProcessor.h"
 #include "plugin/ui/Controls.h"
 #include "plugin/ui/DgLookAndFeel.h"
+#include "plugin/ui/PadColours.h"
 #include "plugin/ui/Fonts.h"
 #include "plugin/ui/PadGlow.h"
 #include "plugin/ui/PadGrid.h"
@@ -492,7 +493,7 @@ TEST_CASE("popup menus use the editor's look", "[look]")
     juce::PopupMenu::dismissAllActiveMenus();
 }
 
-TEST_CASE("a latched pad shows the blue dot in the editor", "[look]")
+TEST_CASE("a latched pad shows the light dot with a dark ring in the editor", "[look]")
 {
     juce::ScopedJuceInitialiser_GUI gui;
     DubgefahrenProcessor p;
@@ -513,8 +514,9 @@ TEST_CASE("a latched pad shows the blue dot in the editor", "[look]")
     dgtest::savePng(img, "editor-latched");
     // Mitte des Punkts oben rechts auf Pad 1 (unten links im Raster).
     const auto dot = img.getPixelAt(87, 333);
-    CHECK(dot.getBlue() > 200);
-    CHECK(dot.getBlue() > dot.getRed() + 80);
+    CHECK(dot.getRed() > 220);
+    CHECK(dot.getGreen() > 220);
+    CHECK(dot.getBlue() > 220);
 }
 
 namespace {
@@ -633,4 +635,46 @@ TEST_CASE("the editor paints a sample slot at every window scale", "[look]")
         REQUIRE(missing.isValid());
         dgtest::savePng(missing, "editor-sample-missing-" + juce::String(scale, 2));
     }
+}
+
+TEST_CASE("pads take their colour from the slot", "[look][padcolour]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    DubgefahrenProcessor p;
+    ui::PadGrid grid(p);
+    p.setSlotColour(2, 2);
+    grid.refreshNames();
+    CHECK(grid.padBaseColour(2) == ui::padColour(2).base);
+    CHECK(grid.padLitTextColour(2) == ui::padColour(2).litText);
+    CHECK(grid.padBaseColour(0) == ui::padColour(0).base);
+}
+
+TEST_CASE("the editor shows a colour change on the right pad", "[look][padcolour]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    DubgefahrenProcessor p;
+    std::unique_ptr<juce::AudioProcessorEditor> editor(p.createEditor());
+    auto* e = static_cast<DubgefahrenEditor*>(editor.get());
+    e->selectSlot(0);
+    p.setSlotColour(7, 5);
+    e->pollProcessorState();
+    CHECK(e->padGrid().padBaseColour(7) == ui::padColour(5).base);
+    CHECK(e->padGrid().padBaseColour(0) == ui::padColour(0).base);
+}
+
+TEST_CASE("all pad colours render dimmed and lit with the latch dot", "[look][padcolour]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    DubgefahrenProcessor p;
+    for (int s = 0; s < kNumPadColours; ++s)
+        p.setSlotColour(s, s);
+    ui::PadGrid grid(p);
+    grid.setSize(360, 384);
+    grid.refreshNames();
+    grid.setPadStates(0u, 0xffu, -1); // alle acht gelatcht, keiner spielt
+    dgtest::savePng(dgtest::snapshot(grid), "pad-colours-dimmed");
+    grid.setPadStates(0xffu, 0xffu, -1); // alle acht spielen
+    const auto lit = dgtest::snapshot(grid);
+    dgtest::savePng(lit, "pad-colours-lit");
+    CHECK(dgtest::hasVisiblePixel(lit));
 }

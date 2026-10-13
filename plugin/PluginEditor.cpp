@@ -5,6 +5,7 @@
 #include "plugin/PluginProcessor.h"
 #include "plugin/SampleFiles.h"
 #include "plugin/ui/Fonts.h"
+#include "plugin/ui/PadColours.h"
 
 namespace dg {
 
@@ -412,6 +413,20 @@ juce::PopupMenu DubgefahrenEditor::buildPadMenu(int slot) const
     menu.addItem(kPadReset, "Reset to Factory Default");
     menu.addItem(kPadRename, "Rename", !empty);
     menu.addItem(kPadClear, "Clear Slot", !empty);
+
+    juce::PopupMenu colourMenu;
+    const int current = proc_.slotColour(slot);
+    for (int i = 0; i < kNumPadColours; ++i)
+    {
+        const auto& c = ui::padColour(i);
+        auto swatch = std::make_unique<juce::DrawableRectangle>();
+        swatch->setRectangle(juce::Parallelogram<float>(juce::Rectangle<float>(0.0f, 0.0f, 12.0f, 12.0f)));
+        swatch->setFill(c.base);
+        juce::PopupMenu::Item item(c.name);
+        item.setID(kPadColourMenuBase + i).setTicked(current == i).setImage(std::move(swatch));
+        colourMenu.addItem(std::move(item));
+    }
+    menu.addSubMenu("Colour", colourMenu, !empty);
     return menu;
 }
 
@@ -419,26 +434,39 @@ void DubgefahrenEditor::showPadMenu(int slot)
 {
     styled(buildPadMenu(slot)).showMenuAsync(juce::PopupMenu::Options(),
                                      [safe = juce::Component::SafePointer<DubgefahrenEditor>(this), slot](int result) {
-                                         if (safe == nullptr)
-                                             return;
-                                         auto& self = *safe;
-                                         switch (result)
-                                         {
-                                             case kPadCopy:
-                                                 self.clipboard_ = ClipboardSlot { self.proc_.currentKit().slots[static_cast<std::size_t>(slot)],
-                                                                                   self.proc_.slotName(slot), self.proc_.slotSample(slot) };
-                                                 break;
-                                             case kPadPaste:
-                                                 if (self.clipboard_)
-                                                     self.proc_.setSlot(slot, self.clipboard_->params, self.clipboard_->name, self.clipboard_->sample);
-                                                 break;
-                                             case kPadReset:  self.proc_.resetSlotToFactory(slot); break;
-                                             case kPadRename: self.renameSlot(slot); break;
-                                             case kPadClear:  self.proc_.clearSlot(slot); break;
-                                             default: break;
-                                         }
-                                         self.refreshAll();
+                                         if (safe != nullptr)
+                                             safe->applyPadMenuResult(slot, result);
                                      });
+}
+
+void DubgefahrenEditor::applyPadMenuResult(int slot, int result)
+{
+    if (result >= kPadColourMenuBase && result < kPadColourMenuBase + kNumPadColours)
+    {
+        proc_.setSlotColour(slot, result - kPadColourMenuBase);
+        refreshAll();
+        return;
+    }
+    switch (result)
+    {
+        case kPadCopy:
+            clipboard_ = ClipboardSlot { proc_.currentKit().slots[static_cast<std::size_t>(slot)], proc_.slotName(slot),
+                                         proc_.slotSample(slot), proc_.slotColour(slot) };
+            break;
+        case kPadPaste:
+            if (clipboard_)
+            {
+                proc_.setSlot(slot, clipboard_->params, clipboard_->name, clipboard_->sample);
+                // Ein eingefügter leerer Slot hinterlässt keine Farbe.
+                proc_.setSlotColour(slot, hasSound(clipboard_->params.source) ? clipboard_->colour : 0);
+            }
+            break;
+        case kPadReset:  proc_.resetSlotToFactory(slot); break;
+        case kPadRename: renameSlot(slot); break;
+        case kPadClear:  proc_.clearSlot(slot); break;
+        default: break;
+    }
+    refreshAll();
 }
 
 juce::PopupMenu DubgefahrenEditor::buildMidiMenu() const
