@@ -297,7 +297,7 @@ void DubgefahrenProcessor::setSlotSample(int slot, const juce::String& fileName)
 {
     JUCE_ASSERT_MESSAGE_THREAD
     SlotParams p = readSlotFromParameters(apvts_, slot);
-    // Marker, Loop und Reverse gehören zu einer bestimmten Datei: bei einem anderen Sample zurücksetzen.
+    // Marker, Loop, Reverse und Stretch gehören zu einer bestimmten Datei: bei einem anderen Sample zurücksetzen.
     const bool otherSample = p.source != SourceType::Sample || slotSample(slot) != fileName;
     if (p.source != SourceType::Sample)
     {
@@ -309,7 +309,7 @@ void DubgefahrenProcessor::setSlotSample(int slot, const juce::String& fileName)
         p.trigMode = TriggerMode::OneShot;
     }
     if (otherSample)
-        resetSampleRegionFields(p);
+        resetSampleFields(p);
     const auto name = fileName.containsChar('.') ? fileName.upToLastOccurrenceOf(".", false, false) : fileName;
     setSlot(slot, p, name, fileName);
 }

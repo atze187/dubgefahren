@@ -29,6 +29,10 @@ public:
     WaveformView& waveform() { return waveform_; }
     const WaveformView& waveform() const { return waveform_; }
     bool showsLoopControls() const { return loop_.isVisible() && reverse_.isVisible() && xfade_.isVisible(); }
+    bool showsStretchControls() const { return stretch_.isVisible() && stretchPct_.isVisible() && grain_.isVisible(); }
+    bool stretchFactorEnabled() const { return stretchPct_.isEnabled() && grain_.isEnabled(); }
+    bool xfadeEnabled() const { return xfade_.isEnabled(); }
+    bool showsStretchHint() const { return stretchHint_.isVisible(); }
 
     void paint(juce::Graphics& g) override;
     void resized() override;
@@ -37,6 +41,7 @@ private:
     enum class Mode { Empty, Synth, Sample };
     static constexpr int kLatchItemId = 2; // ComboBox-IDs 1..3 = Gate, Latch, One-Shot
     void updateLatchItem();
+    void updateStretchEnabled();
     Mode mode_ = Mode::Synth;
     DubgefahrenProcessor& proc_;
     int slot_ = -1;
@@ -66,6 +71,10 @@ private:
     Toggle loop_ { u8("Loop") };
     Toggle reverse_ { u8("Reverse") };
     Knob xfade_ { u8("X-Fade") };
+    Choice stretch_ { u8("Stretch") };
+    Knob stretchPct_ { u8("Factor") };
+    Knob grain_ { u8("Grain") };
+    juce::Label stretchHint_;
     WaveformView waveform_;
     juce::TextButton sampleButton_;
     std::vector<juce::Component*> sampleControls_;

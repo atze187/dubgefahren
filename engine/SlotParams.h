@@ -8,6 +8,8 @@ constexpr int kFirstNote = 36; // Slot 1 = Note 36 (C1 in Ableton)
 enum class Waveform { Sine, Triangle, Saw, Square };
 enum class LfoShape { Square, Triangle, SawUp, SawDown, SampleHold };
 enum class TriggerMode { Gate, Latch, OneShot };
+// Stretch eines Sample-Slots: aus, ganzer Bereich oder nur die Loop-Region. Reihenfolge ist Teil des Host-States.
+enum class StretchMode { Off, All, Loop };
 enum class SyncDivision { D1_32, D1_16T, D1_16, D1_8T, D1_8, D1_4T, D1_4, D1_2, Bar1, Bars2, Bars4 };
 
 // Klangquelle eines Slots. Reihenfolge ist Teil des Host-States (Parameterwert), nie umsortieren.
@@ -48,6 +50,9 @@ struct SlotParams
     bool loop = false;
     bool reverse = false;
     float loopXfadePct = 5.0f;     // 0 .. 50 % der Schleifenlänge
+    StretchMode stretchMode = StretchMode::Off;
+    float stretchPct = 100.0f;     // 50 .. 800 % der Dauer
+    float grainMs = 20.0f;         // 5 .. 100 ms Stückgröße
 
     SourceType source = SourceType::Synth; // kein SlotField, wird gesondert gespeichert
 

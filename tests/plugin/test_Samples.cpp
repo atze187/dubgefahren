@@ -322,12 +322,16 @@ TEST_CASE("choosing another sample resets the region fields, choosing the same o
     sp.loop = true;
     sp.reverse = true;
     sp.loopXfadePct = 20.0f;
+    sp.stretchMode = StretchMode::All;
+    sp.stretchPct = 150.0f;
+    sp.grainMs = 60.0f;
     sp.tuneSemis = 3.0f;
     p.setSlot(3, sp, "horn", "horn.wav");
 
     p.setSlotSample(3, "horn.wav"); // dasselbe Sample: alles bleibt
     sp = readSlotFromParameters(p.state(), 3);
-    CHECK_THAT(sp.sampleStart, WithinAbs(0.25, 1e-4));
+    CHECK(sp.loop);
+    CHECK(sp.stretchMode == StretchMode::All);
     CHECK(sp.loop);
 
     p.setSlotSample(3, "bell.wav"); // anderes Sample: Bereich zurück, der Rest bleibt
@@ -338,6 +342,9 @@ TEST_CASE("choosing another sample resets the region fields, choosing the same o
     CHECK_FALSE(sp.loop);
     CHECK_FALSE(sp.reverse);
     CHECK_THAT(sp.loopXfadePct, WithinAbs(5.0, 1e-4));
+    CHECK(sp.stretchMode == StretchMode::Off);
+    CHECK_THAT(sp.stretchPct, WithinAbs(100.0, 1e-3));
+    CHECK_THAT(sp.grainMs, WithinAbs(20.0, 1e-3));
     CHECK_THAT(sp.tuneSemis, WithinAbs(3.0, 1e-4));
 }
 

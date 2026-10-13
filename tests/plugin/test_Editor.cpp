@@ -636,3 +636,36 @@ TEST_CASE("the layout follows the processor state restored by the host", "[edito
     CHECK(e->layout() == DubgefahrenEditor::Layout::Live);
     CHECK_FALSE(e->slotEditorVisible());
 }
+
+TEST_CASE("the stretch controls follow the stretch mode and the loop switch", "[editor][stretch]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    SampleSlotFixture f;
+    std::unique_ptr<juce::AudioProcessorEditor> editor(f.p.createEditor());
+    auto* e = static_cast<DubgefahrenEditor*>(editor.get());
+    e->selectSlot(2);
+    auto& se = e->slotEditor();
+
+    CHECK(se.showsStretchControls());
+    CHECK_FALSE(se.stretchFactorEnabled()); // Aus
+    CHECK(se.xfadeEnabled());
+    CHECK_FALSE(se.showsStretchHint());
+
+    f.set(SlotField::StretchMode, 1.0f); // Alles
+    CHECK(se.stretchFactorEnabled());
+    CHECK(se.xfadeEnabled()); // ohne Loop bleibt der X-Fade-Regler bedienbar
+    f.set(SlotField::Loop, 1.0f);
+    CHECK_FALSE(se.xfadeEnabled());
+
+    f.set(SlotField::Loop, 0.0f);
+    f.set(SlotField::StretchMode, 2.0f); // Loop ohne Loop
+    CHECK_FALSE(se.stretchFactorEnabled());
+    CHECK(se.showsStretchHint());
+    f.set(SlotField::Loop, 1.0f);
+    CHECK(se.stretchFactorEnabled());
+    CHECK_FALSE(se.showsStretchHint());
+    CHECK_FALSE(se.xfadeEnabled());
+
+    e->selectSlot(0); // Synth-Slot: keine Stretch-Controls
+    CHECK_FALSE(se.showsStretchControls());
+}

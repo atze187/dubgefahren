@@ -1,5 +1,6 @@
 #pragma once
 #include "engine/Envelope.h"
+#include "engine/GrainStretch.h"
 #include "engine/SoundSource.h"
 
 namespace dg {
@@ -37,6 +38,15 @@ private:
     bool overrun_ = false;
     float perfCoeff_ = 1.0f;
     float smPitch_ = 0.0f;
+    // Stretch: pos_ ist dann die Quellposition und läuft mit Quellrate / Faktor; die Stücke lesen daneben.
+    GrainStretch grains_;
+    bool stretching_ = false;
+    float smFactor_ = 1.0f;
+    double lastAdv_ = 1.0;
+    // Der auslaufende Kopf liest gestretcht weiter, wenn er vom Stretch stammt (Retrigger, Abschalten).
+    GrainStretch fadeGrains_;
+    bool fadeStretching_ = false;
+    double fadeAdv_ = 1.0;
 };
 
 } // namespace dg
