@@ -5,7 +5,7 @@ namespace dg {
 
 namespace {
 constexpr const char* kFormat = "dubgefahren-kit";
-constexpr int kVersion = 5;
+constexpr int kVersion = 6;
 constexpr const char* kSourceSynth = "synth";
 constexpr const char* kSourceEmpty = "empty";
 constexpr const char* kSourceSample = "sample";
@@ -16,6 +16,14 @@ KitParseResult fail(const juce::String& message) { return { std::nullopt, messag
 bool isNumber(const juce::var& v) { return v.isDouble() || v.isInt() || v.isInt64() || v.isBool(); }
 
 juce::String slotLabel(int s) { return "Slot " + juce::String(s + 1); }
+
+// Farbe eines Slots: nur ganze bzw. gebrochene Zahlen zählen; alles andere ist die Standardfarbe.
+int readColour(const juce::var& v)
+{
+    if (v.isInt() || v.isInt64() || v.isDouble())
+        return clampPadColour(static_cast<int>(v));
+    return 0;
+}
 } // namespace
 
 bool isValidSampleFileName(const juce::String& name)
@@ -39,6 +47,7 @@ juce::String kitToJsonString(const Kit& kit)
                                     : src == SourceType::Sample ? kSourceSample
                                                                 : kSourceEmpty);
         slot->setProperty("name", juce::String::fromUTF8(kit.names[i].c_str()));
+        slot->setProperty("colour", src == SourceType::Empty ? 0 : clampPadColour(kit.colours[i]));
         if (src == SourceType::Sample)
             slot->setProperty("sample", juce::String::fromUTF8(kit.samples[i].c_str()));
         if (src != SourceType::Empty)
@@ -102,6 +111,7 @@ KitParseResult kitFromJsonString(const juce::String& text)
             kit.slots[static_cast<std::size_t>(s)] = p;
             kit.names[static_cast<std::size_t>(s)] =
                 slot["name"].isString() ? slot["name"].toString().substring(0, 32).toStdString() : std::string();
+            kit.colours[static_cast<std::size_t>(s)] = 0;
             continue;
         }
 
@@ -134,6 +144,7 @@ KitParseResult kitFromJsonString(const juce::String& text)
         kit.slots[static_cast<std::size_t>(s)] = p;
         kit.names[static_cast<std::size_t>(s)] = slot["name"].toString().substring(0, 32).toStdString();
         kit.samples[static_cast<std::size_t>(s)] = sampleName;
+        kit.colours[static_cast<std::size_t>(s)] = readColour(slot["colour"]);
     }
     return { kit, {} };
 }
