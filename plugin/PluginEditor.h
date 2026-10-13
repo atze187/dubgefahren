@@ -87,7 +87,9 @@ public:
 
     // Für Tests öffentlich: bauen die Popup-Menüs von Kit-Button, Pad-Rechtsklick und leerem Pad.
     juce::PopupMenu buildKitMenu(const juce::Array<juce::File>& kitFiles) const;
+    static constexpr int kPadColourMenuBase = 100; // + Palettenindex
     juce::PopupMenu buildPadMenu(int slot) const;
+    void applyPadMenuResult(int slot, int result);
     ui::PadGrid& padGrid() { return pads_; }
     juce::PopupMenu buildSourceMenu(const juce::StringArray& sampleFiles) const;
     static juce::PopupMenu buildSampleMenu(const juce::StringArray& sampleFiles);
@@ -145,6 +147,7 @@ private:
         SlotParams params;
         juce::String name;
         juce::String sample;
+        int colour = 0;
     };
     std::optional<ClipboardSlot> clipboard_;
     juce::String lastMessage_;

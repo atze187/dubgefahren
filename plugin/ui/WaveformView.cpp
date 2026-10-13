@@ -5,6 +5,7 @@
 #include "plugin/PluginProcessor.h"
 #include "plugin/ui/DgLookAndFeel.h"
 #include "plugin/ui/Fonts.h"
+#include "plugin/ui/PadColours.h"
 
 namespace dg::ui {
 
@@ -69,6 +70,8 @@ void WaveformView::setSlot(int slot)
     slot_ = slot;
     refresh();
 }
+
+juce::Colour WaveformView::waveColour() const { return padColour(slot_ >= 0 ? proc_.slotColour(slot_) : 0).base; }
 
 void WaveformView::refresh()
 {
@@ -292,7 +295,7 @@ void WaveformView::paint(juce::Graphics& g)
 
         const float mid = h * 0.5f;
         const float half = std::max(1.0f, mid - 4.0f);
-        g.setColour(colours::padBase);
+        g.setColour(waveColour());
         for (std::size_t c = 0; c < peaks_.size(); ++c)
         {
             const float top = mid - peaks_[c].max * half;

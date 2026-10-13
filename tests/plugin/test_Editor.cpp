@@ -222,9 +222,9 @@ TEST_CASE("pad menu disables rename and clear on empty slots", "[editor]")
     auto* e = static_cast<DubgefahrenEditor*>(editor.get());
 
     CHECK(menuItems(e->buildPadMenu(0)) == Items { { "Copy", true }, { "Paste", false }, { "Reset to Factory Default", true },
-                                                   { "Rename", true }, { "Clear Slot", true } });
+                                                   { "Rename", true }, { "Clear Slot", true }, { "Colour", true } });
     CHECK(menuItems(e->buildPadMenu(1)) == Items { { "Copy", true }, { "Paste", false }, { "Reset to Factory Default", true },
-                                                   { "Rename", false }, { "Clear Slot", false } });
+                                                   { "Rename", false }, { "Clear Slot", false }, { "Colour", false } });
 }
 
 TEST_CASE("kit menu offers a new empty kit", "[editor]")
@@ -668,4 +668,49 @@ TEST_CASE("the stretch controls follow the stretch mode and the loop switch", "[
 
     e->selectSlot(0); // Synth-Slot: keine Stretch-Controls
     CHECK_FALSE(se.showsStretchControls());
+}
+
+TEST_CASE("the colour submenu lists eight colours and ticks the current one", "[editor][padcolour]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    DubgefahrenProcessor p;
+    p.setSlotColour(0, 3);
+    std::unique_ptr<juce::AudioProcessorEditor> editor(p.createEditor());
+    auto* e = static_cast<DubgefahrenEditor*>(editor.get());
+    const auto menu = e->buildPadMenu(0);
+    const juce::PopupMenu* sub = nullptr;
+    for (juce::PopupMenu::MenuItemIterator it(menu); it.next();)
+        if (it.getItem().text == "Colour")
+            sub = it.getItem().subMenu.get();
+    REQUIRE(sub != nullptr);
+    std::vector<std::pair<juce::String, bool>> ticked;
+    for (juce::PopupMenu::MenuItemIterator it(*sub); it.next();)
+        ticked.emplace_back(it.getItem().text, it.getItem().isTicked);
+    REQUIRE(ticked.size() == 8);
+    CHECK(ticked[0].first == "Green");
+    CHECK(ticked[3] == std::make_pair(juce::String("Violet"), true));
+    CHECK_FALSE(ticked[0].second);
+}
+
+TEST_CASE("choosing a colour, copying and pasting carry the pad colour", "[editor][padcolour]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    DubgefahrenProcessor p;
+    std::unique_ptr<juce::AudioProcessorEditor> editor(p.createEditor());
+    auto* e = static_cast<DubgefahrenEditor*>(editor.get());
+
+    e->applyPadMenuResult(0, DubgefahrenEditor::kPadColourMenuBase + 6);
+    CHECK(p.slotColour(0) == 6);
+
+    e->applyPadMenuResult(0, 1); // Copy
+    e->applyPadMenuResult(5, 2); // Paste
+    CHECK(p.slotColour(5) == 6);
+
+    // Ein leerer Slot hinterlässt beim Einfügen keine Farbe.
+    p.clearSlot(1);
+    p.setSlotColour(9, 4);
+    e->applyPadMenuResult(1, 1); // Copy (leer)
+    e->applyPadMenuResult(9, 2); // Paste
+    CHECK(p.slotSource(9) == SourceType::Empty);
+    CHECK(p.slotColour(9) == 0);
 }
