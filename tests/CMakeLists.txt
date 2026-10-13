@@ -24,7 +24,7 @@ include(Catch)
 catch_discover_tests(DubgefahrenTests)
 
 juce_add_console_app(DubgefahrenPluginTests PRODUCT_NAME "DubgefahrenPluginTests")
-target_sources(DubgefahrenPluginTests PRIVATE plugin/test_PluginProcessor.cpp plugin/test_KitFile.cpp plugin/test_Config.cpp plugin/test_Editor.cpp plugin/test_CpuMeter.cpp plugin/test_SampleFiles.cpp plugin/test_SampleLoader.cpp plugin/test_Samples.cpp plugin/test_Look.cpp plugin/test_PadGlow.cpp plugin/test_Waveform.cpp plugin/test_PadMapping.cpp)
+target_sources(DubgefahrenPluginTests PRIVATE plugin/test_PluginProcessor.cpp plugin/test_KitFile.cpp plugin/test_Config.cpp plugin/test_Editor.cpp plugin/test_CpuMeter.cpp plugin/test_SampleFiles.cpp plugin/test_SampleLoader.cpp plugin/test_Samples.cpp plugin/test_Look.cpp plugin/test_PadGlow.cpp plugin/test_Waveform.cpp plugin/test_PadMapping.cpp plugin/test_PadColours.cpp)
 target_link_libraries(DubgefahrenPluginTests PRIVATE dg_plugin_shared Catch2::Catch2WithMain)
 # Tests lesen und schreiben nie die Einstellungsdatei des Entwicklers.
 target_compile_definitions(DubgefahrenPluginTests PRIVATE DG_NO_USER_SETTINGS=1)
