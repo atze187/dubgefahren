@@ -29,20 +29,25 @@ function Invoke-Checked([string]$what, [scriptblock]$block) {
     if ($LASTEXITCODE -ne 0) { throw "$what fehlgeschlagen (Exit $LASTEXITCODE)" }
 }
 
-function Do-Configure { Invoke-Checked 'configure' { & $cmake -S $root -B $buildDir -A x64 } }
+$preset = "windows-$($Config.ToLower())"
+
+function Do-Configure { Invoke-Checked 'configure' { & $cmake -S $root --preset windows-x64 } }
 function Do-Build {
     if (-not (Test-Path (Join-Path $buildDir 'CMakeCache.txt'))) { Do-Configure }
-    Invoke-Checked 'build' { & $cmake --build $buildDir --config $Config --parallel }
+    Invoke-Checked 'build' { & $cmake --build --preset $preset --parallel }
 }
-function Do-Test { Invoke-Checked 'test' { & $ctest --test-dir $buildDir -C $Config --output-on-failure } }
+function Do-Test { Invoke-Checked 'test' { & $ctest --preset $preset } }
 function Do-Install { Invoke-Checked 'install' { & $cmake --install $buildDir --config $Config } }
 
 function Do-Validate {
     $bundle = Join-Path $buildDir "plugin\Dubgefahren_artefacts\$Config\VST3\Dubgefahren.vst3"
     if (-not (Test-Path $bundle)) { Do-Build }
     $vDir = Join-Path $buildDir 'vst3validator'
-    Invoke-Checked 'validator configure' { & $cmake -S (Join-Path $root 'tools\vst3validator') -B $vDir -A x64 }
-    Invoke-Checked 'validator build' { & $cmake --build $vDir --config Release --target validator --parallel }
+    Push-Location (Join-Path $root 'tools\vst3validator')
+    try {
+        Invoke-Checked 'validator configure' { & $cmake --preset validator-windows }
+        Invoke-Checked 'validator build' { & $cmake --build --preset validator-windows --parallel }
+    } finally { Pop-Location }
     $validator = Get-ChildItem -Path $vDir -Recurse -Filter 'validator.exe' | Select-Object -First 1
     if (-not $validator) { throw 'validator.exe nicht gefunden' }
     Invoke-Checked 'VST3 validator' { & $validator.FullName $bundle }
