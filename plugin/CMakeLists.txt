@@ -21,6 +21,8 @@ target_sources(dg_plugin_shared INTERFACE
     ${CMAKE_CURRENT_SOURCE_DIR}/Config.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/PadProfile.h
     ${CMAKE_CURRENT_SOURCE_DIR}/PadProfile.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/UserSettings.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/UserSettings.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/PadMapping.h
     ${CMAKE_CURRENT_SOURCE_DIR}/PadMapping.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/PluginEditor.h
