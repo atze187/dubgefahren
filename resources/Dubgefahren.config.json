@@ -1,4 +1,4 @@
 {
-  "_note": "Set kitFolder to the desired folder, e.g. \"D:\\\\Music\\\\Dubgefahren\\\\Kits\". Environment variables such as %USERPROFILE% are allowed. Empty = Documents\\Dubgefahren\\Kits. Editing requires administrator rights if the plugin is located under Program Files.",
+  "_note": "Set kitFolder to the desired folder, e.g. \"D:\\Music\\Dubgefahren\\Kits\" (Windows) or \"%HOME%/Music/Dubgefahren/Kits\" (macOS). Environment variables such as %USERPROFILE% (Windows) or %HOME% (macOS) are allowed. Empty = Documents/Dubgefahren/Kits. Editing requires administrator rights if the plugin is located under Program Files.",
   "kitFolder": ""
 }

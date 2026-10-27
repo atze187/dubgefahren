@@ -1,6 +1,6 @@
 # Dubgefahren
 
-VST3 instrument for Windows: 16 individually adjustable dub sirens, playable via 16 consecutive MIDI notes (default 36–51, adjustable)
+VST3 instrument for Windows and (experimental) macOS: 16 individually adjustable dub sirens, playable via 16 consecutive MIDI notes (default 36–51, adjustable)
 (e.g. Intech Studio Grid BU16), with a shared dub effects chain (drive, filter, tape delay with phaser on the echoes, spring reverb).
 
 *This is an experimental project to evaluate Claude. 
@@ -13,10 +13,15 @@ Prebuilt binaries are attached to the [GitHub releases](https://github.com/atze1
 `C:\Program Files\Common Files\VST3` (administrator rights required), then rescan plugins in your DAW.
 The binaries are not code-signed, so Windows may show a SmartScreen warning.
 
+**macOS (experimental):** `Dubgefahren-vX.Y.Z-macos.zip` is a universal VST3 (Apple Silicon and Intel, macOS 11 or newer).
+It is built and validated on GitHub Actions but has not been tested on real hardware, and it is not notarized.
+Copy `Dubgefahren.vst3` to `~/Library/Audio/Plug-Ins/VST3`, remove the quarantine flag with
+`xattr -cr ~/Library/Audio/Plug-Ins/VST3/Dubgefahren.vst3` and rescan plugins in your DAW. There is no AU version.
+
 ## Requirements (building from source)
 
-- Windows 10/11 x64
-- Visual Studio 2026 with the "Desktop development with C++" workload (includes MSVC and CMake)
+- Windows 10/11 x64, Visual Studio 2026 with the "Desktop development with C++" workload (includes MSVC and CMake), or
+- macOS 11 or newer with Xcode command line tools, CMake 3.25+ and Ninja (only built and checked on GitHub Actions so far)
 - Git
 
 JUCE 8.0.15 and Catch2 are downloaded automatically on the first configure.
@@ -28,8 +33,20 @@ powershell -NoProfile -ExecutionPolicy Bypass -File build.ps1 all
 ```
 
 Other commands: `configure`, `build`, `test`, `install`, `validate` (option `-Config Debug|Release`, default Release).
+`build.ps1` is a thin wrapper around the CMake presets in `CMakePresets.json`; you can call them directly:
 
-The plugin is then located at `build\plugin\Dubgefahren_artefacts\Release\VST3\Dubgefahren.vst3`.
+```
+cmake --preset windows-x64            # Windows
+cmake --build --preset windows-release --parallel
+ctest --preset windows-release
+
+cmake --preset macos-universal        # macOS (universal arm64 + x86_64, deployment target 11.0)
+cmake --build --preset macos-release --parallel
+ctest --preset macos-release
+```
+
+The plugin is then located at `build\plugin\Dubgefahren_artefacts\Release\VST3\Dubgefahren.vst3`
+(macOS: `build-macos/plugin/Dubgefahren_artefacts/Release/VST3/Dubgefahren.vst3`).
 
 ## Install
 
@@ -41,17 +58,20 @@ powershell -NoProfile -ExecutionPolicy Bypass -File build.ps1 install
 
 Copies the bundle to `%CommonProgramFiles%\VST3`. An existing `Dubgefahren.config.json` there
 is not overwritten. Different target: `cmake -DDG_VST3_INSTALL_DIR=<folder> build`.
+On macOS the default target is `~/Library/Audio/Plug-Ins/VST3` (no administrator rights needed):
+`cmake --install build-macos`.
 
 ## Config: setting the kit folder
 
 File: `%CommonProgramFiles%\VST3\Dubgefahren.vst3\Contents\Resources\Dubgefahren.config.json`
-(edit as administrator).
+(edit as administrator). On macOS: `~/Library/Audio/Plug-Ins/VST3/Dubgefahren.vst3/Contents/Resources/Dubgefahren.config.json`.
 
 ```json
 { "kitFolder": "D:\\Music\\Dubgefahren\\Kits" }
 ```
 
-Environment variables such as `%USERPROFILE%` are allowed. Empty, missing or invalid → `Documents\Dubgefahren\Kits`.
+On macOS use a path such as `"%HOME%/Music/Dubgefahren/Kits"`.
+Environment variables such as `%USERPROFILE%` (Windows) or `%HOME%` (macOS) are allowed. Empty, missing or invalid → `Documents/Dubgefahren/Kits`.
 If the config is invalid, the plugin shows a notice when the kit menu, import or export is opened.
 
 ## MIDI mapping
@@ -114,14 +134,16 @@ Sample pads have a vintage time-stretch in the style of the Akai S950: the sampl
 
 `build.ps1 validate` builds Steinberg's VST3 validator and checks the plugin. For pluginval, download
 `pluginval_Windows.zip` from https://github.com/Tracktion/pluginval/releases and place
-`pluginval.exe` in `tools\bin\`.
+`pluginval.exe` in `tools\bin\`. On macOS the same checks run in the `macos` job of the release workflow.
 
 ## Releases
 
-Pushing a tag `v*` (e.g. `v0.1.0`) runs the GitHub Actions workflow `.github/workflows/release.yml` on Windows:
-build, tests, Steinberg validator and pluginval (strictness 5). If everything passes, the zip is attached
-to a GitHub release for that tag. The workflow can also be started manually (Actions tab → "Build and release")
-to get the zip as a build artifact without publishing a release.
+Pushing a tag `v*` (e.g. `v0.1.0`) runs the GitHub Actions workflow `.github/workflows/release.yml`.
+Two jobs run in parallel, `windows` and `macos`; each builds, runs the tests, the Steinberg validator and pluginval
+(strictness 5) and uploads its zip as a build artifact. A third job, `publish`, attaches the zips of all successful
+jobs to the GitHub release for that tag. If the macOS job fails, the Windows release is still published (without
+the macOS zip). The workflow can also be started manually (Actions tab → "Build and release") to get the zips as
+build artifacts without publishing a release.
 
 ## License
 
