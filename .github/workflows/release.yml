@@ -55,9 +55,103 @@ jobs:
           name: ${{ steps.package.outputs.name }}
           path: ${{ steps.package.outputs.zip }}
 
+  macos:
+    runs-on: macos-latest
+    timeout-minutes: 90
+    env:
+      BUNDLE: build-macos/plugin/Dubgefahren_artefacts/Release/VST3/Dubgefahren.vst3
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install Ninja
+        run: command -v ninja >/dev/null || brew install ninja
+
+      - name: Configure
+        run: cmake --preset macos-universal
+
+      - name: Build
+        run: cmake --build --preset macos-release --parallel
+
+      - name: Test
+        run: ctest --preset macos-release
+
+      - name: Check architectures
+        run: |
+          archs=$(lipo -archs "$BUNDLE/Contents/MacOS/Dubgefahren")
+          echo "archs: $archs"
+          [[ "$archs" == *arm64* && "$archs" == *x86_64* ]]
+
+      - name: Validate (Steinberg validator)
+        run: |
+          (cd tools/vst3validator && cmake --preset validator-macos && cmake --build --preset validator-macos --parallel)
+          validator=$(find build-macos/vst3validator -type f -name validator | head -n 1)
+          test -n "$validator"
+          "$validator" "$BUNDLE"
+
+      - name: Validate (pluginval)
+        run: |
+          curl -fsSL -o pluginval.zip "https://github.com/Tracktion/pluginval/releases/download/v1.0.4/pluginval_macOS.zip"
+          unzip -q pluginval.zip -d pluginval-extract
+          pluginval-extract/pluginval.app/Contents/MacOS/pluginval --strictness-level 5 --validate-in-process --validate "$BUNDLE"
+
+      - name: Sign (ad-hoc) and package
+        id: package
+        run: |
+          if [ "$GITHUB_REF_TYPE" = tag ]; then version=$GITHUB_REF_NAME; else version="dev-${GITHUB_SHA::7}"; fi
+          name="Dubgefahren-$version-macos"
+          staging="$RUNNER_TEMP/$name"
+          mkdir -p "$staging"
+          codesign --force --deep -s - "$BUNDLE"
+          ditto "$BUNDLE" "$staging/Dubgefahren.vst3"
+          cp README.md LICENSE "$staging"
+          zip="$RUNNER_TEMP/$name.zip"
+          ditto -c -k "$staging" "$zip"
+          check="$RUNNER_TEMP/check"
+          mkdir -p "$check"
+          ditto -x -k "$zip" "$check"
+          codesign --verify --deep --strict --verbose=2 "$check/Dubgefahren.vst3"
+          echo "zip=$zip" >> "$GITHUB_OUTPUT"
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.package.outputs.name }}
+          path: ${{ steps.package.outputs.zip }}
+
+  publish:
+    needs: [windows, macos]
+    # Runs even if the macOS job failed: the Windows release must not depend on it.
+    if: always() && needs.windows.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: Dubgefahren-*
+          merge-multiple: true
+          path: dist
+
+      - name: List artifacts
+        run: ls -l dist
+
+      - name: Write release notes
+        run: |
+          : > notes.md
+          if ls dist/*-macos.zip >/dev/null 2>&1; then
+            cat > notes.md <<'EOF'
+          **macOS (experimental):** the macOS build is untested on real hardware and not notarized.
+          After copying `Dubgefahren.vst3` to `~/Library/Audio/Plug-Ins/VST3`, remove the quarantine with
+          `xattr -cr ~/Library/Audio/Plug-Ins/VST3/Dubgefahren.vst3` and rescan plugins in your DAW.
+
+          EOF
+          fi
+
       - name: Publish GitHub release
         if: github.ref_type == 'tag'
         uses: softprops/action-gh-release@v3
         with:
-          files: ${{ steps.package.outputs.zip }}
+          files: dist/*.zip
+          body_path: notes.md
           generate_release_notes: true
