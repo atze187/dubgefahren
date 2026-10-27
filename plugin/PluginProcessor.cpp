@@ -60,11 +60,16 @@ void DubgefahrenProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
 {
     engine_.prepare(sampleRate, samplesPerBlock);
     lastPanic_ = false;
+    heldSlot_.fill(-1);
     loadMeasurer_.reset(sampleRate, samplesPerBlock);
     audioActive_.store(true);
 }
 
-void DubgefahrenProcessor::releaseResources() { audioActive_.store(false); }
+void DubgefahrenProcessor::releaseResources()
+{
+    audioActive_.store(false);
+    heldSlot_.fill(-1);
+}
 
 bool DubgefahrenProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const
 {
@@ -129,7 +134,7 @@ void DubgefahrenProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::
         push(EngineEvent { EngineEvent::Type::Panic, 0, 0 });
     lastPanic_ = panic;
 
-    const int firstPadNote = padMapping_.firstNote();
+    const auto& noteMap = padMapping_.noteMap();
     for (const auto meta : midi)
     {
         // Keine juce::MidiMessage konstruieren: das würde bei SysEx (> 8 Bytes) im
@@ -140,15 +145,25 @@ void DubgefahrenProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::
         const int status = d[0] & 0xF0;
         const int note = d[1] & 0x7F;
         const int vel = d[2] & 0x7F;
-        // Die Engine kennt nur Note 36 bis 51 als Pad 1 bis 16: dazwischen liegt die einstellbare Basis.
-        const int engineNote = translateNote(note, firstPadNote);
-        if (engineNote < 0)
-            continue;
         const int offset = std::clamp(meta.samplePosition, 0, std::max(0, numSamples - 1));
+        // Die Engine kennt Pads als Note kFirstNote + Slot; welche MIDI-Note ein Pad auslöst, sagt die NoteMap.
         if (status == 0x90 && vel > 0)
-            push(EngineEvent { EngineEvent::Type::NoteOn, offset, engineNote });
+        {
+            const int slot = noteMap.slotForNote(note);
+            if (slot < 0)
+                continue;
+            heldSlot_[static_cast<std::size_t>(note)] = static_cast<std::int8_t>(slot);
+            push(EngineEvent { EngineEvent::Type::NoteOn, offset, kFirstNote + slot });
+        }
         else if (status == 0x80 || (status == 0x90 && vel == 0)) // Note-On mit Velocity 0 = Note-Off
-            push(EngineEvent { EngineEvent::Type::NoteOff, offset, engineNote });
+        {
+            // Das Note-Off gibt das Pad frei, das das Note-On ausgelöst hat, auch wenn sich die Belegung inzwischen änderte.
+            auto& held = heldSlot_[static_cast<std::size_t>(note)];
+            if (held < 0)
+                continue;
+            push(EngineEvent { EngineEvent::Type::NoteOff, offset, kFirstNote + held });
+            held = -1;
+        }
     }
 
     TransportInfo transport;

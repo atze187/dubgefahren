@@ -133,6 +133,8 @@ private:
     // nach dem Leeren der FIFO für jeden gesetzten Slot zusätzlich ein PreviewOff.
     std::array<std::atomic<bool>, kNumSlots> pendingRelease_ {};
     bool lastPanic_ = false;
+    // Pad, das das letzte Note-On je MIDI-Note ausgelöst hat (-1 = keins); nur der Audio-Thread greift zu.
+    std::array<std::int8_t, 128> heldSlot_ = [] { std::array<std::int8_t, 128> a {}; a.fill(-1); return a; }();
     KitFolderInfo kitFolder_;
     std::atomic<int> stateGeneration_ { 0 };
     juce::AudioProcessLoadMeasurer loadMeasurer_;

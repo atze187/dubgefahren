@@ -197,40 +197,40 @@ TEST_CASE("processBlock plays note 36 and treats velocity 0 as note off", "[plug
     CHECK(p.activeMask() == 0u);
 }
 
-TEST_CASE("the first pad note moves the note block that triggers the pads", "[plugin][padmapping]")
+TEST_CASE("each pad is triggered by its own note", "[plugin][padmapping]")
 {
     juce::ScopedJuceInitialiser_GUI gui;
     dgtest::ScopedPadMapping restore;
-    PadMapping::instance().setFirstNote(32); // BU16: Note 32 ist Pad 1
+    PadMapping::instance().setPadNote(0, 40);
+    PadMapping::instance().setPadNote(1, 50);
 
     DubgefahrenProcessor p;
     prepare(p);
-
-    processBlocks(p, 1, noteMessage(32, true));
+    processBlocks(p, 1, noteMessage(40, true));
     CHECK(p.activeMask() == (1u << 0));
-    processBlocks(p, 1, noteMessage(36, true));
-    CHECK(p.activeMask() == ((1u << 0) | (1u << 4))); // Note 36 ist jetzt Pad 5
-    processBlocks(p, 1, noteMessage(47, true));
-    CHECK((p.activeMask() & (1u << 15)) != 0u);       // Pad 16
+    processBlocks(p, 1, noteMessage(50, true));
+    CHECK(p.activeMask() == ((1u << 0) | (1u << 1)));
 
-    // Davor und dahinter löst nichts aus.
     DubgefahrenProcessor q;
     prepare(q);
-    processBlocks(q, 1, noteMessage(31, true));
-    processBlocks(q, 1, noteMessage(48, true));
+    processBlocks(q, 1, noteMessage(36, true)); // vorher Pad 1, jetzt unbelegt (Pad 5 hat Note 40)
     CHECK(q.activeMask() == 0u);
 }
 
-TEST_CASE("with the default first note nothing changes", "[plugin][padmapping]")
+TEST_CASE("with the default profile nothing changes", "[plugin][padmapping]")
 {
     juce::ScopedJuceInitialiser_GUI gui;
     dgtest::ScopedPadMapping restore;
-    PadMapping::instance().setFirstNote(36);
-    PadMapping::instance().setOrigin(PadOrigin::BottomLeft);
+    PadMapping::instance().selectProfile("Default");
+    for (int s = 0; s < kNumSlots; ++s)
+        PadMapping::instance().setPadNote(s, -1);
+    for (int s = 0; s < kNumSlots; ++s)
+        PadMapping::instance().setPadNote(s, 36 + s);
 
     DubgefahrenProcessor p;
     prepare(p);
     processBlocks(p, 1, noteMessage(35, true));
+    processBlocks(p, 1, noteMessage(52, true));
     CHECK(p.activeMask() == 0u);
     processBlocks(p, 1, noteMessage(36, true));
     CHECK(p.activeMask() == 1u);
@@ -238,35 +238,69 @@ TEST_CASE("with the default first note nothing changes", "[plugin][padmapping]")
     CHECK((p.activeMask() & (1u << 15)) != 0u);
 }
 
-TEST_CASE("changing the first pad note takes effect for the next block", "[plugin][padmapping]")
+TEST_CASE("a change of the assignment takes effect for the next block", "[plugin][padmapping]")
 {
     juce::ScopedJuceInitialiser_GUI gui;
     dgtest::ScopedPadMapping restore;
     DubgefahrenProcessor p;
     prepare(p);
 
-    PadMapping::instance().setFirstNote(36);
+    PadMapping::instance().setPadNote(0, 36);
     processBlocks(p, 1, noteMessage(36, true));
     CHECK(p.activeMask() == 1u);
 
-    PadMapping::instance().setFirstNote(40);
-    processBlocks(p, 1, noteMessage(36, true)); // jetzt vor dem Block: ohne Wirkung
+    PadMapping::instance().setPadNote(1, 90);
+    processBlocks(p, 1, noteMessage(37, true)); // 37 gehört keinem Pad mehr
     CHECK(p.activeMask() == 1u);
-    processBlocks(p, 1, noteMessage(41, true)); // Pad 2
+    processBlocks(p, 1, noteMessage(90, true));
     CHECK(p.activeMask() == ((1u << 0) | (1u << 1)));
 }
 
-TEST_CASE("note off follows the same mapping and releases the pad", "[plugin][padmapping]")
+TEST_CASE("note off releases the pad the note on triggered, even after the assignment changed", "[plugin][padmapping]")
 {
     juce::ScopedJuceInitialiser_GUI gui;
     dgtest::ScopedPadMapping restore;
-    PadMapping::instance().setFirstNote(32);
+    PadMapping::instance().setPadNote(0, 40);
     DubgefahrenProcessor p;
     prepare(p);
 
-    processBlocks(p, 1, noteMessage(32, true));
+    processBlocks(p, 1, noteMessage(40, true));
     CHECK(p.activeMask() == 1u);
-    processBlocks(p, 60, noteMessage(32, false)); // Classic: Release 0,4 s
+    PadMapping::instance().setPadNote(0, -1);
+    PadMapping::instance().setPadNote(4, 40);
+    processBlocks(p, 60, noteMessage(40, false)); // Classic: Release 0,4 s
+    CHECK(p.activeMask() == 0u);
+}
+
+TEST_CASE("note off after switching the profile releases the original pad", "[plugin][padmapping]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    dgtest::ScopedPadMapping restore;
+    auto& mapping = PadMapping::instance();
+    mapping.selectProfile("Default");
+    for (int s = 0; s < kNumSlots; ++s)
+        mapping.setPadNote(s, -1);
+    mapping.setPadNote(0, 40);
+    mapping.createProfile(); // wird aktiv, belegt wie Default (jetzt mit Pad 1 = Note 40)
+    mapping.setPadNote(0, -1);
+    mapping.setPadNote(3, 40);
+    mapping.selectProfile("Default");
+
+    DubgefahrenProcessor p;
+    prepare(p);
+    processBlocks(p, 1, noteMessage(40, true));
+    CHECK(p.activeMask() == (1u << 0));
+    mapping.selectProfile("New profile");
+    processBlocks(p, 60, noteMessage(40, false));
+    CHECK(p.activeMask() == 0u);
+}
+
+TEST_CASE("a note off without a note on is ignored", "[plugin][padmapping]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    DubgefahrenProcessor p;
+    prepare(p);
+    processBlocks(p, 1, noteMessage(36, false));
     CHECK(p.activeMask() == 0u);
 }
 

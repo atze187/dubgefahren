@@ -424,24 +424,22 @@ std::vector<std::pair<juce::String, bool>> tickedItems(const juce::PopupMenu& m)
 }
 } // namespace
 
-TEST_CASE("the MIDI menu shows the pad 1 note and the origin and changes the origin", "[editor][padmapping]")
+TEST_CASE("the MIDI menu shows the origin and changes it", "[editor][padmapping]")
 {
     juce::ScopedJuceInitialiser_GUI gui;
     dgtest::ScopedPadMapping restore;
     auto& mapping = PadMapping::instance();
-    mapping.setFirstNote(36);
     mapping.setOrigin(PadOrigin::BottomLeft);
     DubgefahrenProcessor p;
     std::unique_ptr<juce::AudioProcessorEditor> editor(p.createEditor());
     auto* e = static_cast<DubgefahrenEditor*>(editor.get());
 
     using Items = std::vector<std::pair<juce::String, bool>>;
-    CHECK(tickedItems(e->buildMidiMenu()) == Items { { juce::String::fromUTF8("Pad 1 note: 36…"), false },
-                                                      { "Pad 1 at top left", false } });
+    CHECK(tickedItems(e->buildMidiMenu()) == Items { { "Pad 1 at top left", false } });
 
     e->applyMidiMenuResult(DubgefahrenEditor::kMidiOriginTop);
     CHECK(mapping.origin() == PadOrigin::TopLeft);
-    CHECK(tickedItems(e->buildMidiMenu())[1].second); // Häkchen gesetzt
+    CHECK(tickedItems(e->buildMidiMenu())[0].second); // Häkchen gesetzt
     CHECK(e->padPosition(0).y < e->padPosition(4).y); // Pad 1 in der obersten Reihe
 
     e->applyMidiMenuResult(DubgefahrenEditor::kMidiOriginTop);
@@ -465,49 +463,6 @@ TEST_CASE("a second editor follows a change made elsewhere", "[editor][padmappin
     CHECK(eb->padPosition(0).y > eb->padPosition(4).y); // noch nicht abgefragt
     eb->pollProcessorState();
     CHECK(eb->padPosition(0).y < eb->padPosition(4).y);
-}
-
-TEST_CASE("the first note dialog accepts only valid numbers", "[editor][padmapping]")
-{
-    juce::ScopedJuceInitialiser_GUI gui;
-    dgtest::ScopedPadMapping restore;
-    PadMapping::instance().setFirstNote(36);
-    DubgefahrenProcessor p;
-    std::unique_ptr<juce::AudioProcessorEditor> editor(p.createEditor());
-    auto* e = static_cast<DubgefahrenEditor*>(editor.get());
-
-    e->showFirstNoteDialog();
-    auto* dialog = e->topDialog();
-    REQUIRE(dialog != nullptr);
-    auto* field = dialog->getTextEditor("note");
-    auto* ok = dialog->getButton("OK");
-    REQUIRE(field != nullptr);
-    REQUIRE(ok != nullptr);
-    CHECK(field->getText() == "36");
-    CHECK(ok->isEnabled());
-
-    // Der Texteditor meldet Änderungen über die Message-Queue; der Test löst den Rückruf direkt aus.
-    for (const char* bad : { "", "113", "999", "abc", "1e2" })
-    {
-        INFO(bad);
-        field->setText(bad, false);
-        field->onTextChange();
-        CHECK_FALSE(ok->isEnabled());
-    }
-
-    // Ein erzwungener Aufruf mit Unsinn ändert nichts.
-    for (const char* bad : { "", "abc", "-3", "113", "1e2", "0x20", "36.5", "1234", "3 6" })
-    {
-        INFO(bad);
-        CHECK_FALSE(e->applyFirstNoteText(bad));
-        CHECK(PadMapping::instance().firstNote() == 36);
-    }
-    field->setText(" 32 ", false);
-    field->onTextChange();
-    CHECK(ok->isEnabled());
-    CHECK(e->applyFirstNoteText(field->getText()));
-    CHECK(PadMapping::instance().firstNote() == 32);
-    CHECK(tickedItems(e->buildMidiMenu())[0].first == juce::String::fromUTF8("Pad 1 note: 32…"));
 }
 
 TEST_CASE("the effects bar is split into the live strip and the advanced strip without overlaps", "[editor]")

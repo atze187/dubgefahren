@@ -75,13 +75,10 @@ public:
     // Für Tests öffentlich: öffnet das Kontextmenü eines Pads.
     void showPadMenu(int slot);
 
-    // MIDI-Menü: Pad-1-Note (öffnet einen Dialog) und Ursprung des Pad-Rasters. Öffentlich für Tests.
-    enum MidiMenuId { kMidiFirstNote = 1, kMidiOriginTop = 2 };
+    // MIDI-Menü: Ursprung des Pad-Rasters. Öffentlich für Tests.
+    enum MidiMenuId { kMidiOriginTop = 2 };
     juce::PopupMenu buildMidiMenu() const;
     void applyMidiMenuResult(int result);
-    void showFirstNoteDialog();
-    // Setzt die Pad-1-Note aus dem Zahlenfeld; liefert false (und ändert nichts), wenn der Text ungültig ist.
-    bool applyFirstNoteText(const juce::String& text);
     // Position eines Pads im Raster (Koordinaten des Rasters).
     juce::Point<int> padPosition(int slot) { return pads_.pad(slot).getPosition(); }
 

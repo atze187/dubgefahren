@@ -473,8 +473,6 @@ juce::PopupMenu DubgefahrenEditor::buildMidiMenu() const
 {
     const auto& mapping = PadMapping::instance();
     juce::PopupMenu menu;
-    menu.addItem(kMidiFirstNote,
-                 juce::String::fromUTF8("Pad 1 note: ") + juce::String(mapping.firstNote()) + juce::String::fromUTF8("…"));
     menu.addItem(kMidiOriginTop, "Pad 1 at top left", true, mapping.origin() == PadOrigin::TopLeft);
     return menu;
 }
@@ -491,51 +489,12 @@ void DubgefahrenEditor::showMidiMenu()
 void DubgefahrenEditor::applyMidiMenuResult(int result)
 {
     auto& mapping = PadMapping::instance();
-    if (result == kMidiFirstNote)
-    {
-        showFirstNoteDialog();
-    }
-    else if (result == kMidiOriginTop)
+    if (result == kMidiOriginTop)
     {
         mapping.setOrigin(mapping.origin() == PadOrigin::TopLeft ? PadOrigin::BottomLeft : PadOrigin::TopLeft);
         if (pads_.setOrigin(mapping.origin()))
             repaint();
     }
-}
-
-bool DubgefahrenEditor::applyFirstNoteText(const juce::String& text)
-{
-    const auto note = parsePadFirstNote(text);
-    if (!note)
-        return false;
-    PadMapping::instance().setFirstNote(*note);
-    return true;
-}
-
-void DubgefahrenEditor::showFirstNoteDialog()
-{
-    auto* window = createDialog("Pad 1 note", "MIDI note of the first pad (0 to 112):", juce::MessageBoxIconType::NoIcon);
-    window->addTextEditor("note", juce::String(PadMapping::instance().firstNote()));
-    window->addButton("OK", 1, juce::KeyPress(juce::KeyPress::returnKey));
-    window->addButton("Cancel", 0, juce::KeyPress(juce::KeyPress::escapeKey));
-
-    // OK ist nur bei einer gültigen Zahl wählbar. Das Zahlenfeld nimmt nur Ziffern an.
-    if (auto* field = window->getTextEditor("note"))
-    {
-        field->setInputRestrictions(3, "0123456789");
-        field->onTextChange = [field, ok = juce::Component::SafePointer<juce::Button>(window->getButton("OK"))] {
-            if (ok != nullptr)
-                ok->setEnabled(parsePadFirstNote(field->getText()).has_value());
-        };
-    }
-    window->enterModalState(true,
-                            juce::ModalCallbackFunction::create(
-                                [safe = juce::Component::SafePointer<DubgefahrenEditor>(this), window](int result) {
-                                    if (safe == nullptr || result != 1)
-                                        return;
-                                    safe->applyFirstNoteText(window->getTextEditorContents("note"));
-                                }),
-                            true);
 }
 
 juce::PopupMenu DubgefahrenEditor::buildSourceMenu(const juce::StringArray& sampleFiles) const
