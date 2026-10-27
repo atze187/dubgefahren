@@ -1,7 +1,7 @@
 # Settings-Dialog, MIDI Learn und Pad-Profile – Design-Spezifikation
 
 **Datum:** 2026-10-27
-**Status:** Entwurf, wartet auf Freigabe
+**Status:** Akzeptiert (vom Nutzer freigegeben), umgesetzt auf `feature/settings-midi-learn`; die als „Eigene Entscheidung“ markierten Punkte sind noch nicht vom Nutzer bestätigt
 **Vorgeschichte:** Teil der Vorbereitung auf Version 1.0 („Benutzerführung“). Zwei weitere Themen aus
 demselben Gespräch sind **nicht** Teil dieser Spezifikation und werden getrennt besprochen: die
 Kopfleiste/Buttons (Optik) und das Kit-Handling beim ersten Sample („vorher exportieren“).
