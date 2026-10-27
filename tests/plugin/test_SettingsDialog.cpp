@@ -1,5 +1,6 @@
 #include <catch2/catch_test_macros.hpp>
 #include <memory>
+#include "plugin/PadMapping.h"
 #include "plugin/PluginEditor.h"
 #include "plugin/PluginProcessor.h"
 #include "plugin/UserSettings.h"
@@ -140,4 +141,99 @@ TEST_CASE("the settings dialog paints", "[settings][look]")
         dgtest::savePng(img, tab == ui::SettingsDialog::Tab::Midi ? "settings-midi" : "settings-kits");
     }
     f.e().closeSettings();
+}
+
+namespace {
+ui::SettingsDialog::Host hostWith(std::function<void(const juce::String&, std::function<void(const juce::String&)>)> prompt,
+                                  std::function<void(std::function<void()>)> confirm)
+{
+    ui::SettingsDialog::Host h;
+    h.promptText = [prompt](const juce::String&, const juce::String&, std::function<void(const juce::String&)> ok) { prompt("", ok); };
+    h.confirm = [confirm](const juce::String&, const juce::String&, std::function<void()> yes) { confirm(yes); };
+    h.close = [] {};
+    return h;
+}
+} // namespace
+
+TEST_CASE("the profile list shows the profiles and the active one", "[settings][profiles]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    dgtest::ScopedPadMapping restore;
+    DubgefahrenProcessor proc;
+    auto& mapping = PadMapping::instance();
+    mapping.createProfile();
+    mapping.createProfile();
+
+    ui::SettingsDialog d(proc, {});
+    CHECK(d.profileNames() == mapping.profileNames());
+    CHECK(d.profileNames().size() == 3);
+    CHECK(d.selectedProfile() == mapping.activeProfile());
+}
+
+TEST_CASE("a profile file copied into the folder shows up when the list is read again", "[settings][profiles]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    dgtest::ScopedPadMapping restore;
+    DubgefahrenProcessor proc;
+    ui::SettingsDialog d(proc, {});
+    CHECK_FALSE(d.profileNames().contains("Friend"));
+
+    const auto file = PadMapping::instance().profilesFolder().getChildFile("Friend.json");
+    file.replaceWithText(padProfileToJson(makeConsecutiveProfile("Friend", 60, PadOrigin::TopLeft)));
+    CHECK(d.profileNames().contains("Friend"));
+
+    d.selectProfile("Friend");
+    CHECK(d.selectedProfile() == "Friend");
+    CHECK(PadMapping::instance().noteMap().slotForNote(60) == 0);
+    CHECK(PadMapping::instance().origin() == PadOrigin::TopLeft);
+    file.deleteFile(); // der Testordner gehört dem Prozess, aber die Datei soll andere Tests nicht stören
+}
+
+TEST_CASE("new, rename and delete update the list and the selection", "[settings][profiles]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    dgtest::ScopedPadMapping restore;
+    DubgefahrenProcessor proc;
+    juce::String answer = "Launchpad";
+    bool confirmed = true;
+    ui::SettingsDialog d(proc, hostWith([&](const juce::String&, auto ok) { ok(answer); },
+                                        [&](auto yes) { if (confirmed) yes(); }));
+
+    d.newProfileClicked();
+    const auto created = d.selectedProfile();
+    CHECK(created == PadMapping::instance().activeProfile());
+    CHECK(d.profileNames().contains(created));
+    CHECK(d.renameEnabled());
+    CHECK(d.deleteEnabled());
+
+    d.renameProfileClicked();
+    CHECK(d.selectedProfile() == "Launchpad");
+    CHECK(d.profileNames().contains("Launchpad"));
+    CHECK_FALSE(d.profileNames().contains(created));
+    CHECK(d.hintText().isEmpty());
+
+    answer = "default";
+    d.renameProfileClicked();
+    CHECK(d.selectedProfile() == "Launchpad");
+    CHECK(d.hintText() == "Name not allowed or already taken");
+
+    confirmed = false;
+    d.deleteProfileClicked();
+    CHECK(d.selectedProfile() == "Launchpad");
+
+    confirmed = true;
+    d.deleteProfileClicked();
+    CHECK(d.selectedProfile() == "Default");
+    CHECK_FALSE(d.profileNames().contains("Launchpad"));
+}
+
+TEST_CASE("Default cannot be renamed or deleted", "[settings][profiles]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    dgtest::ScopedPadMapping restore;
+    DubgefahrenProcessor proc;
+    ui::SettingsDialog d(proc, {});
+    d.selectProfile("Default");
+    CHECK_FALSE(d.renameEnabled());
+    CHECK_FALSE(d.deleteEnabled());
 }

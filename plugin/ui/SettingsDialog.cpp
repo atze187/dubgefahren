@@ -26,6 +26,19 @@ SettingsDialog::SettingsDialog(DubgefahrenProcessor& proc, Host host) : proc_(pr
     };
     addAndMakeVisible(closeButton_);
 
+    profileBox_.onChange = [this] {
+        if (const auto name = profileBox_.getText(); name.isNotEmpty() && name != selectedProfile())
+            selectProfile(name);
+    };
+    newButton_.onClick = [this] { newProfileClicked(); };
+    renameButton_.onClick = [this] { renameProfileClicked(); };
+    deleteButton_.onClick = [this] { deleteProfileClicked(); };
+    folderButton_.onClick = [this] { openProfileFolderClicked(); };
+    hint_.setFont(font(13.0f));
+    hint_.setColour(juce::Label::textColourId, colours::warning);
+    for (juce::Component* c : std::initializer_list<juce::Component*> { &profileBox_, &newButton_, &renameButton_, &deleteButton_, &folderButton_, &hint_ })
+        addChildComponent(*c);
+
     originToggle_.setToggleState(originTopLeft(), juce::dontSendNotification);
     originToggle_.onClick = [this] { setOriginTopLeft(originToggle_.getToggleState()); };
     addChildComponent(originToggle_);
@@ -71,6 +84,20 @@ void SettingsDialog::resized()
     r.removeFromBottom(8);
 
     // MIDI
+    auto profileRow = r.removeFromTop(30);
+    newButton_.setBounds(profileRow.removeFromRight(60));
+    profileRow.removeFromRight(6);
+    deleteButton_.setBounds(profileRow.removeFromRight(70));
+    profileRow.removeFromRight(6);
+    renameButton_.setBounds(profileRow.removeFromRight(70));
+    profileRow.removeFromRight(10);
+    profileBox_.setBounds(profileRow);
+    r.removeFromTop(6);
+    auto hintRow = r.removeFromTop(26);
+    folderButton_.setBounds(hintRow.removeFromLeft(160));
+    hintRow.removeFromLeft(10);
+    hint_.setBounds(hintRow);
+    r.removeFromTop(8);
     originToggle_.setBounds(r.removeFromBottom(26));
 
     // Kits
@@ -94,13 +121,17 @@ void SettingsDialog::showTab(Tab tab)
     const bool midi = tab == Tab::Midi;
     midiTab_.setToggleState(midi, juce::dontSendNotification);
     kitsTab_.setToggleState(!midi, juce::dontSendNotification);
-    originToggle_.setVisible(midi);
+    for (juce::Component* c : std::initializer_list<juce::Component*> { &profileBox_, &newButton_, &renameButton_, &deleteButton_, &folderButton_, &hint_, &originToggle_ })
+        c->setVisible(midi);
     for (juce::Component* c : std::initializer_list<juce::Component*> { &kitCaption_, &kitPath_, &kitWarning_, &changeButton_, &openButton_, &defaultButton_ })
         c->setVisible(!midi);
     if (!midi)
         refreshKits();
     else
+    {
+        refreshProfiles();
         originToggle_.setToggleState(originTopLeft(), juce::dontSendNotification);
+    }
 }
 
 juce::String SettingsDialog::kitFolderText() const
@@ -139,6 +170,77 @@ void SettingsDialog::chooseKitFolder()
                               if (safe != nullptr && fc.getResult() != juce::File())
                                   safe->applyKitFolder(fc.getResult());
                           });
+}
+
+juce::StringArray SettingsDialog::profileNames() const
+{
+    return PadMapping::instance().profileNames();
+}
+
+juce::String SettingsDialog::selectedProfile() const
+{
+    return PadMapping::instance().activeProfile();
+}
+
+bool SettingsDialog::renameEnabled() const { return !selectedProfile().equalsIgnoreCase("Default"); }
+bool SettingsDialog::deleteEnabled() const { return renameEnabled(); }
+
+void SettingsDialog::refreshProfiles()
+{
+    const auto names = profileNames();
+    profileBox_.clear(juce::dontSendNotification);
+    for (int i = 0; i < names.size(); ++i)
+        profileBox_.addItem(names[i], i + 1);
+    profileBox_.setSelectedItemIndex(names.indexOf(selectedProfile()), juce::dontSendNotification);
+    renameButton_.setEnabled(renameEnabled());
+    deleteButton_.setEnabled(deleteEnabled());
+}
+
+void SettingsDialog::selectProfile(const juce::String& name)
+{
+    PadMapping::instance().selectProfile(name);
+    hint_.setText({}, juce::dontSendNotification);
+    refreshProfiles();
+}
+
+void SettingsDialog::newProfileClicked()
+{
+    PadMapping::instance().createProfile();
+    hint_.setText({}, juce::dontSendNotification);
+    refreshProfiles();
+}
+
+void SettingsDialog::renameProfileClicked()
+{
+    if (!renameEnabled() || !host_.promptText)
+        return;
+    host_.promptText("Rename profile", selectedProfile(), [safe = juce::Component::SafePointer<SettingsDialog>(this)](const juce::String& name) {
+        if (safe == nullptr)
+            return;
+        const bool ok = PadMapping::instance().renameActiveProfile(name);
+        safe->hint_.setText(ok ? juce::String() : juce::String("Name not allowed or already taken"), juce::dontSendNotification);
+        safe->refreshProfiles();
+    });
+}
+
+void SettingsDialog::deleteProfileClicked()
+{
+    if (!deleteEnabled() || !host_.confirm)
+        return;
+    host_.confirm("Delete profile", "Delete profile " + selectedProfile() + "?", [safe = juce::Component::SafePointer<SettingsDialog>(this)] {
+        if (safe == nullptr)
+            return;
+        PadMapping::instance().deleteActiveProfile();
+        safe->hint_.setText({}, juce::dontSendNotification);
+        safe->refreshProfiles();
+    });
+}
+
+void SettingsDialog::openProfileFolderClicked()
+{
+    const auto folder = PadMapping::instance().profilesFolder();
+    folder.createDirectory();
+    folder.startAsProcess();
 }
 
 bool SettingsDialog::originTopLeft() const

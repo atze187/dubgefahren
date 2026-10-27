@@ -42,11 +42,24 @@ public:
     void useDefaultKitFolderClicked();
     void openKitFolderClicked();
 
-    // MIDI
+    // MIDI: Profile
+    juce::StringArray profileNames() const; // liest den Ordner bei jedem Aufruf neu
+    juce::String selectedProfile() const;
+    void selectProfile(const juce::String& name);
+    void newProfileClicked();
+    void renameProfileClicked();
+    void deleteProfileClicked();
+    void openProfileFolderClicked();
+    bool renameEnabled() const;
+    bool deleteEnabled() const;
+    juce::String hintText() const { return hint_.getText(); }
+
+    // MIDI: Pad-Raster
     bool originTopLeft() const;
     void setOriginTopLeft(bool topLeft); // Schalter „Pad 1 at top left“
 
 private:
+    void refreshProfiles();
     void refreshKits();
     void chooseKitFolder();
 
@@ -58,6 +71,12 @@ private:
     juce::TextButton kitsTab_ { "Kits" };
     juce::TextButton closeButton_ { "Close" };
 
+    juce::ComboBox profileBox_;
+    juce::TextButton newButton_ { "New" };
+    juce::TextButton renameButton_ { "Rename" };
+    juce::TextButton deleteButton_ { "Delete" };
+    juce::TextButton folderButton_ { "Open profile folder" };
+    juce::Label hint_;
     juce::ToggleButton originToggle_ { "Pad 1 at top left" };
 
     juce::Label kitCaption_;
