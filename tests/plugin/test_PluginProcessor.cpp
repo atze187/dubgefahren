@@ -641,3 +641,115 @@ TEST_CASE("changing a pad colour or name tells the host the state changed", "[pl
     CHECK(counter.nonParameterChanges == 2);
     p.removeListener(&counter);
 }
+
+TEST_CASE("an armed processor captures the next note on and does not play it", "[plugin][learn]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    dgtest::ScopedPadMapping restore;
+    DubgefahrenProcessor p;
+    prepare(p);
+
+    p.armMidiLearn();
+    CHECK(p.midiLearnArmed());
+    processBlocks(p, 1, noteMessage(40, true)); // Note 40 gehört Pad 5
+    CHECK(p.activeMask() == 0u);
+    CHECK(p.takeLearnedNote() == 40);
+    CHECK_FALSE(p.takeLearnedNote().has_value());
+    CHECK_FALSE(p.midiLearnArmed());
+}
+
+TEST_CASE("the note off of a captured note is ignored", "[plugin][learn]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    dgtest::ScopedPadMapping restore;
+    DubgefahrenProcessor p;
+    prepare(p);
+
+    p.armMidiLearn();
+    processBlocks(p, 1, noteMessage(36, true));
+    processBlocks(p, 1, noteMessage(36, false));
+    CHECK(p.activeMask() == 0u);
+
+    processBlocks(p, 1, noteMessage(36, true));
+    CHECK(p.activeMask() == 1u);
+    processBlocks(p, 60, noteMessage(36, false));
+    CHECK(p.activeMask() == 0u);
+}
+
+TEST_CASE("only the first note on is captured", "[plugin][learn]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    dgtest::ScopedPadMapping restore;
+    DubgefahrenProcessor p;
+    prepare(p);
+
+    auto both = noteMessage(40, true);
+    both.addEvent(juce::MidiMessage::noteOn(1, 41, static_cast<juce::uint8>(100)), 0);
+    p.armMidiLearn();
+    processBlocks(p, 1, both);
+    CHECK(p.takeLearnedNote() == 40);
+    CHECK(p.activeMask() == (1u << 5)); // Note 41 löst Pad 6 aus
+}
+
+TEST_CASE("note offs and other MIDI do not satisfy learning", "[plugin][learn]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    DubgefahrenProcessor p;
+    prepare(p);
+
+    juce::MidiBuffer midi;
+    midi.addEvent(juce::MidiMessage::noteOff(1, 40), 0);
+    midi.addEvent(juce::MidiMessage::controllerEvent(1, 7, 100), 0);
+    std::array<juce::uint8, 20> sysExData {};
+    midi.addEvent(juce::MidiMessage::createSysExMessage(sysExData.data(), static_cast<int>(sysExData.size())), 0);
+    p.armMidiLearn();
+    processBlocks(p, 1, midi);
+    CHECK(p.midiLearnArmed());
+    CHECK_FALSE(p.takeLearnedNote().has_value());
+    p.disarmMidiLearn();
+}
+
+TEST_CASE("disarm discards the pending capture", "[plugin][learn]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    DubgefahrenProcessor p;
+    prepare(p);
+
+    p.armMidiLearn();
+    processBlocks(p, 1, noteMessage(40, true));
+    p.disarmMidiLearn();
+    CHECK_FALSE(p.takeLearnedNote().has_value());
+    CHECK_FALSE(p.midiLearnArmed());
+}
+
+TEST_CASE("learning is per instance", "[plugin][learn]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    dgtest::ScopedPadMapping restore;
+    DubgefahrenProcessor a, b;
+    prepare(a);
+    prepare(b);
+
+    a.armMidiLearn();
+    processBlocks(a, 1, noteMessage(40, true));
+    processBlocks(b, 1, noteMessage(40, true));
+    CHECK(a.activeMask() == 0u);
+    CHECK(a.takeLearnedNote() == 40);
+    CHECK(b.activeMask() == (1u << 4));
+    CHECK_FALSE(b.takeLearnedNote().has_value());
+}
+
+TEST_CASE("notes beyond the mapped range can be learned", "[plugin][learn]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    DubgefahrenProcessor p;
+    prepare(p);
+
+    for (const int note : { 5, 127 })
+    {
+        p.armMidiLearn();
+        processBlocks(p, 1, noteMessage(note, true));
+        CHECK(p.takeLearnedNote() == note);
+        CHECK(p.activeMask() == 0u);
+    }
+}

@@ -71,6 +71,24 @@ void DubgefahrenProcessor::releaseResources()
     heldSlot_.fill(-1);
 }
 
+void DubgefahrenProcessor::armMidiLearn()
+{
+    learnedNote_.store(-1);
+    learnArmed_.store(true);
+}
+
+void DubgefahrenProcessor::disarmMidiLearn()
+{
+    learnArmed_.store(false);
+    learnedNote_.store(-1);
+}
+
+std::optional<int> DubgefahrenProcessor::takeLearnedNote()
+{
+    const int note = learnedNote_.exchange(-1);
+    return note >= 0 ? std::optional<int>(note) : std::nullopt;
+}
+
 bool DubgefahrenProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const
 {
     return layouts.getMainOutputChannelSet() == juce::AudioChannelSet::stereo()
@@ -149,6 +167,11 @@ void DubgefahrenProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::
         // Die Engine kennt Pads als Note kFirstNote + Slot; welche MIDI-Note ein Pad auslöst, sagt die NoteMap.
         if (status == 0x90 && vel > 0)
         {
+            if (learnArmed_.load(std::memory_order_relaxed) && learnArmed_.exchange(false))
+            {
+                learnedNote_.store(note); // wird nicht gespielt; das zugehörige Note-Off findet kein heldSlot_
+                continue;
+            }
             const int slot = noteMap.slotForNote(note);
             if (slot < 0)
                 continue;
