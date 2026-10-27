@@ -1,5 +1,6 @@
 #include "engine/GrainStretch.h"
 #include <algorithm>
+#include <cassert>
 #include <cmath>
 #include "engine/SampleInterp.h"
 
@@ -28,6 +29,11 @@ void GrainStretch::reset()
     untilNext_ = 0;
 }
 
+int GrainStretch::activeGrains() const
+{
+    return static_cast<int>(std::count_if(grains_.begin(), grains_.end(), [](const Grain& g) { return g.active; }));
+}
+
 void GrainStretch::launch(double srcPos, double dir, int grainLen, bool fadeIn)
 {
     const int fade = std::max(1, grainLen / 4);
@@ -40,13 +46,17 @@ void GrainStretch::launch(double srcPos, double dir, int grainLen, bool fadeIn)
         g.delta = g.fadingOut ? std::min(g.delta, shortest) : shortest;
         g.fadingOut = true;
     }
-    Grain* slot = &grains_[0];
+    Grain* slot = nullptr;
     for (auto& g : grains_)
         if (!g.active)
         {
             slot = &g;
             break;
         }
+    // Siehe Klassenkommentar: Es leben höchstens zwei Stücke, ein freier Platz ist also garantiert.
+    assert(slot != nullptr && "GrainStretch: both slots busy on launch");
+    if (slot == nullptr)
+        slot = &grains_[0];
     slot->active = true;
     slot->fadingOut = false;
     slot->pos = srcPos;
