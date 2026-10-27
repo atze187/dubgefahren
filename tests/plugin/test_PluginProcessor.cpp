@@ -794,3 +794,17 @@ TEST_CASE("setKitFolder with a missing folder keeps the previous one and sets a 
     CHECK(p.kitFolder().warning.isNotEmpty());
     CHECK(UserSettings::instance().kitFolder() == "");
 }
+
+TEST_CASE("the kit folder setting reaches every instance", "[plugin][kitfolder]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    const auto dir = juce::File::createTempFile("dgkits");
+    dir.createDirectory();
+    DubgefahrenProcessor a, b;
+
+    a.setKitFolder(dir);
+    CHECK(b.kitFolder().folder == dir);
+    b.useDefaultKitFolder();
+    CHECK(a.kitFolder().folder == defaultKitFolder());
+    dir.deleteRecursively();
+}

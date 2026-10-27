@@ -33,12 +33,24 @@ DubgefahrenProcessor::DubgefahrenProcessor()
 {
     events_.reserve(2048);
     ensureStateChildren();
-    kitFolder_ = resolveKitFolder(UserSettings::instance().kitFolder(), pluginConfigFile(), defaultKitFolder());
+    kitFolderSetting_ = UserSettings::instance().kitFolder();
+    kitFolder_ = resolveKitFolder(kitFolderSetting_, pluginConfigFile(), defaultKitFolder());
     engine_.prepare(44100.0, 512); // gültiger Zustand schon vor prepareToPlay
     startTimerHz(20);
 }
 
 DubgefahrenProcessor::~DubgefahrenProcessor() { stopTimer(); }
+
+KitFolderInfo DubgefahrenProcessor::kitFolder() const
+{
+    const auto setting = UserSettings::instance().kitFolder();
+    if (setting != kitFolderSetting_)
+    {
+        kitFolderSetting_ = setting;
+        kitFolder_ = resolveKitFolder(setting, pluginConfigFile(), defaultKitFolder());
+    }
+    return kitFolder_;
+}
 
 void DubgefahrenProcessor::setKitFolder(const juce::File& folder)
 {
@@ -48,12 +60,14 @@ void DubgefahrenProcessor::setKitFolder(const juce::File& folder)
         return;
     }
     UserSettings::instance().setKitFolder(folder.getFullPathName());
-    kitFolder_ = resolveKitFolder(UserSettings::instance().kitFolder(), pluginConfigFile(), defaultKitFolder());
+    kitFolderSetting_ = UserSettings::instance().kitFolder();
+    kitFolder_ = resolveKitFolder(kitFolderSetting_, pluginConfigFile(), defaultKitFolder());
 }
 
 void DubgefahrenProcessor::useDefaultKitFolder()
 {
     UserSettings::instance().setKitFolder({});
+    kitFolderSetting_ = {};
     kitFolder_ = resolveKitFolder({}, pluginConfigFile(), defaultKitFolder());
 }
 

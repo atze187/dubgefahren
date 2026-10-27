@@ -103,7 +103,8 @@ public:
     void setLiveView(bool live);
     bool advancedOpen() const;
     void setAdvancedOpen(bool open);
-    const KitFolderInfo& kitFolder() const { return kitFolder_; }
+    // Folgt der Einstellung des Nutzers, auch wenn eine andere Instanz sie geändert hat.
+    KitFolderInfo kitFolder() const;
     // Kit-Ordner aus den Einstellungen des Nutzers (Message-Thread); ein fehlender Ordner ändert nichts und setzt eine Warnung.
     void setKitFolder(const juce::File& folder);
     void useDefaultKitFolder();
@@ -148,7 +149,8 @@ private:
     // MIDI Learn: Der Audio-Thread legt die erste Note-On in learnedNote_ ab (-1 = keine).
     std::atomic<bool> learnArmed_ { false };
     std::atomic<int> learnedNote_ { -1 };
-    KitFolderInfo kitFolder_;
+    mutable KitFolderInfo kitFolder_;
+    mutable juce::String kitFolderSetting_; // Stand der Einstellung, zu dem kitFolder_ aufgelöst wurde
     std::atomic<int> stateGeneration_ { 0 };
     juce::AudioProcessLoadMeasurer loadMeasurer_;
     SampleLoader loader_;
