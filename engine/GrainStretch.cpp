@@ -37,13 +37,14 @@ int GrainStretch::activeGrains() const
 void GrainStretch::launch(double srcPos, double dir, int grainLen, bool fadeIn)
 {
     const int fade = std::max(1, grainLen / 4);
-    // Alle älteren Stücke laufen innerhalb der neuen Überblendzeit aus (ihr Gewicht bleibt stetig).
+    // Alle älteren Stücke laufen genau innerhalb der neuen Überblendzeit aus. Ihre Gewichte fallen
+    // dann zusammen mit 1/fade pro Sample, das neue steigt mit 1/fade: Die Summe bleibt eins, auch
+    // wenn ein schon ausblendendes Stück mit kürzerer Überblendzeit begonnen hat.
     for (auto& g : grains_)
     {
         if (!g.active)
             continue;
-        const float shortest = -g.gain / static_cast<float>(fade);
-        g.delta = g.fadingOut ? std::min(g.delta, shortest) : shortest;
+        g.delta = -g.gain / static_cast<float>(fade);
         g.fadingOut = true;
     }
     Grain* slot = nullptr;

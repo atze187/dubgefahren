@@ -137,3 +137,35 @@ TEST_CASE("the crossfade keeps summing to one while the grain size shrinks", "[s
         CHECK_THAT(g.process(ones, 100.0 + i * 0.5, len, f), WithinAbs(1.0, 1e-4));
     }
 }
+
+TEST_CASE("the crossfade keeps summing to one while the grain size grows", "[stretch]")
+{
+    std::vector<float> ones(48000, 1.0f);
+    const GrainFrame f { 1.0, 1.0, false, 0.0, 48000.0 };
+    GrainStretch g;
+    g.start(100.0, 1.0, 4);
+    int len = 4;
+    for (int i = 0; i < 4000; ++i)
+    {
+        if (i % 40 == 0 && len < 400)
+            len = std::min(400, len * 4 / 3 + 1);
+        CHECK_THAT(g.process(ones, 100.0 + i * 0.5, len, f), WithinAbs(1.0, 1e-4));
+    }
+}
+
+TEST_CASE("the crossfade keeps summing to one when the grain size jumps back and forth", "[stretch]")
+{
+    std::vector<float> ones(48000, 1.0f);
+    const GrainFrame f { 1.0, 1.0, false, 0.0, 48000.0 };
+    for (const int shortLen : { 4, 8, 16 })
+    {
+        GrainStretch g;
+        g.start(100.0, 1.0, 400);
+        for (int i = 0; i < 20000; ++i)
+        {
+            const int len = (i % 37 < 18) ? shortLen : 400;
+            CHECK_THAT(g.process(ones, 100.0 + i * 0.5, len, f), WithinAbs(1.0, 1e-4));
+            REQUIRE(g.activeGrains() <= 2);
+        }
+    }
+}
