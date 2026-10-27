@@ -58,18 +58,7 @@ void SamplePlayer::start(const VoiceContext& ctx, std::uint32_t)
     const auto region = resolveSampleRegion(p.sampleStart, p.loopStart, p.sampleEnd, ctx.sample->samples.size());
     // Retrigger: alte Position als auslaufenden Lesekopf weiterlaufen lassen.
     if (env_.isActive())
-    {
-        fadePos_ = pos_;
-        fadeDir_ = dir_;
-        fadeGain_ = 1.0f;
-        fadeRaw_ = false;
-        fadeStretching_ = stretching_;
-        if (stretching_)
-        {
-            fadeGrains_ = grains_;
-            fadeAdv_ = lastAdv_;
-        }
-    }
+        startFadeHead(stretching_);
     else
     {
         fadeGain_ = 0.0f;
@@ -92,6 +81,20 @@ void SamplePlayer::start(const VoiceContext& ctx, std::uint32_t)
 void SamplePlayer::release(const VoiceContext& ctx) { env_.noteOff(ctx.params->releaseS); }
 
 void SamplePlayer::kill() { env_.kill(); }
+
+void SamplePlayer::startFadeHead(bool fromGrains, bool raw)
+{
+    fadePos_ = pos_;
+    fadeDir_ = dir_;
+    fadeGain_ = 1.0f;
+    fadeRaw_ = raw;
+    fadeStretching_ = fromGrains;
+    if (fromGrains)
+    {
+        fadeGrains_ = grains_;
+        fadeAdv_ = lastAdv_;
+    }
+}
 
 void SamplePlayer::stop()
 {
@@ -154,23 +157,13 @@ void SamplePlayer::render(float* out, int numSamples, const VoiceContext& ctx)
         if (wantStretch && !stretching_)
         {
             // Der einfache Kopf läuft als zweiter Lesekopf aus, das erste Stück beginnt an der Quellposition.
-            fadePos_ = pos_;
-            fadeDir_ = dir_;
-            fadeGain_ = 1.0f;
-            fadeRaw_ = false;
-            fadeStretching_ = false;
+            startFadeHead(false);
             grains_.start(pos_, dir_, grainLen);
         }
         else if (!wantStretch && stretching_)
         {
             // Die Stücke laufen als zweiter Kopf aus, der einfache Kopf blendet ein.
-            fadeGrains_ = grains_;
-            fadeStretching_ = true;
-            fadeAdv_ = lastAdv_;
-            fadePos_ = pos_;
-            fadeDir_ = dir_;
-            fadeGain_ = 1.0f;
-            fadeRaw_ = false;
+            startFadeHead(true);
             grains_.reset();
         }
         stretching_ = wantStretch;
@@ -192,14 +185,9 @@ void SamplePlayer::render(float* out, int numSamples, const VoiceContext& ctx)
                 {
                     // Sprung an den Schleifenanfang; die alte Position blendet als zweiter Lesekopf aus.
                     // Mit Stretch lesen die Stücke unabhängig von pos_ weiter: kein Sprung im Signal.
+                    // Die alte Position liegt außerhalb des Segments: ohne X-Fade weiterlesen (raw).
                     if (!stretching_)
-                    {
-                        fadePos_ = pos_;
-                        fadeDir_ = dir_;
-                        fadeGain_ = 1.0f;
-                        fadeRaw_ = true; // die alte Position liegt außerhalb des Segments: ohne X-Fade weiterlesen
-                        fadeStretching_ = false;
-                    }
+                        startFadeHead(false, true);
                     pos_ = dir_ > 0.0 ? seg.lo : std::max(seg.lo, seg.hi - 1.0);
                 }
                 else if (dir_ > 0.0)
@@ -250,8 +238,10 @@ void SamplePlayer::render(float* out, int numSamples, const VoiceContext& ctx)
         };
 
         // Beim Retrigger und beim Sprung Überblendung: neuer Kopf blendet ein, alter aus (Summe der Gewichte = 1).
-        const GrainFrame frame { step, dir_, looping, looping ? seg.lo : region.start, looping ? seg.hi : region.end };
-        const float mainValue = stretching_ ? grains_.process(x, pos_, grainLen, frame) : read(pos_, dir_, false);
+        const auto frameFor = [&](double dir) {
+            return GrainFrame { step, dir, looping, looping ? seg.lo : region.start, looping ? seg.hi : region.end };
+        };
+        const float mainValue = stretching_ ? grains_.process(x, pos_, grainLen, frameFor(dir_)) : read(pos_, dir_, false);
         float y = mainValue * endGain(pos_, dir_, adv) * (1.0f - fadeGain_);
         pos_ += dir_ * adv;
         if (fadeGain_ > 0.0f)
@@ -261,8 +251,7 @@ void SamplePlayer::render(float* out, int numSamples, const VoiceContext& ctx)
             // Der alte Kopf liest mit derselben Überblendung weiter, sonst spränge das Signal, wenn
             // der Retrigger mitten in die X-Fade-Zone fällt.
             const double fadeRate = fadeStretching_ ? fadeAdv_ : step;
-            const GrainFrame fadeFrame { step, fadeDir_, looping, frame.lo, frame.hi };
-            const float fadeValue = fadeStretching_ ? fadeGrains_.process(x, fadePos_, grainLen, fadeFrame)
+            const float fadeValue = fadeStretching_ ? fadeGrains_.process(x, fadePos_, grainLen, frameFor(fadeDir_))
                                                     : read(fadePos_, fadeDir_, fadeRaw_);
             y += fadeValue * endGain(fadePos_, fadeDir_, fadeRate) * fadeGain_;
             fadePos_ += fadeDir_ * fadeRate;

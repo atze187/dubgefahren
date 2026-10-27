@@ -20,6 +20,9 @@ public:
 
 private:
     void stop();
+    // Startet den zweiten Lesekopf an der aktuellen Position. fromGrains: Er liest mit Kopien der
+    // Stücke gestretcht weiter; raw: Er liegt außerhalb des Segments und liest ohne X-Fade.
+    void startFadeHead(bool fromGrains, bool raw = false);
 
     double sampleRate_ = 44100.0;
     Envelope env_;
