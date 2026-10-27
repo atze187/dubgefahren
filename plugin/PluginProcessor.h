@@ -104,6 +104,9 @@ public:
     bool advancedOpen() const;
     void setAdvancedOpen(bool open);
     const KitFolderInfo& kitFolder() const { return kitFolder_; }
+    // Kit-Ordner aus den Einstellungen des Nutzers (Message-Thread); ein fehlender Ordner ändert nichts und setzt eine Warnung.
+    void setKitFolder(const juce::File& folder);
+    void useDefaultKitFolder();
     // Erhöht sich, wenn sich Slot-Namen/-Parameter oder Editor-Settings von außerhalb des
     // Editors ändern (Host-Restore, applyKit, setSlot, setSlotName), damit der Editor per
     // Timer erkennen kann, dass er seine Anzeige neu einlesen muss.

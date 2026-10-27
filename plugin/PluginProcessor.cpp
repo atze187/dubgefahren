@@ -5,6 +5,7 @@
 #include "plugin/KitFile.h"
 #include "plugin/PluginEditor.h"
 #include "plugin/SampleFiles.h"
+#include "plugin/UserSettings.h"
 
 namespace dg {
 
@@ -32,12 +33,29 @@ DubgefahrenProcessor::DubgefahrenProcessor()
 {
     events_.reserve(2048);
     ensureStateChildren();
-    kitFolder_ = resolveKitFolder(pluginConfigFile(), defaultKitFolder());
+    kitFolder_ = resolveKitFolder(UserSettings::instance().kitFolder(), pluginConfigFile(), defaultKitFolder());
     engine_.prepare(44100.0, 512); // gültiger Zustand schon vor prepareToPlay
     startTimerHz(20);
 }
 
 DubgefahrenProcessor::~DubgefahrenProcessor() { stopTimer(); }
+
+void DubgefahrenProcessor::setKitFolder(const juce::File& folder)
+{
+    if (!folder.isDirectory())
+    {
+        kitFolder_.warning = "The kit folder does not exist: " + folder.getFullPathName();
+        return;
+    }
+    UserSettings::instance().setKitFolder(folder.getFullPathName());
+    kitFolder_ = resolveKitFolder(UserSettings::instance().kitFolder(), pluginConfigFile(), defaultKitFolder());
+}
+
+void DubgefahrenProcessor::useDefaultKitFolder()
+{
+    UserSettings::instance().setKitFolder({});
+    kitFolder_ = resolveKitFolder({}, pluginConfigFile(), defaultKitFolder());
+}
 
 void DubgefahrenProcessor::ensureStateChildren()
 {

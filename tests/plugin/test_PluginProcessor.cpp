@@ -8,6 +8,7 @@
 #include "plugin/ParameterLayout.h"
 #include "plugin/PluginProcessor.h"
 #include "plugin/PadMapping.h"
+#include "plugin/UserSettings.h"
 #include "PadMappingTestHelpers.h"
 
 using namespace dg;
@@ -752,4 +753,44 @@ TEST_CASE("notes beyond the mapped range can be learned", "[plugin][learn]")
         CHECK(p.takeLearnedNote() == note);
         CHECK(p.activeMask() == 0u);
     }
+}
+
+TEST_CASE("setKitFolder changes the kit folder and persists it in the user settings", "[plugin][kitfolder]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    const auto dir = juce::File::createTempFile("dgkits");
+    dir.createDirectory();
+    DubgefahrenProcessor p;
+
+    p.setKitFolder(dir);
+    CHECK(p.kitFolder().folder == dir);
+    CHECK(p.kitFolder().warning.isEmpty());
+    CHECK(UserSettings::instance().kitFolder() == dir.getFullPathName());
+    p.useDefaultKitFolder();
+    dir.deleteRecursively();
+}
+
+TEST_CASE("useDefaultKitFolder returns to the default folder", "[plugin][kitfolder]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    const auto dir = juce::File::createTempFile("dgkits");
+    dir.createDirectory();
+    DubgefahrenProcessor p;
+    p.setKitFolder(dir);
+
+    p.useDefaultKitFolder();
+    CHECK(p.kitFolder().folder == defaultKitFolder());
+    CHECK(UserSettings::instance().kitFolder() == "");
+    dir.deleteRecursively();
+}
+
+TEST_CASE("setKitFolder with a missing folder keeps the previous one and sets a warning", "[plugin][kitfolder]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    DubgefahrenProcessor p;
+    const auto before = p.kitFolder().folder;
+    p.setKitFolder(juce::File::createTempFile("dgmissing"));
+    CHECK(p.kitFolder().folder == before);
+    CHECK(p.kitFolder().warning.isNotEmpty());
+    CHECK(UserSettings::instance().kitFolder() == "");
 }

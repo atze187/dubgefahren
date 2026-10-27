@@ -10,7 +10,9 @@ struct KitFolderInfo
 };
 
 juce::String expandEnvironmentVariables(const juce::String& text);
-KitFolderInfo resolveKitFolder(const juce::File& configFile, const juce::File& defaultFolder);
+// Reihenfolge: Einstellung des Nutzers (userKitFolder) → Bundle-Config → Standardordner. Ein gesetzter, aber
+// unbrauchbarer userKitFolder erzeugt eine Warnung und fällt auf die nächste Stufe zurück.
+KitFolderInfo resolveKitFolder(const juce::String& userKitFolder, const juce::File& configFile, const juce::File& defaultFolder);
 juce::File defaultKitFolder();
 juce::File pluginConfigFile();
 

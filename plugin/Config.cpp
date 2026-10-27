@@ -24,9 +24,20 @@ juce::String expandEnvironmentVariables(const juce::String& text)
     return out;
 }
 
-KitFolderInfo resolveKitFolder(const juce::File& configFile, const juce::File& defaultFolder)
+KitFolderInfo resolveKitFolder(const juce::String& userKitFolder, const juce::File& configFile, const juce::File& defaultFolder)
 {
     KitFolderInfo info { defaultFolder, {} };
+    juce::String userWarning;
+    if (const auto raw = userKitFolder.trim(); raw.isNotEmpty())
+    {
+        const auto expanded = expandEnvironmentVariables(raw);
+        if (!juce::File::isAbsolutePath(expanded))
+            userWarning = "The kit folder in your settings is not an absolute path: " + expanded;
+        else if (!juce::File(expanded).isDirectory())
+            userWarning = "The kit folder in your settings does not exist: " + expanded;
+        else
+            return { juce::File(expanded), {} };
+    }
 
     if (configFile.existsAsFile())
     {
@@ -53,6 +64,8 @@ KitFolderInfo resolveKitFolder(const juce::File& configFile, const juce::File& d
 
     if (info.folder == defaultFolder && !defaultFolder.isDirectory())
         defaultFolder.createDirectory();
+    if (userWarning.isNotEmpty())
+        info.warning = userWarning;
     return info;
 }
 

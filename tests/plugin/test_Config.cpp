@@ -34,7 +34,7 @@ TEST_CASE("missing config uses and creates the default folder", "[config]")
 {
     TempDir tmp;
     const auto def = tmp.dir.getChildFile("Default");
-    const auto info = resolveKitFolder(tmp.dir.getChildFile("none.json"), def);
+    const auto info = resolveKitFolder({}, tmp.dir.getChildFile("none.json"), def);
     CHECK(info.folder == def);
     CHECK(info.warning.isEmpty());
     CHECK(def.isDirectory());
@@ -47,7 +47,7 @@ TEST_CASE("valid config folder is used", "[config]")
     kits.createDirectory();
     const auto cfg = tmp.dir.getChildFile("cfg.json");
     writeConfig(cfg, kits.getFullPathName());
-    const auto info = resolveKitFolder(cfg, tmp.dir.getChildFile("Default"));
+    const auto info = resolveKitFolder({}, cfg, tmp.dir.getChildFile("Default"));
     CHECK(info.folder == kits);
     CHECK(info.warning.isEmpty());
 }
@@ -58,7 +58,7 @@ TEST_CASE("empty kitFolder falls back without warning", "[config]")
     const auto cfg = tmp.dir.getChildFile("cfg.json");
     writeConfig(cfg, "");
     const auto def = tmp.dir.getChildFile("Default");
-    const auto info = resolveKitFolder(cfg, def);
+    const auto info = resolveKitFolder({}, cfg, def);
     CHECK(info.folder == def);
     CHECK(info.warning.isEmpty());
 }
@@ -70,18 +70,18 @@ TEST_CASE("invalid config, missing folder and relative path fall back with a war
     const auto cfg = tmp.dir.getChildFile("cfg.json");
 
     cfg.replaceWithText("{ kaputt");
-    auto info = resolveKitFolder(cfg, def);
+    auto info = resolveKitFolder({}, cfg, def);
     CHECK(info.folder == def);
     CHECK(info.warning.isNotEmpty());
     CHECK(info.warning.contains("invalid"));
 
     writeConfig(cfg, tmp.dir.getChildFile("gibtsnicht").getFullPathName());
-    info = resolveKitFolder(cfg, def);
+    info = resolveKitFolder({}, cfg, def);
     CHECK(info.folder == def);
     CHECK(info.warning.isNotEmpty());
 
     writeConfig(cfg, "relativ\\ordner");
-    info = resolveKitFolder(cfg, def);
+    info = resolveKitFolder({}, cfg, def);
     CHECK(info.folder == def);
     CHECK(info.warning.isNotEmpty());
 }
@@ -100,7 +100,66 @@ TEST_CASE("environment variables are expanded", "[config]")
 
     const auto cfg = tmp.dir.getChildFile("cfg.json");
     writeConfig(cfg, "%DG_TEST_DIR%" + sep + tmp.dir.getFileName());
-    const auto info = resolveKitFolder(cfg, tmp.dir.getChildFile("Default"));
+    const auto info = resolveKitFolder({}, cfg, tmp.dir.getChildFile("Default"));
+    CHECK(info.folder == tmp.dir);
+    CHECK(info.warning.isEmpty());
+}
+
+TEST_CASE("the user setting wins over the bundle config", "[config]")
+{
+    TempDir tmp;
+    const auto userKits = tmp.dir.getChildFile("UserKits");
+    const auto configKits = tmp.dir.getChildFile("ConfigKits");
+    userKits.createDirectory();
+    configKits.createDirectory();
+    const auto cfg = tmp.dir.getChildFile("cfg.json");
+    writeConfig(cfg, configKits.getFullPathName());
+    const auto info = resolveKitFolder(userKits.getFullPathName(), cfg, tmp.dir.getChildFile("Default"));
+    CHECK(info.folder == userKits);
+    CHECK(info.warning.isEmpty());
+}
+
+TEST_CASE("an empty user setting uses the bundle config, then the default", "[config]")
+{
+    TempDir tmp;
+    const auto configKits = tmp.dir.getChildFile("ConfigKits");
+    configKits.createDirectory();
+    const auto cfg = tmp.dir.getChildFile("cfg.json");
+    writeConfig(cfg, configKits.getFullPathName());
+    const auto def = tmp.dir.getChildFile("Default");
+    CHECK(resolveKitFolder("", cfg, def).folder == configKits);
+    CHECK(resolveKitFolder("  ", tmp.dir.getChildFile("none.json"), def).folder == def);
+}
+
+TEST_CASE("an unusable user setting warns and falls back", "[config]")
+{
+    TempDir tmp;
+    const auto configKits = tmp.dir.getChildFile("ConfigKits");
+    configKits.createDirectory();
+    const auto cfg = tmp.dir.getChildFile("cfg.json");
+    writeConfig(cfg, configKits.getFullPathName());
+    const auto def = tmp.dir.getChildFile("Default");
+
+    auto info = resolveKitFolder(tmp.dir.getChildFile("gone").getFullPathName(), cfg, def);
+    CHECK(info.folder == configKits);
+    CHECK(info.warning.contains("settings"));
+    CHECK(info.warning.contains("does not exist"));
+
+    info = resolveKitFolder("relativ\ordner", cfg, def);
+    CHECK(info.folder == configKits);
+    CHECK(info.warning.contains("not an absolute path"));
+
+    info = resolveKitFolder(tmp.dir.getChildFile("gone").getFullPathName(), tmp.dir.getChildFile("none.json"), def);
+    CHECK(info.folder == def);
+    CHECK(info.warning.contains("settings"));
+}
+
+TEST_CASE("environment variables are expanded in the user setting", "[config]")
+{
+    TempDir tmp;
+    setTestEnv("DG_TEST_DIR", tmp.dir.getParentDirectory().getFullPathName());
+    const auto sep = juce::File::getSeparatorString();
+    const auto info = resolveKitFolder("%DG_TEST_DIR%" + sep + tmp.dir.getFileName(), {}, tmp.dir.getChildFile("Default"));
     CHECK(info.folder == tmp.dir);
     CHECK(info.warning.isEmpty());
 }
