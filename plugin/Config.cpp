@@ -65,7 +65,8 @@ juce::File defaultKitFolder()
 
 juce::File pluginConfigFile()
 {
-    // <Bundle>.vst3/Contents/x86_64-win/<Name>.vst3 → <Bundle>.vst3/Contents/Resources/...
+    // Windows: <Bundle>.vst3/Contents/x86_64-win/<Name>.vst3, macOS: <Bundle>.vst3/Contents/MacOS/<Name>
+    // → <Bundle>.vst3/Contents/Resources/...
     return juce::File::getSpecialLocation(juce::File::currentExecutableFile)
         .getParentDirectory()
         .getParentDirectory()

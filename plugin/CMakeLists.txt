@@ -80,7 +80,12 @@ juce_add_plugin(Dubgefahren
     VST3_CATEGORIES Instrument Synth)
 target_link_libraries(Dubgefahren PRIVATE dg_plugin_shared)
 
-set(DG_VST3_INSTALL_DIR "$ENV{CommonProgramFiles}/VST3" CACHE PATH "Zielordner für die VST3-Installation")
+if(APPLE)
+    set(DG_VST3_DEFAULT_INSTALL_DIR "$ENV{HOME}/Library/Audio/Plug-Ins/VST3")
+else()
+    set(DG_VST3_DEFAULT_INSTALL_DIR "$ENV{CommonProgramFiles}/VST3")
+endif()
+set(DG_VST3_INSTALL_DIR "${DG_VST3_DEFAULT_INSTALL_DIR}" CACHE PATH "Zielordner für die VST3-Installation")
 get_target_property(DG_VST3_BUNDLE Dubgefahren_VST3 JUCE_PLUGIN_ARTEFACT_FILE)
 
 add_custom_command(TARGET Dubgefahren_VST3 POST_BUILD
