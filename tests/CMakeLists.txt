@@ -10,6 +10,7 @@ add_executable(DubgefahrenTests
     test_SampleRegion.cpp
     test_GrainStretch.cpp
     test_PadRouter.cpp
+    test_NoteMap.cpp
     test_FxUnits.cpp
     test_Saturator.cpp
     test_Phaser.cpp
