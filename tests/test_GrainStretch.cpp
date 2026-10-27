@@ -106,3 +106,34 @@ TEST_CASE("reset silences the grains", "[stretch]")
     const GrainFrame f { 1.0, 1.0, false, 0.0, 48000.0 };
     CHECK_THAT(g.process(x, 1000.0, 960, f), WithinAbs(0.0, 1e-6));
 }
+
+TEST_CASE("at most two grains are alive when the grain size jumps between long and short", "[stretch]")
+{
+    std::vector<float> ones(48000, 1.0f);
+    const GrainFrame f { 1.0, 1.0, false, 0.0, 48000.0 };
+    for (const int shortLen : { 4, 8, 16 })
+    {
+        GrainStretch g;
+        g.start(100.0, 1.0, 400);
+        for (int i = 0; i < 20000; ++i)
+        {
+            g.process(ones, 100.0 + i * 0.5, (i % 37 < 18) ? shortLen : 400, f);
+            REQUIRE(g.activeGrains() <= 2);
+        }
+    }
+}
+
+TEST_CASE("the crossfade keeps summing to one while the grain size shrinks", "[stretch]")
+{
+    std::vector<float> ones(48000, 1.0f);
+    const GrainFrame f { 1.0, 1.0, false, 0.0, 48000.0 };
+    GrainStretch g;
+    g.start(100.0, 1.0, 400);
+    int len = 400;
+    for (int i = 0; i < 4000; ++i)
+    {
+        if (i % 40 == 0 && len > 4)
+            len = std::max(4, len * 3 / 4);
+        CHECK_THAT(g.process(ones, 100.0 + i * 0.5, len, f), WithinAbs(1.0, 1e-4));
+    }
+}

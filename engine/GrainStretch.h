@@ -26,6 +26,8 @@ public:
     // Beginnt das erste Stück sofort bei srcPos, ohne Einblendung (der Aufrufer überblendet selbst).
     void start(double srcPos, double dir, int grainLen);
     float process(const std::vector<float>& x, double srcPos, int grainLen, const GrainFrame& f);
+    // Anzahl der gerade hörbaren Stücke (für Tests der Invariante „höchstens zwei“).
+    int activeGrains() const;
 
 private:
     struct Grain
