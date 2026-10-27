@@ -3,10 +3,9 @@
 #include <optional>
 #include <juce_core/juce_core.h>
 #include "engine/PadRouter.h"
+#include "plugin/PadProfile.h"
 
 namespace dg {
-
-enum class PadOrigin { BottomLeft, TopLeft };
 
 constexpr int kDefaultPadFirstNote = 36;
 
