@@ -2,8 +2,6 @@ name: Build and release
 
 on:
   push:
-    branches:
-      - feature/macos-build # TEMPORARY: remove before merging
     tags:
       - "v*"
   workflow_dispatch:
