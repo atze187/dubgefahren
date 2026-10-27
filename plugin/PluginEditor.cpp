@@ -28,7 +28,7 @@ DubgefahrenEditor::DubgefahrenEditor(DubgefahrenProcessor& proc)
     cpuMeter_.setSource([this] { return proc_.cpuLoad(); });
 
     kitButton_.onClick = [this] { showKitMenu(); };
-    midiButton_.onClick = [this] { showMidiMenu(); };
+    settingsButton_.onClick = [this] { showSettings(); };
     importButton_.onClick = [this] { importKit(); };
     exportButton_.onClick = [this] { exportKit(); };
     panicButton_.onStateChange = [this] { setPanic(panicButton_.isDown()); };
@@ -46,7 +46,7 @@ DubgefahrenEditor::DubgefahrenEditor(DubgefahrenProcessor& proc)
     advancedButton_.onClick = [this] { setAdvancedOpen(!proc_.advancedOpen()); };
 
     for (juce::Component* c : std::initializer_list<juce::Component*> {
-             &title_, &cpuMeter_, &kitButton_, &midiButton_, &importButton_, &exportButton_, &panicButton_, &viewButton_, &advancedButton_,
+             &title_, &cpuMeter_, &kitButton_, &settingsButton_, &importButton_, &exportButton_, &panicButton_, &viewButton_, &advancedButton_,
              &followFocus_, &pads_, &slotEditor_, &live_, &advanced_, &perf_ })
         content_.addAndMakeVisible(*c);
 
@@ -65,6 +65,7 @@ DubgefahrenEditor::~DubgefahrenEditor()
     stopTimer();
     setPanic(false);
     // Menüs und Dialoge benutzen lnf_: vor dessen Zerstörung schließen.
+    closeSettings();
     juce::PopupMenu::dismissAllActiveMenus();
     for (auto& dialog : dialogs_)
         dialog.deleteAndZero();
@@ -104,7 +105,7 @@ void DubgefahrenEditor::applyLayout()
 
     slotEditor_.setVisible(!live);
     advanced_.setVisible(layout_ == Layout::EditAdvanced);
-    for (juce::Component* c : std::initializer_list<juce::Component*> { &followFocus_, &midiButton_, &importButton_, &exportButton_, &advancedButton_ })
+    for (juce::Component* c : std::initializer_list<juce::Component*> { &followFocus_, &settingsButton_, &importButton_, &exportButton_, &advancedButton_ })
         c->setVisible(!live);
     viewButton_.setButtonText(live ? "Edit" : "Live");
     advancedButton_.setButtonText(juce::String::fromUTF8(proc_.advancedOpen() ? "Advanced ▾" : "Advanced ▸"));
@@ -158,7 +159,7 @@ void DubgefahrenEditor::layoutContent()
     exportButton_.setBounds(header.removeFromRight(80).reduced(2));
     importButton_.setBounds(header.removeFromRight(80).reduced(2));
     kitButton_.setBounds(header.removeFromRight(110).reduced(2));
-    midiButton_.setBounds(header.removeFromRight(80).reduced(2));
+    settingsButton_.setBounds(header.removeFromRight(80).reduced(2));
     followFocus_.setBounds(header.removeFromRight(170));
 
     perf_.setBounds(r.removeFromBottom(84));
@@ -469,32 +470,90 @@ void DubgefahrenEditor::applyPadMenuResult(int slot, int result)
     refreshAll();
 }
 
-juce::PopupMenu DubgefahrenEditor::buildMidiMenu() const
+namespace {
+// Modales Fenster um den Settings-Dialog: Kreuz und Esc schließen über den Editor.
+class SettingsWindow final : public juce::DialogWindow
 {
-    const auto& mapping = PadMapping::instance();
-    juce::PopupMenu menu;
-    menu.addItem(kMidiOriginTop, "Pad 1 at top left", true, mapping.origin() == PadOrigin::TopLeft);
-    return menu;
-}
-
-void DubgefahrenEditor::showMidiMenu()
-{
-    styled(buildMidiMenu()).showMenuAsync(juce::PopupMenu::Options().withTargetComponent(midiButton_),
-                                          [safe = juce::Component::SafePointer<DubgefahrenEditor>(this)](int result) {
-                                              if (safe != nullptr)
-                                                  safe->applyMidiMenuResult(result);
-                                          });
-}
-
-void DubgefahrenEditor::applyMidiMenuResult(int result)
-{
-    auto& mapping = PadMapping::instance();
-    if (result == kMidiOriginTop)
+public:
+    SettingsWindow(const juce::String& title, std::function<void()> onClose)
+        : DialogWindow(title, ui::colours::panel, false, true), onClose_(std::move(onClose))
     {
-        mapping.setOrigin(mapping.origin() == PadOrigin::TopLeft ? PadOrigin::BottomLeft : PadOrigin::TopLeft);
-        if (pads_.setOrigin(mapping.origin()))
-            repaint();
     }
+    void closeButtonPressed() override { onClose_(); }
+    bool keyPressed(const juce::KeyPress& key) override
+    {
+        if (key == juce::KeyPress::escapeKey)
+        {
+            onClose_();
+            return true;
+        }
+        return DialogWindow::keyPressed(key);
+    }
+
+private:
+    std::function<void()> onClose_;
+};
+} // namespace
+
+void DubgefahrenEditor::showSettings()
+{
+    if (settingsWindow_ != nullptr)
+        return;
+    const auto safe = juce::Component::SafePointer<DubgefahrenEditor>(this);
+    ui::SettingsDialog::Host host;
+    host.promptText = [safe](const juce::String& title, const juce::String& initial, std::function<void(const juce::String&)> onOk) {
+        if (safe == nullptr)
+            return;
+        auto* window = safe->createDialog(title, {}, juce::MessageBoxIconType::NoIcon);
+        window->addTextEditor("value", initial);
+        window->addButton("OK", 1, juce::KeyPress(juce::KeyPress::returnKey));
+        window->addButton("Cancel", 0, juce::KeyPress(juce::KeyPress::escapeKey));
+        window->enterModalState(true,
+                                juce::ModalCallbackFunction::create([window, onOk = std::move(onOk)](int result) {
+                                    if (result == 1)
+                                        onOk(window->getTextEditorContents("value").trim());
+                                }),
+                                true);
+    };
+    host.confirm = [safe](const juce::String& title, const juce::String& text, std::function<void()> onYes) {
+        if (safe == nullptr)
+            return;
+        auto* window = safe->createDialog(title, text, juce::MessageBoxIconType::QuestionIcon);
+        window->addButton("OK", 1, juce::KeyPress(juce::KeyPress::returnKey));
+        window->addButton("Cancel", 0, juce::KeyPress(juce::KeyPress::escapeKey));
+        window->enterModalState(true,
+                                juce::ModalCallbackFunction::create([onYes = std::move(onYes)](int result) {
+                                    if (result == 1)
+                                        onYes();
+                                }),
+                                true);
+    };
+    // Das Schließen kommt meist aus einem Klick im Dialog selbst und darf ihn nicht währenddessen löschen.
+    host.close = [safe] {
+        juce::MessageManager::callAsync([safe] {
+            if (safe != nullptr)
+                safe->closeSettings();
+        });
+    };
+
+    auto window = std::make_unique<SettingsWindow>("Settings", host.close);
+    window->setLookAndFeel(&lnf_);
+    auto dialog = std::make_unique<ui::SettingsDialog>(proc_, std::move(host));
+    settingsDialog_ = dialog.get();
+    window->setContentOwned(dialog.release(), true);
+    window->centreAroundComponent(this, window->getWidth(), window->getHeight());
+    window->setVisible(true);
+    window->enterModalState(true, nullptr, false);
+    settingsWindow_ = std::move(window);
+}
+
+void DubgefahrenEditor::closeSettings()
+{
+    if (settingsWindow_ == nullptr)
+        return;
+    settingsDialog_ = nullptr;
+    settingsWindow_->exitModalState(0);
+    settingsWindow_.reset();
 }
 
 juce::PopupMenu DubgefahrenEditor::buildSourceMenu(const juce::StringArray& sampleFiles) const

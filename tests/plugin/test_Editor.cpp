@@ -412,40 +412,6 @@ TEST_CASE("the pad grid lays out pad 1 at the bottom left or the top left", "[ed
     CHECK(at(0).y > at(12).y);
 }
 
-namespace {
-// (Text, Häkchen) der Einträge eines Menüs.
-std::vector<std::pair<juce::String, bool>> tickedItems(const juce::PopupMenu& m)
-{
-    std::vector<std::pair<juce::String, bool>> out;
-    for (juce::PopupMenu::MenuItemIterator it(m); it.next();)
-        if (!it.getItem().isSeparator)
-            out.emplace_back(it.getItem().text, it.getItem().isTicked);
-    return out;
-}
-} // namespace
-
-TEST_CASE("the MIDI menu shows the origin and changes it", "[editor][padmapping]")
-{
-    juce::ScopedJuceInitialiser_GUI gui;
-    dgtest::ScopedPadMapping restore;
-    auto& mapping = PadMapping::instance();
-    mapping.setOrigin(PadOrigin::BottomLeft);
-    DubgefahrenProcessor p;
-    std::unique_ptr<juce::AudioProcessorEditor> editor(p.createEditor());
-    auto* e = static_cast<DubgefahrenEditor*>(editor.get());
-
-    using Items = std::vector<std::pair<juce::String, bool>>;
-    CHECK(tickedItems(e->buildMidiMenu()) == Items { { "Pad 1 at top left", false } });
-
-    e->applyMidiMenuResult(DubgefahrenEditor::kMidiOriginTop);
-    CHECK(mapping.origin() == PadOrigin::TopLeft);
-    CHECK(tickedItems(e->buildMidiMenu())[0].second); // Häkchen gesetzt
-    CHECK(e->padPosition(0).y < e->padPosition(4).y); // Pad 1 in der obersten Reihe
-
-    e->applyMidiMenuResult(DubgefahrenEditor::kMidiOriginTop);
-    CHECK(mapping.origin() == PadOrigin::BottomLeft);
-    CHECK(e->padPosition(0).y > e->padPosition(4).y);
-}
 
 TEST_CASE("a second editor follows a change made elsewhere", "[editor][padmapping]")
 {
@@ -455,11 +421,10 @@ TEST_CASE("a second editor follows a change made elsewhere", "[editor][padmappin
     DubgefahrenProcessor a, b;
     std::unique_ptr<juce::AudioProcessorEditor> editorA(a.createEditor());
     std::unique_ptr<juce::AudioProcessorEditor> editorB(b.createEditor());
-    auto* ea = static_cast<DubgefahrenEditor*>(editorA.get());
     auto* eb = static_cast<DubgefahrenEditor*>(editorB.get());
     CHECK(eb->padPosition(0).y > eb->padPosition(4).y);
 
-    ea->applyMidiMenuResult(DubgefahrenEditor::kMidiOriginTop);
+    PadMapping::instance().setOrigin(PadOrigin::TopLeft);
     CHECK(eb->padPosition(0).y > eb->padPosition(4).y); // noch nicht abgefragt
     eb->pollProcessorState();
     CHECK(eb->padPosition(0).y < eb->padPosition(4).y);

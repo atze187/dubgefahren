@@ -14,6 +14,7 @@
 #include "plugin/ui/LivePanel.h"
 #include "plugin/ui/PadGrid.h"
 #include "plugin/ui/PerformancePanel.h"
+#include "plugin/ui/SettingsDialog.h"
 #include "plugin/ui/SlotEditor.h"
 #include "plugin/ui/Surfaces.h"
 
@@ -75,10 +76,11 @@ public:
     // Für Tests öffentlich: öffnet das Kontextmenü eines Pads.
     void showPadMenu(int slot);
 
-    // MIDI-Menü: Ursprung des Pad-Rasters. Öffentlich für Tests.
-    enum MidiMenuId { kMidiOriginTop = 2 };
-    juce::PopupMenu buildMidiMenu() const;
-    void applyMidiMenuResult(int result);
+    // Settings: modaler Dialog mit den Reitern MIDI und Kits. Öffentlich für Tests.
+    void showSettings();
+    void closeSettings();
+    ui::SettingsDialog* settingsDialog() const { return settingsDialog_; }
+    bool settingsButtonVisible() const { return settingsButton_.isVisible(); }
     // Position eines Pads im Raster (Koordinaten des Rasters).
     juce::Point<int> padPosition(int slot) { return pads_.pad(slot).getPosition(); }
 
@@ -100,7 +102,6 @@ private:
     void refreshAll();
     void setPanic(bool down);
     void showKitMenu();
-    void showMidiMenu();
     void showSourceMenu(int slot);
     void showSampleMenu(int slot);
     void chooseSource(int slot, int result, const juce::StringArray& files);
@@ -125,7 +126,7 @@ private:
     juce::Label title_;
     ui::CpuMeter cpuMeter_;
     juce::TextButton kitButton_ { juce::String::fromUTF8("Kit ▾") };
-    juce::TextButton midiButton_ { juce::String::fromUTF8("MIDI ▾") };
+    juce::TextButton settingsButton_ { "Settings" };
     juce::TextButton importButton_ { "Import" };
     juce::TextButton exportButton_ { "Export" };
     juce::TextButton panicButton_ { "PANIC" };
@@ -139,6 +140,9 @@ private:
     ui::PerformancePanel perf_;
     std::array<ui::PanelShadow, 4> panelShadows_;
     std::unique_ptr<juce::FileChooser> chooser_;
+    // Das modale Settings-Fenster benutzt lnf_ und wird im Destruktor vor ihm geschlossen.
+    std::unique_ptr<juce::DialogWindow> settingsWindow_;
+    ui::SettingsDialog* settingsDialog_ = nullptr;
     struct ClipboardSlot
     {
         SlotParams params;

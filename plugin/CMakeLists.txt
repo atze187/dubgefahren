@@ -42,6 +42,8 @@ target_sources(dg_plugin_shared INTERFACE
     ${CMAKE_CURRENT_SOURCE_DIR}/ui/PadGrid.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/ui/PadColours.h
     ${CMAKE_CURRENT_SOURCE_DIR}/ui/PadColours.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/ui/SettingsDialog.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/ui/SettingsDialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/ui/SlotEditor.h
     ${CMAKE_CURRENT_SOURCE_DIR}/ui/SlotEditor.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/ui/WaveformView.h
