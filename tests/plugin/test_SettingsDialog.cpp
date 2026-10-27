@@ -237,3 +237,149 @@ TEST_CASE("Default cannot be renamed or deleted", "[settings][profiles]")
     CHECK_FALSE(d.renameEnabled());
     CHECK_FALSE(d.deleteEnabled());
 }
+
+namespace {
+void prepareProc(DubgefahrenProcessor& p)
+{
+    p.setPlayConfigDetails(0, 2, 48000.0, 512);
+    p.prepareToPlay(48000.0, 512);
+}
+
+void playNote(DubgefahrenProcessor& p, int note, bool on, int blocks = 1)
+{
+    juce::AudioBuffer<float> buf(2, 512);
+    for (int i = 0; i < blocks; ++i)
+    {
+        buf.clear();
+        juce::MidiBuffer midi;
+        if (i == 0)
+            midi.addEvent(on ? juce::MidiMessage::noteOn(1, note, static_cast<juce::uint8>(100)) : juce::MidiMessage::noteOff(1, note), 0);
+        p.processBlock(buf, midi);
+    }
+}
+} // namespace
+
+TEST_CASE("a learning pad shows press and takes the next note", "[settings][learn]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    dgtest::ScopedPadMapping restore;
+    DubgefahrenProcessor proc;
+    prepareProc(proc);
+    ui::SettingsDialog d(proc, {});
+
+    d.startLearning(3);
+    CHECK(d.learningSlot() == 3);
+    CHECK(proc.midiLearnArmed());
+    CHECK(d.padCellText(3).contains("press"));
+
+    playNote(proc, 55, true);
+    d.pollLearning();
+    CHECK(PadMapping::instance().noteMap().noteForSlot(3) == 55);
+    CHECK(d.learningSlot() == -1); // kein Weiterspringen zum nächsten Pad
+    CHECK(d.padCellText(3).contains("55"));
+    CHECK_FALSE(proc.midiLearnArmed());
+}
+
+TEST_CASE("a note that another pad owns moves to the learning pad", "[settings][learn]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    dgtest::ScopedPadMapping restore;
+    DubgefahrenProcessor proc;
+    prepareProc(proc);
+    ui::SettingsDialog d(proc, {});
+    const int note = PadMapping::instance().noteMap().noteForSlot(0);
+    REQUIRE(note >= 0);
+
+    d.startLearning(5);
+    playNote(proc, note, true);
+    d.pollLearning();
+    CHECK(PadMapping::instance().noteMap().noteForSlot(5) == note);
+    CHECK(d.padCellText(0).endsWith("-"));
+}
+
+TEST_CASE("learning stops on a second click, another pad, Esc, a tab switch, closing and destruction", "[settings][learn]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    DubgefahrenProcessor proc;
+    {
+        ui::SettingsDialog d(proc, {});
+        d.startLearning(2);
+        d.startLearning(2); // zweiter Klick auf das lernende Pad
+        CHECK(d.learningSlot() == -1);
+        CHECK_FALSE(proc.midiLearnArmed());
+
+        d.startLearning(2);
+        d.startLearning(7); // anderes Pad: das erste wird abgebrochen
+        CHECK(d.learningSlot() == 7);
+        CHECK(proc.midiLearnArmed());
+
+        CHECK(d.keyPressed(juce::KeyPress(juce::KeyPress::escapeKey)));
+        CHECK(d.learningSlot() == -1);
+        CHECK_FALSE(proc.midiLearnArmed());
+        CHECK_FALSE(d.keyPressed(juce::KeyPress(juce::KeyPress::escapeKey))); // nichts zu beenden: der Dialog darf schließen
+
+        d.startLearning(1);
+        d.showTab(ui::SettingsDialog::Tab::Kits);
+        CHECK(d.learningSlot() == -1);
+        CHECK_FALSE(proc.midiLearnArmed());
+
+        d.showTab(ui::SettingsDialog::Tab::Midi);
+        d.startLearning(1);
+    } // Zerstörung mitten im Lernen
+    CHECK_FALSE(proc.midiLearnArmed());
+
+    EditorFixture f;
+    f.e().showSettings();
+    f.e().settingsDialog()->startLearning(4);
+    f.e().closeSettings();
+    CHECK_FALSE(f.proc.midiLearnArmed());
+}
+
+TEST_CASE("the grid follows the origin", "[settings][learn][padmapping]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    dgtest::ScopedPadMapping restore;
+    DubgefahrenProcessor proc;
+    ui::SettingsDialog d(proc, {});
+
+    d.setOriginTopLeft(false);
+    CHECK(d.padCellPosition(0).y > d.padCellPosition(4).y);
+    CHECK(d.padCellPosition(0).x == d.padCellPosition(4).x);
+    CHECK(d.padCellPosition(1).x > d.padCellPosition(0).x);
+    d.setOriginTopLeft(true);
+    CHECK(d.padCellPosition(0).y < d.padCellPosition(4).y);
+}
+
+TEST_CASE("the dialog shows changes made elsewhere", "[settings][learn]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    dgtest::ScopedPadMapping restore;
+    DubgefahrenProcessor proc;
+    ui::SettingsDialog d(proc, {});
+
+    PadMapping::instance().setPadNote(7, 70); // ein anderer Editor
+    d.refreshFromMapping();
+    CHECK(d.padCellText(7).contains("70"));
+
+    PadMapping::instance().createProfile();
+    d.refreshFromMapping();
+    CHECK(d.selectedProfile() == PadMapping::instance().activeProfile());
+}
+
+TEST_CASE("the note off of a learned note does not leave a voice stuck", "[settings][learn]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    dgtest::ScopedPadMapping restore;
+    DubgefahrenProcessor proc;
+    prepareProc(proc);
+    ui::SettingsDialog d(proc, {});
+
+    d.startLearning(3);
+    playNote(proc, 55, true);
+    d.pollLearning();
+    playNote(proc, 55, false);
+    CHECK(proc.activeMask() == 0u);
+
+    playNote(proc, 55, true); // jetzt löst die Note Pad 4 aus
+    CHECK(proc.activeMask() == (1u << 3));
+}

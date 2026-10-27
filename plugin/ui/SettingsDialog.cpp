@@ -59,16 +59,38 @@ SettingsDialog::SettingsDialog(DubgefahrenProcessor& proc, Host host) : proc_(pr
         addChildComponent(*c);
 
     refreshKits();
+    setWantsKeyboardFocus(true);
     showTab(Tab::Midi);
+    refreshFromMapping();
+    startTimerHz(30);
 }
 
-SettingsDialog::~SettingsDialog() = default;
+SettingsDialog::~SettingsDialog() { stopLearning(); }
 
 void SettingsDialog::paint(juce::Graphics& g)
 {
     g.fillAll(colours::panel);
     g.setColour(colours::outline);
     g.drawHorizontalLine(44, 0.0f, static_cast<float>(getWidth()));
+    if (tab_ == Tab::Midi)
+        for (int s = 0; s < 16; ++s)
+        {
+            const juce::Rectangle<float> cell(padCellPosition(s).toFloat(), juce::Point<float>(padCellPosition(s).toFloat()) + juce::Point<float>(kCellWidth, kCellHeight));
+            const bool learningCell = s == learning_;
+            const bool assigned = PadMapping::instance().noteMap().noteForSlot(s) >= 0;
+            g.setColour(assigned ? colours::padTop : colours::padEmpty);
+            g.fillRoundedRectangle(cell, 6.0f);
+            g.setColour(learningCell ? colours::accent : assigned ? colours::padBase.withAlpha(0.5f) : colours::outline);
+            g.drawRoundedRectangle(cell.reduced(0.5f), 6.0f, learningCell ? 2.0f : 1.0f);
+
+            const auto lines = juce::StringArray::fromLines(padCellText(s));
+            g.setColour(colours::textDim);
+            g.setFont(font(11.0f));
+            g.drawText(lines[0], cell.withTrimmedBottom(cell.getHeight() / 2.0f).reduced(8.0f, 0.0f), juce::Justification::bottomLeft);
+            g.setColour(learningCell ? colours::accent : assigned ? colours::padBase : colours::textDim);
+            g.setFont(font(learningCell ? 14.0f : 18.0f, true));
+            g.drawText(lines[1], cell.withTrimmedTop(cell.getHeight() / 2.0f).reduced(8.0f, 0.0f), juce::Justification::centred);
+        }
 }
 
 void SettingsDialog::resized()
@@ -82,6 +104,8 @@ void SettingsDialog::resized()
 
     closeButton_.setBounds(r.removeFromBottom(30).removeFromRight(90));
     r.removeFromBottom(8);
+
+    auto kits = r; // der Kits-Reiter nutzt dieselbe Fläche wie der MIDI-Reiter
 
     // MIDI
     auto profileRow = r.removeFromTop(30);
@@ -99,9 +123,10 @@ void SettingsDialog::resized()
     hint_.setBounds(hintRow);
     r.removeFromTop(8);
     originToggle_.setBounds(r.removeFromBottom(26));
+    r.removeFromBottom(6);
+    gridOrigin_ = { r.getX() + (r.getWidth() - kGridWidth) / 2, r.getY() + (r.getHeight() - kGridHeight) / 2 };
 
     // Kits
-    auto kits = r;
     kitCaption_.setBounds(kits.removeFromTop(20));
     kitPath_.setBounds(kits.removeFromTop(30));
     kits.removeFromTop(6);
@@ -118,6 +143,7 @@ void SettingsDialog::resized()
 void SettingsDialog::showTab(Tab tab)
 {
     tab_ = tab;
+    stopLearning();
     const bool midi = tab == Tab::Midi;
     midiTab_.setToggleState(midi, juce::dontSendNotification);
     kitsTab_.setToggleState(!midi, juce::dontSendNotification);
@@ -241,6 +267,104 @@ void SettingsDialog::openProfileFolderClicked()
     const auto folder = PadMapping::instance().profilesFolder();
     folder.createDirectory();
     folder.startAsProcess();
+}
+
+juce::String SettingsDialog::padCellText(int slot) const
+{
+    const juce::String number(slot + 1);
+    if (slot == learning_)
+        return number + "\n" + juce::String::fromUTF8("press…");
+    const int note = PadMapping::instance().noteMap().noteForSlot(slot);
+    return number + "\n" + (note >= 0 ? juce::String(note) : juce::String("-"));
+}
+
+juce::Point<int> SettingsDialog::padCellPosition(int slot) const
+{
+    const int column = slot % 4;
+    const int row = slot / 4;
+    const int visualRow = originTopLeft() ? row : 3 - row; // Pad 1 unten (Standard) oder oben links
+    return { gridOrigin_.x + column * (kCellWidth + kCellGap), gridOrigin_.y + visualRow * (kCellHeight + kCellGap) };
+}
+
+int SettingsDialog::cellAt(juce::Point<int> p) const
+{
+    for (int s = 0; s < 16; ++s)
+        if (juce::Rectangle<int>(padCellPosition(s), padCellPosition(s) + juce::Point<int>(kCellWidth, kCellHeight)).contains(p))
+            return s;
+    return -1;
+}
+
+void SettingsDialog::startLearning(int slot)
+{
+    if (slot < 0 || slot >= 16)
+        return;
+    if (slot == learning_)
+    {
+        stopLearning();
+        return;
+    }
+    proc_.armMidiLearn(); // setzt eine noch nicht abgeholte Note zurück
+    learning_ = slot;
+    grabKeyboardFocus();
+    repaint();
+}
+
+void SettingsDialog::stopLearning()
+{
+    proc_.disarmMidiLearn();
+    if (learning_ >= 0)
+    {
+        learning_ = -1;
+        repaint();
+    }
+}
+
+void SettingsDialog::pollLearning()
+{
+    if (learning_ < 0)
+        return;
+    if (const auto note = proc_.takeLearnedNote())
+    {
+        PadMapping::instance().setPadNote(learning_, *note);
+        learning_ = -1;
+        refreshFromMapping();
+        repaint();
+    }
+}
+
+void SettingsDialog::refreshFromMapping()
+{
+    const int revision = PadMapping::instance().revision();
+    if (revision == lastRevision_)
+        return;
+    lastRevision_ = revision;
+    refreshProfiles();
+    originToggle_.setToggleState(originTopLeft(), juce::dontSendNotification);
+    repaint();
+}
+
+void SettingsDialog::timerCallback()
+{
+    pollLearning();
+    refreshFromMapping();
+}
+
+bool SettingsDialog::keyPressed(const juce::KeyPress& key)
+{
+    if (key == juce::KeyPress::escapeKey && learning_ >= 0)
+    {
+        stopLearning();
+        return true;
+    }
+    return false;
+}
+
+void SettingsDialog::mouseDown(const juce::MouseEvent& e)
+{
+    if (tab_ != Tab::Midi)
+        return;
+    if (const int slot = cellAt(e.getPosition()); slot >= 0)
+        startLearning(slot);
 }
 
 bool SettingsDialog::originTopLeft() const
