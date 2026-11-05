@@ -144,6 +144,7 @@ void SettingsDialog::showTab(Tab tab)
 {
     tab_ = tab;
     stopLearning();
+    repaint(); // das Pad-Raster malt der Dialog selbst und muss beim Reiterwechsel neu gezeichnet werden
     const bool midi = tab == Tab::Midi;
     midiTab_.setToggleState(midi, juce::dontSendNotification);
     kitsTab_.setToggleState(!midi, juce::dontSendNotification);
