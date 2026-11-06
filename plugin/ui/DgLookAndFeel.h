@@ -34,6 +34,9 @@ inline const juce::Colour padEmpty { 0xff101214 };
 inline const juce::Colour padTextLit { 0xff06240f }; // Text auf leuchtendem Pad
 } // namespace colours
 
+// LCD-Anzeige für ein Label: Mono 11, 6 px Rand links und rechts, Hintergrund lcd, Kante edge.
+void styleLcd(juce::Label& label, juce::Colour text, juce::Justification justification = juce::Justification::centred);
+
 class DgLookAndFeel final : public juce::LookAndFeel_V4
 {
 public:

@@ -178,4 +178,14 @@ juce::Font DgLookAndFeel::getAlertWindowTitleFont() { return juce::Font(font(17.
 juce::Font DgLookAndFeel::getAlertWindowMessageFont() { return juce::Font(font(15.0f)); }
 juce::Font DgLookAndFeel::getAlertWindowFont() { return juce::Font(font(14.0f)); }
 
+void styleLcd(juce::Label& label, juce::Colour text, juce::Justification justification)
+{
+    label.setFont(font(11.0f));
+    label.setJustificationType(justification);
+    label.setBorderSize(juce::BorderSize<int>(0, 6, 0, 6));
+    label.setColour(juce::Label::textColourId, text);
+    label.setColour(juce::Label::backgroundColourId, colours::lcd);
+    label.setColour(juce::Label::outlineColourId, colours::edge);
+}
+
 } // namespace dg::ui

@@ -43,3 +43,21 @@ TEST_CASE("cpu meter treats invalid loads as zero", "[editor]")
     CHECK(m.getText() == "CPU 0 %");
     CHECK(textColour(m) == colours::textDim);
 }
+
+TEST_CASE("cpu meter looks like a flat LCD readout", "[editor][look]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    CpuMeter m;
+    CHECK(m.findColour(juce::Label::backgroundColourId) == colours::lcd);
+    CHECK(m.findColour(juce::Label::outlineColourId) == colours::edge);
+    CHECK(m.getFont().getHeight() == 11.0f);
+    CHECK(m.getBorderSize().getLeft() == 6);
+    CHECK(m.getBorderSize().getRight() == 6);
+    CHECK(m.getJustificationType() == juce::Justification::centred);
+
+    juce::Label l;
+    styleLcd(l, colours::amber, juce::Justification::centredLeft);
+    CHECK(l.findColour(juce::Label::textColourId) == colours::amber);
+    CHECK(l.findColour(juce::Label::backgroundColourId) == colours::lcd);
+    CHECK(l.getJustificationType() == juce::Justification::centredLeft);
+}

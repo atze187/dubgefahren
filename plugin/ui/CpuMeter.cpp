@@ -13,8 +13,7 @@ constexpr int kRefreshHz = 4;
 
 CpuMeter::CpuMeter()
 {
-    setFont(ui::font(13.0f));
-    setJustificationType(juce::Justification::centredLeft);
+    styleLcd(*this, colours::textDim);
     setLoad(0.0);
 }
 
