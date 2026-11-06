@@ -33,6 +33,8 @@ public:
     bool stretchFactorEnabled() const { return stretchPct_.isEnabled() && grain_.isEnabled(); }
     bool xfadeEnabled() const { return xfade_.isEnabled(); }
     bool showsStretchHint() const { return stretchHint_.isVisible(); }
+    // Bounds aller sichtbaren Zellen (Regler, Wellenform, Hinweis) in Koordinaten des Slot-Editors.
+    std::vector<juce::Rectangle<int>> controlBounds() const;
 
     void paint(juce::Graphics& g) override;
     void resized() override;

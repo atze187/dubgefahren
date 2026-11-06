@@ -563,6 +563,38 @@ TEST_CASE("in every layout all visible controls lie inside their panel without o
     }
 }
 
+TEST_CASE("slot editor cells fit the panel in synth and sample mode", "[editor]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    SampleSlotFixture f;
+    f.p.setUiScale(1.0f);
+    std::unique_ptr<juce::AudioProcessorEditor> editor(f.p.createEditor());
+    auto* e = static_cast<DubgefahrenEditor*>(editor.get());
+    REQUIRE(e != nullptr);
+    auto& se = e->slotEditor();
+    for (const int slot : { 0, 2 }) // 0 = Synth, 2 = Sample
+    {
+        e->selectSlot(slot);
+        if (slot == 2) // Hinweis "needs Loop" sichtbar machen
+        {
+            f.set(SlotField::Loop, 0.0f);
+            f.set(SlotField::StretchMode, 2.0f);
+            CHECK(se.showsStretchHint());
+        }
+        const auto cells = se.controlBounds();
+        CHECK(cells.size() >= 14);
+        const auto panel = se.getLocalBounds();
+        for (std::size_t i = 0; i < cells.size(); ++i)
+        {
+            CHECK(panel.contains(cells[i]));
+            CHECK(cells[i].getWidth() >= 120);
+            CHECK(cells[i].getHeight() >= 30);
+            for (std::size_t j = i + 1; j < cells.size(); ++j)
+                CHECK_FALSE(cells[i].intersects(cells[j]));
+        }
+    }
+}
+
 TEST_CASE("the layout follows the processor state restored by the host", "[editor]")
 {
     juce::ScopedJuceInitialiser_GUI gui;
