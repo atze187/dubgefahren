@@ -1,10 +1,3 @@
-juce_add_binary_data(dg_fonts
-    HEADER_NAME DgFonts.h
-    NAMESPACE dg_fonts
-    SOURCES
-        assets/fonts/Inter-Regular.ttf
-        assets/fonts/Inter-SemiBold.ttf)
-
 add_library(dg_plugin_shared INTERFACE)
 target_sources(dg_plugin_shared INTERFACE
     ${CMAKE_CURRENT_SOURCE_DIR}/ParameterLayout.h
@@ -61,8 +54,6 @@ target_compile_definitions(dg_plugin_shared INTERFACE
     JUCE_VST3_CAN_REPLACE_VST2=0)
 target_link_libraries(dg_plugin_shared INTERFACE
     dg_engine
-    dg_fonts
-    melatonin_blur
     juce::juce_audio_utils
     juce::juce_audio_formats
     juce::juce_audio_processors

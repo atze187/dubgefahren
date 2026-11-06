@@ -161,7 +161,7 @@ void DgLookAndFeel::drawLabel(juce::Graphics& g, juce::Label& label)
     g.drawRect(label.getLocalBounds());
 }
 
-juce::Font DgLookAndFeel::getLabelFont(juce::Label& label) { return withEmbeddedTypeface(label.getFont()); }
+juce::Font DgLookAndFeel::getLabelFont(juce::Label& label) { return withUiTypeface(label.getFont()); }
 
 juce::Font DgLookAndFeel::getTextButtonFont(juce::TextButton&, int buttonHeight)
 {

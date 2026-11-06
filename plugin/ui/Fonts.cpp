@@ -9,7 +9,7 @@ juce::FontOptions font(float height, bool bold)
                              bold ? juce::Font::bold : juce::Font::plain);
 }
 
-juce::Font withEmbeddedTypeface(const juce::Font& f)
+juce::Font withUiTypeface(const juce::Font& f)
 {
     const bool bold = f.isBold() || f.getTypefaceStyle().containsIgnoreCase("bold");
     return juce::Font(font(f.getHeight(), bold).withKerningFactor(f.getExtraKerningFactor()));
