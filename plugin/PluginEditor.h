@@ -138,7 +138,6 @@ private:
     ui::LivePanel live_;
     ui::AdvancedPanel advanced_;
     ui::PerformancePanel perf_;
-    std::array<ui::PanelShadow, 4> panelShadows_;
     std::unique_ptr<juce::FileChooser> chooser_;
     // Das modale Settings-Fenster benutzt lnf_ und wird im Destruktor vor ihm geschlossen.
     std::unique_ptr<juce::DialogWindow> settingsWindow_;

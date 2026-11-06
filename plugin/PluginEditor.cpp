@@ -75,15 +75,9 @@ DubgefahrenEditor::~DubgefahrenEditor()
 void DubgefahrenEditor::paint(juce::Graphics& g)
 {
     ui::drawWindowBackground(g, getLocalBounds());
-    // Schatten ragen über ihre Komponenten hinaus, deshalb zeichnet sie der Editor darunter,
+    // Pad-Glows ragen über ihre Komponenten hinaus, deshalb zeichnet sie der Editor darunter,
     // im Koordinatensystem der skalierten content_-Komponente.
     g.addTransform(content_.getTransform());
-    if (slotEditor_.isVisible())
-        panelShadows_[0].render(g, slotEditor_.getBounds().toFloat());
-    panelShadows_[1].render(g, live_.getBounds().toFloat());
-    if (advanced_.isVisible())
-        panelShadows_[2].render(g, advanced_.getBounds().toFloat());
-    panelShadows_[3].render(g, perf_.getBounds().toFloat());
     g.setOrigin(pads_.getPosition());
     pads_.paintGlows(g);
 }

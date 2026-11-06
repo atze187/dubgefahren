@@ -21,45 +21,40 @@
 using namespace dg;
 
 namespace {
-bool isInter(const juce::Font& f) { return f.getTypefacePtr() != nullptr && f.getTypefacePtr()->getName().startsWith("Inter"); }
+bool isMono(const juce::Font& f)
+{
+    const juce::Font reference(juce::FontOptions(juce::Font::getDefaultMonospacedFontName(), 12.0f, juce::Font::plain));
+    return f.getTypefacePtr() != nullptr && reference.getTypefacePtr() != nullptr
+        && f.getTypefacePtr()->getName() == reference.getTypefacePtr()->getName();
+}
 } // namespace
 
-TEST_CASE("the embedded font is used for regular and bold text", "[look]")
+TEST_CASE("fonts are monospace", "[look]")
 {
     juce::ScopedJuceInitialiser_GUI gui;
     ui::DgLookAndFeel lnf;
-    const juce::Font regular(ui::font(12.0f));
-    const juce::Font bold(ui::font(12.0f, true));
-    CHECK(isInter(regular));
-    CHECK(isInter(bold));
-    CHECK(regular.getTypefacePtr() != bold.getTypefacePtr());
-    CHECK(regular.getHeight() == 12.0f);
-}
-
-TEST_CASE("the look and feel hands out the embedded font for standard widgets", "[look]")
-{
-    juce::ScopedJuceInitialiser_GUI gui;
-    ui::DgLookAndFeel lnf;
+    CHECK(isMono(juce::Font(ui::font(12.0f))));
+    CHECK(isMono(juce::Font(ui::font(12.0f, true))));
+    CHECK(juce::Font(ui::font(12.0f)).getHeight() == 12.0f);
 
     juce::Label label;
     label.setFont(juce::Font(juce::FontOptions(14.0f, juce::Font::bold)));
     const auto labelFont = lnf.getLabelFont(label);
-    CHECK(isInter(labelFont));
+    CHECK(isMono(labelFont));
     CHECK(labelFont.getHeight() == 14.0f);
-    CHECK(labelFont.getTypefacePtr() == juce::Font(ui::font(14.0f, true)).getTypefacePtr());
 
     juce::TextButton button("x");
-    CHECK(isInter(lnf.getTextButtonFont(button, 24)));
+    CHECK(isMono(lnf.getTextButtonFont(button, 24)));
     juce::ComboBox box;
     box.setSize(100, 24);
-    CHECK(isInter(lnf.getComboBoxFont(box)));
-    CHECK(isInter(lnf.getPopupMenuFont()));
-    CHECK(isInter(lnf.getAlertWindowTitleFont()));
-    CHECK(isInter(lnf.getAlertWindowMessageFont()));
-    CHECK(isInter(lnf.getAlertWindowFont()));
+    CHECK(isMono(lnf.getComboBoxFont(box)));
+    CHECK(isMono(lnf.getPopupMenuFont()));
+    CHECK(isMono(lnf.getAlertWindowTitleFont()));
+    CHECK(isMono(lnf.getAlertWindowMessageFont()));
+    CHECK(isMono(lnf.getAlertWindowFont()));
 }
 
-TEST_CASE("the embedded font keeps a label's letter spacing", "[look]")
+TEST_CASE("the monospace font keeps a label's letter spacing", "[look]")
 {
     juce::ScopedJuceInitialiser_GUI gui;
     ui::DgLookAndFeel lnf;
@@ -68,22 +63,7 @@ TEST_CASE("the embedded font keeps a label's letter spacing", "[look]")
     CHECK(lnf.getLabelFont(label).getExtraKerningFactor() == 0.12f);
 }
 
-TEST_CASE("the embedded font survives closing another editor", "[look]")
-{
-    juce::ScopedJuceInitialiser_GUI gui;
-    DubgefahrenProcessor a, b;
-    std::unique_ptr<juce::AudioProcessorEditor> editorA(a.createEditor());
-    std::unique_ptr<juce::AudioProcessorEditor> editorB(b.createEditor());
-    const auto before = juce::Font(ui::font(12.0f)).getTypefacePtr();
-    editorA.reset();
-    const auto after = juce::Font(ui::font(12.0f)).getTypefacePtr();
-    CHECK(after == before);
-    CHECK(isInter(juce::Font(ui::font(12.0f))));
-    editorB.reset();
-    CHECK(isInter(juce::Font(ui::font(12.0f)))); // ohne Editor wird neu geladen
-}
-
-TEST_CASE("a panel body is a vertical gradient with rounded corners", "[look]")
+TEST_CASE("a panel body is flat with a 1 px edge", "[look]")
 {
     juce::ScopedJuceInitialiser_GUI gui;
     juce::Image img(juce::Image::ARGB, 100, 60, true);
@@ -91,22 +71,30 @@ TEST_CASE("a panel body is a vertical gradient with rounded corners", "[look]")
         juce::Graphics g(img);
         ui::drawPanelBody(g, img.getBounds().toFloat());
     }
-    CHECK(img.getPixelAt(0, 0).getAlpha() == 0);         // Ecke bleibt frei
-    CHECK(img.getPixelAt(50, 30).getAlpha() == 255);
-    CHECK(img.getPixelAt(50, 8).getBrightness() > img.getPixelAt(50, 52).getBrightness());
+    CHECK(img.getPixelAt(50, 8) == img.getPixelAt(50, 52));
+    CHECK(img.getPixelAt(50, 30) == ui::colours::strip);
+    CHECK(img.getPixelAt(0, 30) == ui::colours::edge);
+    CHECK(img.getPixelAt(50, 0) == ui::colours::edge);
 }
 
-TEST_CASE("a panel shadow reaches beyond the panel", "[look]")
+TEST_CASE("the window background is one flat colour", "[look]")
 {
     juce::ScopedJuceInitialiser_GUI gui;
-    juce::Image img(juce::Image::ARGB, 140, 100, true);
-    ui::PanelShadow shadow;
+    juce::Image img(juce::Image::ARGB, 40, 60, true);
     {
         juce::Graphics g(img);
-        shadow.render(g, { 20.0f, 20.0f, 100.0f, 60.0f });
+        ui::drawWindowBackground(g, img.getBounds());
     }
-    CHECK(img.getPixelAt(70, 84).getAlpha() > 0);  // unter dem Panel
-    CHECK(img.getPixelAt(2, 2).getAlpha() == 0);   // weit weg: nichts
+    CHECK(img.getPixelAt(5, 2) == ui::colours::window);
+    CHECK(img.getPixelAt(5, 57) == ui::colours::window);
+}
+
+TEST_CASE("the palette has the flat panel values", "[look]")
+{
+    CHECK(ui::colours::window == juce::Colour(0xff14161a));
+    CHECK(ui::colours::lcd == juce::Colour(0xff0b0d0f));
+    CHECK(ui::colours::amber == juce::Colour(0xffffb347));
+    CHECK(ui::colours::accent == juce::Colour(0xff5aa9e6));
 }
 
 TEST_CASE("the editor paints at every window scale", "[look]")
@@ -281,7 +269,7 @@ TEST_CASE("sixteen glowing pads paint within one timer tick", "[look][perf]")
     {
         grid.setPadStates(i % 8 < 4 ? 0x0f0fu : 0x00ffu, 0x00f0u, i % 16); // Trigger, Halten, Ausklingen im Wechsel
         juce::Graphics g(img);
-        g.fillAll(ui::colours::background); // wie der Editor: jeder Frame beginnt mit dem Hintergrund
+        g.fillAll(ui::colours::window); // wie der Editor: jeder Frame beginnt mit dem Hintergrund
         g.addTransform(juce::AffineTransform::scale(2.0f));
         grid.paintGlows(g);
         grid.paintEntireComponent(g, false);
@@ -402,7 +390,7 @@ TEST_CASE("a toggle shows a lamp instead of a tick box", "[look]")
     toggle.setLookAndFeel(nullptr);
 }
 
-TEST_CASE("buttons and combo boxes have a lit top edge and look pressed when down", "[look]")
+TEST_CASE("buttons and combo boxes are flat with a light edge and darker when down", "[look]")
 {
     juce::ScopedJuceInitialiser_GUI gui;
     ui::DgLookAndFeel lnf;
@@ -412,13 +400,15 @@ TEST_CASE("buttons and combo boxes have a lit top edge and look pressed when dow
     const auto render = [&](bool down) {
         juce::Image img(juce::Image::ARGB, 110, 28, true);
         juce::Graphics g(img);
-        lnf.drawButtonBackground(g, button, ui::colours::panel, false, down);
+        lnf.drawButtonBackground(g, button, ui::colours::button, false, down);
         return img;
     };
     const auto up = render(false);
     const auto down = render(true);
-    CHECK(up.getPixelAt(55, 5).getBrightness() > up.getPixelAt(55, 22).getBrightness());     // oben heller
-    CHECK(down.getPixelAt(55, 5).getBrightness() < down.getPixelAt(55, 22).getBrightness()); // gedrückt: umgekehrt
+    CHECK(up.getPixelAt(55, 5) == up.getPixelAt(55, 22)); // kein Verlauf
+    CHECK(up.getPixelAt(55, 14) == ui::colours::button);
+    CHECK(up.getPixelAt(55, 0) == ui::colours::edgeLight); // 1-px-Kante
+    CHECK(down.getPixelAt(55, 14).getBrightness() < up.getPixelAt(55, 14).getBrightness());
 
     juce::ComboBox box;
     box.setLookAndFeel(&lnf);
@@ -428,19 +418,21 @@ TEST_CASE("buttons and combo boxes have a lit top edge and look pressed when dow
         juce::Graphics g(img);
         lnf.drawComboBox(g, 100, 24, false, 0, 0, 0, 0, box);
     }
-    CHECK(img.getPixelAt(50, 5).getBrightness() > img.getPixelAt(50, 19).getBrightness());
+    CHECK(img.getPixelAt(30, 5) == img.getPixelAt(30, 19));
+    CHECK(img.getPixelAt(30, 0) == ui::colours::edge);
     box.setLookAndFeel(nullptr);
 }
 
-TEST_CASE("a label set to the embedded bold cut keeps that cut", "[look]")
+TEST_CASE("a label set to the bold monospace cut stays monospace", "[look]")
 {
     juce::ScopedJuceInitialiser_GUI gui;
     ui::DgLookAndFeel lnf;
     juce::Label label;
     label.setFont(juce::Font(ui::font(22.0f, true)));
-    CHECK(lnf.getLabelFont(label).getTypefacePtr() == juce::Font(ui::font(22.0f, true)).getTypefacePtr());
+    CHECK(isMono(lnf.getLabelFont(label)));
+    CHECK(lnf.getLabelFont(label).isBold());
     label.setFont(juce::Font(ui::font(22.0f)));
-    CHECK(lnf.getLabelFont(label).getTypefacePtr() == juce::Font(ui::font(22.0f)).getTypefacePtr());
+    CHECK_FALSE(lnf.getLabelFont(label).isBold());
 }
 
 namespace {

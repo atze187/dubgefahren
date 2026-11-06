@@ -1,42 +1,44 @@
 #pragma once
-#include <map>
-#include <memory>
 #include <juce_gui_basics/juce_gui_basics.h>
-#include "melatonin_blur/melatonin_blur.h"
 #include "plugin/ui/Fonts.h"
 
 namespace dg::ui {
 
+// Flache LCD-Bedienfeld-Palette: keine Verläufe, keine Lichtkanten, keine Schlagschatten.
 namespace colours {
-inline const juce::Colour background { 0xff121417 };
-inline const juce::Colour panel { 0xff1b1f24 };
-inline const juce::Colour outline { 0xff2c323a };
-inline const juce::Colour text { 0xffd8dde3 };
-inline const juce::Colour textDim { 0xff8a939e };
-inline const juce::Colour accent { 0xfff2b134 };
-inline const juce::Colour latched { 0xff3aa0ff };
+inline const juce::Colour window { 0xff14161a };    // Fensterhintergrund
+inline const juce::Colour strip { 0xff191c21 };     // Panelfläche
+inline const juce::Colour lcd { 0xff0b0d0f };       // vertiefte Anzeige
+inline const juce::Colour edge { 0xff2a2e35 };      // Kante von Panels und Anzeigen
+inline const juce::Colour edgeLight { 0xff3a3f47 }; // Kante von Buttons
+inline const juce::Colour button { 0xff23272e };
+inline const juce::Colour text { 0xffd7dbe0 };
+inline const juce::Colour textDim { 0xff7b828d };
+inline const juce::Colour amber { 0xffffb347 };     // aktiver Zustand, Werte
+inline const juce::Colour accent { 0xff5aa9e6 };    // Blau
 inline const juce::Colour warning { 0xffff8c2a };
 inline const juce::Colour danger { 0xffff4d4d };
-inline const juce::Colour backgroundTop { 0xff15181b };
-inline const juce::Colour backgroundBottom { 0xff0f1113 };
-inline const juce::Colour panelTop { 0xff1f2329 };
-inline const juce::Colour panelBottom { 0xff181b20 };
-inline const juce::Colour highlight { 0x12ffffff }; // Lichtkante: 7 % Weiß
+
+// Alte Namen, die andere Dateien noch benutzen; Task 7 räumt sie auf.
+inline const juce::Colour background = window;
+inline const juce::Colour panel = strip;
+inline const juce::Colour outline = edge;
+inline const juce::Colour latched = accent;
+inline const juce::Colour groove = lcd;
+inline const juce::Colour highlight { 0x12ffffff };
 inline const juce::Colour shadow { 0x99000000 };
-inline const juce::Colour groove { 0xff0c0e10 };    // vertiefte Linien und Konturen
 inline const juce::Colour padBase { 0xff4cd07d };
 inline const juce::Colour padTop { 0xff27302f };
 inline const juce::Colour padBottom { 0xff161b1b };
 inline const juce::Colour padEmpty { 0xff101214 };
 inline const juce::Colour padTextLit { 0xff06240f }; // Text auf leuchtendem Pad
-inline const juce::Colour knobTop { 0xff3a4048 };
-inline const juce::Colour knobBottom { 0xff1c2025 };
 } // namespace colours
 
 class DgLookAndFeel final : public juce::LookAndFeel_V4
 {
 public:
     DgLookAndFeel();
+    // Flacher Übergang, bis die Regler durch Segment-Slider ersetzt sind.
     void drawRotarySlider(juce::Graphics& g, int x, int y, int width, int height, float sliderPos,
                           float rotaryStartAngle, float rotaryEndAngle, juce::Slider& slider) override;
 
@@ -54,17 +56,6 @@ public:
                       int buttonH, juce::ComboBox& box) override;
     void drawToggleButton(juce::Graphics& g, juce::ToggleButton& button, bool shouldDrawButtonAsHighlighted,
                           bool shouldDrawButtonAsDown) override;
-
-private:
-    // Erhabene Fläche für Buttons und Auswahlboxen: Verlauf, Kontur, Lichtkante; gedrückt eingelassen.
-    static void drawRaisedBody(juce::Graphics& g, juce::Rectangle<float> bounds, juce::Colour base, bool down, bool highlighted, bool enabled);
-    melatonin::DropShadow& knobShadow(int diameter);
-
-    // Ein Schatten pro Körper-Durchmesser, damit der Cache von melatonin bei gemischten Reglergrößen hält.
-    std::map<int, std::unique_ptr<melatonin::DropShadow>> knobShadows_;
-    melatonin::DropShadow lampGlow_ { { colours::accent.withAlpha(0.8f), 4 } };
-    melatonin::InnerShadow lampInset_ { { juce::Colours::black.withAlpha(0.7f), 2, { 0, 1 } } };
-    juce::SharedResourcePointer<EmbeddedFonts> fonts_; // hält die Typefaces geladen
 };
 
 } // namespace dg::ui
