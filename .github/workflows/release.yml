@@ -4,8 +4,6 @@ on:
   push:
     tags:
       - "v*"
-    branches:
-      - feature/linux-build # TEMPORARY: remove before merge
   workflow_dispatch:
 
 permissions:
