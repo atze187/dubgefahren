@@ -14,8 +14,6 @@ SettingsDialog::SettingsDialog(DubgefahrenProcessor& proc, Host host) : proc_(pr
     {
         tab->setRadioGroupId(1);
         tab->setClickingTogglesState(true);
-        tab->setColour(juce::TextButton::buttonOnColourId, colours::accent);
-        tab->setColour(juce::TextButton::textColourOnId, colours::padTextLit);
         addAndMakeVisible(*tab);
     }
     midiTab_.onClick = [this] { showTab(Tab::Midi); };
@@ -43,13 +41,12 @@ SettingsDialog::SettingsDialog(DubgefahrenProcessor& proc, Host host) : proc_(pr
     originToggle_.onClick = [this] { setOriginTopLeft(originToggle_.getToggleState()); };
     addChildComponent(originToggle_);
 
-    kitCaption_.setText("Kit folder", juce::dontSendNotification);
+    kitCaption_.setText("KIT FOLDER", juce::dontSendNotification);
     kitCaption_.setFont(font(13.0f, true));
     kitCaption_.setColour(juce::Label::textColourId, colours::textDim);
-    kitPath_.setFont(font(14.0f));
+    styleLcd(kitPath_, colours::text, juce::Justification::centredLeft);
+    kitPath_.setFont(font(12.0f));
     kitPath_.setMinimumHorizontalScale(1.0f);
-    kitPath_.setColour(juce::Label::outlineColourId, colours::outline);
-    kitPath_.setBorderSize({ 4, 8, 4, 8 });
     kitWarning_.setFont(font(13.0f));
     kitWarning_.setColour(juce::Label::textColourId, colours::warning);
     changeButton_.onClick = [this] { chooseKitFolder(); };
@@ -69,27 +66,29 @@ SettingsDialog::~SettingsDialog() { stopLearning(); }
 
 void SettingsDialog::paint(juce::Graphics& g)
 {
-    g.fillAll(colours::panel);
-    g.setColour(colours::outline);
+    g.fillAll(colours::window);
+    g.setColour(colours::edge);
     g.drawHorizontalLine(44, 0.0f, static_cast<float>(getWidth()));
     if (tab_ == Tab::Midi)
         for (int s = 0; s < 16; ++s)
         {
-            const juce::Rectangle<float> cell(padCellPosition(s).toFloat(), juce::Point<float>(padCellPosition(s).toFloat()) + juce::Point<float>(kCellWidth, kCellHeight));
+            // Flache Kachel wie im Pad-Raster des Editors: Panelfläche, 1 px Kante; das lernende Pad hat eine 2 px Akzentkante.
+            const auto cell = juce::Rectangle<int>(padCellPosition(s), padCellPosition(s) + juce::Point<int>(kCellWidth, kCellHeight));
             const bool learningCell = s == learning_;
             const bool assigned = PadMapping::instance().noteMap().noteForSlot(s) >= 0;
-            g.setColour(assigned ? colours::padTop : colours::padEmpty);
-            g.fillRoundedRectangle(cell, 6.0f);
-            g.setColour(learningCell ? colours::accent : assigned ? colours::padBase.withAlpha(0.5f) : colours::outline);
-            g.drawRoundedRectangle(cell.reduced(0.5f), 6.0f, learningCell ? 2.0f : 1.0f);
+            g.setColour(colours::strip);
+            g.fillRect(cell);
+            g.setColour(learningCell ? colours::accent : colours::edge);
+            g.drawRect(cell, learningCell ? 2 : 1);
 
             const auto lines = juce::StringArray::fromLines(padCellText(s));
+            const auto inner = cell.reduced(6, 4);
             g.setColour(colours::textDim);
-            g.setFont(font(11.0f));
-            g.drawText(lines[0], cell.withTrimmedBottom(cell.getHeight() / 2.0f).reduced(8.0f, 0.0f), juce::Justification::bottomLeft);
-            g.setColour(learningCell ? colours::accent : assigned ? colours::padBase : colours::textDim);
-            g.setFont(font(learningCell ? 14.0f : 18.0f, true));
-            g.drawText(lines[1], cell.withTrimmedTop(cell.getHeight() / 2.0f).reduced(8.0f, 0.0f), juce::Justification::centred);
+            g.setFont(font(10.0f));
+            g.drawText(lines[0], inner, juce::Justification::topLeft, false);
+            g.setColour(learningCell ? colours::accent : assigned ? colours::amber : colours::textDim);
+            g.setFont(font(learningCell ? 11.0f : 16.0f, !learningCell));
+            g.drawText(lines[1].toUpperCase(), inner.withTrimmedTop(12), juce::Justification::centred, false);
         }
 }
 
@@ -118,7 +117,7 @@ void SettingsDialog::resized()
     profileBox_.setBounds(profileRow);
     r.removeFromTop(6);
     auto hintRow = r.removeFromTop(26);
-    folderButton_.setBounds(hintRow.removeFromLeft(160));
+    folderButton_.setBounds(hintRow.removeFromLeft(210));
     hintRow.removeFromLeft(10);
     hint_.setBounds(hintRow);
     r.removeFromTop(8);
@@ -133,11 +132,11 @@ void SettingsDialog::resized()
     kitWarning_.setBounds(kits.removeFromTop(36));
     kits.removeFromTop(8);
     auto buttons = kits.removeFromTop(30);
-    changeButton_.setBounds(buttons.removeFromLeft(100));
+    changeButton_.setBounds(buttons.removeFromLeft(110));
     buttons.removeFromLeft(8);
-    openButton_.setBounds(buttons.removeFromLeft(110));
+    openButton_.setBounds(buttons.removeFromLeft(140));
     buttons.removeFromLeft(8);
-    defaultButton_.setBounds(buttons.removeFromLeft(110));
+    defaultButton_.setBounds(buttons.removeFromLeft(140));
 }
 
 void SettingsDialog::showTab(Tab tab)
