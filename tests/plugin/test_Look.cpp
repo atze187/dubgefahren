@@ -21,45 +21,40 @@
 using namespace dg;
 
 namespace {
-bool isInter(const juce::Font& f) { return f.getTypefacePtr() != nullptr && f.getTypefacePtr()->getName().startsWith("Inter"); }
+bool isMono(const juce::Font& f)
+{
+    const juce::Font reference(juce::FontOptions(juce::Font::getDefaultMonospacedFontName(), 12.0f, juce::Font::plain));
+    return f.getTypefacePtr() != nullptr && reference.getTypefacePtr() != nullptr
+        && f.getTypefacePtr()->getName() == reference.getTypefacePtr()->getName();
+}
 } // namespace
 
-TEST_CASE("the embedded font is used for regular and bold text", "[look]")
+TEST_CASE("fonts are monospace", "[look]")
 {
     juce::ScopedJuceInitialiser_GUI gui;
     ui::DgLookAndFeel lnf;
-    const juce::Font regular(ui::font(12.0f));
-    const juce::Font bold(ui::font(12.0f, true));
-    CHECK(isInter(regular));
-    CHECK(isInter(bold));
-    CHECK(regular.getTypefacePtr() != bold.getTypefacePtr());
-    CHECK(regular.getHeight() == 12.0f);
-}
-
-TEST_CASE("the look and feel hands out the embedded font for standard widgets", "[look]")
-{
-    juce::ScopedJuceInitialiser_GUI gui;
-    ui::DgLookAndFeel lnf;
+    CHECK(isMono(juce::Font(ui::font(12.0f))));
+    CHECK(isMono(juce::Font(ui::font(12.0f, true))));
+    CHECK(juce::Font(ui::font(12.0f)).getHeight() == 12.0f);
 
     juce::Label label;
     label.setFont(juce::Font(juce::FontOptions(14.0f, juce::Font::bold)));
     const auto labelFont = lnf.getLabelFont(label);
-    CHECK(isInter(labelFont));
+    CHECK(isMono(labelFont));
     CHECK(labelFont.getHeight() == 14.0f);
-    CHECK(labelFont.getTypefacePtr() == juce::Font(ui::font(14.0f, true)).getTypefacePtr());
 
     juce::TextButton button("x");
-    CHECK(isInter(lnf.getTextButtonFont(button, 24)));
+    CHECK(isMono(lnf.getTextButtonFont(button, 24)));
     juce::ComboBox box;
     box.setSize(100, 24);
-    CHECK(isInter(lnf.getComboBoxFont(box)));
-    CHECK(isInter(lnf.getPopupMenuFont()));
-    CHECK(isInter(lnf.getAlertWindowTitleFont()));
-    CHECK(isInter(lnf.getAlertWindowMessageFont()));
-    CHECK(isInter(lnf.getAlertWindowFont()));
+    CHECK(isMono(lnf.getComboBoxFont(box)));
+    CHECK(isMono(lnf.getPopupMenuFont()));
+    CHECK(isMono(lnf.getAlertWindowTitleFont()));
+    CHECK(isMono(lnf.getAlertWindowMessageFont()));
+    CHECK(isMono(lnf.getAlertWindowFont()));
 }
 
-TEST_CASE("the embedded font keeps a label's letter spacing", "[look]")
+TEST_CASE("the monospace font keeps a label's letter spacing", "[look]")
 {
     juce::ScopedJuceInitialiser_GUI gui;
     ui::DgLookAndFeel lnf;
@@ -68,22 +63,7 @@ TEST_CASE("the embedded font keeps a label's letter spacing", "[look]")
     CHECK(lnf.getLabelFont(label).getExtraKerningFactor() == 0.12f);
 }
 
-TEST_CASE("the embedded font survives closing another editor", "[look]")
-{
-    juce::ScopedJuceInitialiser_GUI gui;
-    DubgefahrenProcessor a, b;
-    std::unique_ptr<juce::AudioProcessorEditor> editorA(a.createEditor());
-    std::unique_ptr<juce::AudioProcessorEditor> editorB(b.createEditor());
-    const auto before = juce::Font(ui::font(12.0f)).getTypefacePtr();
-    editorA.reset();
-    const auto after = juce::Font(ui::font(12.0f)).getTypefacePtr();
-    CHECK(after == before);
-    CHECK(isInter(juce::Font(ui::font(12.0f))));
-    editorB.reset();
-    CHECK(isInter(juce::Font(ui::font(12.0f)))); // ohne Editor wird neu geladen
-}
-
-TEST_CASE("a panel body is a vertical gradient with rounded corners", "[look]")
+TEST_CASE("a panel body is flat with a 1 px edge", "[look]")
 {
     juce::ScopedJuceInitialiser_GUI gui;
     juce::Image img(juce::Image::ARGB, 100, 60, true);
@@ -91,22 +71,30 @@ TEST_CASE("a panel body is a vertical gradient with rounded corners", "[look]")
         juce::Graphics g(img);
         ui::drawPanelBody(g, img.getBounds().toFloat());
     }
-    CHECK(img.getPixelAt(0, 0).getAlpha() == 0);         // Ecke bleibt frei
-    CHECK(img.getPixelAt(50, 30).getAlpha() == 255);
-    CHECK(img.getPixelAt(50, 8).getBrightness() > img.getPixelAt(50, 52).getBrightness());
+    CHECK(img.getPixelAt(50, 8) == img.getPixelAt(50, 52));
+    CHECK(img.getPixelAt(50, 30) == ui::colours::strip);
+    CHECK(img.getPixelAt(0, 30) == ui::colours::edge);
+    CHECK(img.getPixelAt(50, 0) == ui::colours::edge);
 }
 
-TEST_CASE("a panel shadow reaches beyond the panel", "[look]")
+TEST_CASE("the window background is one flat colour", "[look]")
 {
     juce::ScopedJuceInitialiser_GUI gui;
-    juce::Image img(juce::Image::ARGB, 140, 100, true);
-    ui::PanelShadow shadow;
+    juce::Image img(juce::Image::ARGB, 40, 60, true);
     {
         juce::Graphics g(img);
-        shadow.render(g, { 20.0f, 20.0f, 100.0f, 60.0f });
+        ui::drawWindowBackground(g, img.getBounds());
     }
-    CHECK(img.getPixelAt(70, 84).getAlpha() > 0);  // unter dem Panel
-    CHECK(img.getPixelAt(2, 2).getAlpha() == 0);   // weit weg: nichts
+    CHECK(img.getPixelAt(5, 2) == ui::colours::window);
+    CHECK(img.getPixelAt(5, 57) == ui::colours::window);
+}
+
+TEST_CASE("the palette has the flat panel values", "[look]")
+{
+    CHECK(ui::colours::window == juce::Colour(0xff14161a));
+    CHECK(ui::colours::lcd == juce::Colour(0xff0b0d0f));
+    CHECK(ui::colours::amber == juce::Colour(0xffffb347));
+    CHECK(ui::colours::accent == juce::Colour(0xff5aa9e6));
 }
 
 TEST_CASE("the editor paints at every window scale", "[look]")
@@ -161,7 +149,7 @@ TEST_CASE("the edit view without the advanced strip paints at its base size", "[
     const auto img = dgtest::snapshot(*editor);
     REQUIRE(img.isValid());
     CHECK(img.getWidth() == 1200);
-    CHECK(img.getHeight() == 640);
+    CHECK(img.getHeight() == 656);
     dgtest::savePng(img, "editor-edit-1.00");
 }
 
@@ -207,7 +195,7 @@ TEST_CASE("an empty pad never lights up", "[look]")
     CHECK(grid.padBrightness(5) == 0.0f);
 }
 
-TEST_CASE("a changing glow reports the pad area plus its reach", "[look]")
+TEST_CASE("a changing pad reports only its own tile area", "[look]")
 {
     juce::ScopedJuceInitialiser_GUI gui;
     DubgefahrenProcessor p;
@@ -220,12 +208,12 @@ TEST_CASE("a changing glow reports the pad area plus its reach", "[look]")
 
     grid.setPadStates(1u << 3, 0u, 0);
     REQUIRE(areas.size() == 1);
-    CHECK(areas[0] == grid.pad(3).getBounds().expanded(ui::PadGrid::kGlowReach));
+    CHECK(areas[0] == grid.pad(3).getBounds());
 
     areas.clear();
     juce::Thread::sleep(20); // messbarer Zeitschritt, damit Pad 4 sicher vom Trigger-Wert abfällt
     grid.setPadStates(1u << 3, 0u, 1); // Fokus wandert von Pad 1 zu Pad 2
-    CHECK(areas.size() == 3);          // Pad 4 fällt auf den Haltewert, Pad 1 und 2 wechseln den Fokus-Glow
+    CHECK(areas.size() == 3);          // Pad 4 fällt auf den Haltewert, Pad 1 und 2 wechseln den Fokus
 }
 
 TEST_CASE("pads use the shared base colour until one is assigned", "[look]")
@@ -237,32 +225,6 @@ TEST_CASE("pads use the shared base colour until one is assigned", "[look]")
     grid.setPadBaseColour(0, juce::Colours::red);
     CHECK(grid.padBaseColour(0) == juce::Colours::red);
     CHECK(grid.padBaseColour(1) == ui::colours::padBase);
-}
-
-TEST_CASE("pad glows are drawn outside the pads and only for lit or focused pads", "[look]")
-{
-    juce::ScopedJuceInitialiser_GUI gui;
-    DubgefahrenProcessor p;
-    ui::PadGrid grid(p);
-    grid.setSize(360, 384);
-
-    const auto render = [&grid] {
-        juce::Image img(juce::Image::ARGB, 360 + 2 * ui::PadGrid::kGlowReach, 384 + 2 * ui::PadGrid::kGlowReach, true);
-        juce::Graphics g(img);
-        g.setOrigin(ui::PadGrid::kGlowReach, ui::PadGrid::kGlowReach);
-        grid.paintGlows(g);
-        return img;
-    };
-
-    grid.setPadStates(0u, 0u, -1);
-    CHECK_FALSE(dgtest::hasVisiblePixel(render()));
-
-    grid.setPadStates(1u, 0u, -1); // Pad 1 liegt unten links
-    const auto lit = render();
-    CHECK(dgtest::hasVisiblePixel(lit));
-    // Links neben dem Raster, auf Höhe von Pad 1: Glow ragt über das Raster hinaus.
-    const auto padBounds = grid.pad(0).getBounds();
-    CHECK(lit.getPixelAt(ui::PadGrid::kGlowReach - 3, ui::PadGrid::kGlowReach + padBounds.getCentreY()).getAlpha() > 0);
 }
 
 TEST_CASE("sixteen glowing pads paint within one timer tick", "[look][perf]")
@@ -281,9 +243,8 @@ TEST_CASE("sixteen glowing pads paint within one timer tick", "[look][perf]")
     {
         grid.setPadStates(i % 8 < 4 ? 0x0f0fu : 0x00ffu, 0x00f0u, i % 16); // Trigger, Halten, Ausklingen im Wechsel
         juce::Graphics g(img);
-        g.fillAll(ui::colours::background); // wie der Editor: jeder Frame beginnt mit dem Hintergrund
+        g.fillAll(ui::colours::window); // wie der Editor: jeder Frame beginnt mit dem Hintergrund
         g.addTransform(juce::AffineTransform::scale(2.0f));
-        grid.paintGlows(g);
         grid.paintEntireComponent(g, false);
     }
     const double perFrame = (juce::Time::getMillisecondCounterHiRes() - start) / frames;
@@ -294,25 +255,8 @@ TEST_CASE("sixteen glowing pads paint within one timer tick", "[look][perf]")
 }
 
 namespace {
-juce::Image drawKnob(ui::DgLookAndFeel& lnf, juce::Slider& slider, int size, float pos)
-{
-    juce::Image img(juce::Image::ARGB, std::max(1, size), std::max(1, size), true);
-    juce::Graphics g(img);
-    lnf.drawRotarySlider(g, 0, 0, size, size, pos, juce::MathConstants<float>::pi * 1.2f, juce::MathConstants<float>::pi * 2.8f, slider);
-    return img;
-}
-
-// Akzentgelb: viel Rot, mittleres Grün, wenig Blau.
-bool isAccent(juce::Colour c) { return c.getAlpha() > 200 && c.getRed() > 200 && c.getGreen() > 140 && c.getBlue() < 110; }
-
-int countAccent(const juce::Image& img, int maxX)
-{
-    int n = 0;
-    for (int y = 0; y < img.getHeight(); ++y)
-        for (int x = 0; x < std::min(maxX, img.getWidth()); ++x)
-            n += isAccent(img.getPixelAt(x, y)) ? 1 : 0;
-    return n;
-}
+// Bernstein: viel Rot, mittleres Grün, wenig Blau.
+bool isAmber(juce::Colour c) { return c.getAlpha() > 200 && c.getRed() > 200 && c.getGreen() > 140 && c.getBlue() < 110; }
 } // namespace
 
 TEST_CASE("controls draw nothing harmful into tiny or empty areas", "[look]")
@@ -321,9 +265,15 @@ TEST_CASE("controls draw nothing harmful into tiny or empty areas", "[look]")
     ui::DgLookAndFeel lnf;
     juce::Slider slider;
     slider.setRange(0.0, 1.0);
+    const auto drawSlider = [&](int w, int h) {
+        juce::Image im(juce::Image::ARGB, std::max(1, w), std::max(1, h), true);
+        juce::Graphics gr(im);
+        lnf.drawLinearSlider(gr, 0, 0, w, h, 0.5f, 0.0f, 1.0f, juce::Slider::LinearHorizontal, slider);
+        return im;
+    };
     for (const int size : { 0, 1, 3, 8, 11 })
-        CHECK_NOTHROW(drawKnob(lnf, slider, size, 0.5f));
-    CHECK_FALSE(dgtest::hasVisiblePixel(drawKnob(lnf, slider, 3, 0.5f)));
+        CHECK_NOTHROW(drawSlider(size, size));
+    CHECK_FALSE(dgtest::hasVisiblePixel(drawSlider(3, 3)));
 
     juce::Image img(juce::Image::ARGB, 8, 8, true);
     juce::Graphics g(img);
@@ -336,48 +286,6 @@ TEST_CASE("controls draw nothing harmful into tiny or empty areas", "[look]")
     juce::ComboBox box;
     CHECK_NOTHROW(lnf.drawComboBox(g, 0, 0, false, 0, 0, 0, 0, box));
     CHECK_FALSE(dgtest::hasVisiblePixel(img));
-}
-
-TEST_CASE("a knob shows its value arc in the accent colour and dims when disabled", "[look]")
-{
-    juce::ScopedJuceInitialiser_GUI gui;
-    ui::DgLookAndFeel lnf;
-    juce::Slider slider;
-    slider.setRange(0.0, 1.0);
-
-    const auto low = drawKnob(lnf, slider, 64, 0.1f);
-    const auto high = drawKnob(lnf, slider, 64, 0.9f);
-    CHECK(countAccent(high, 64) > countAccent(low, 64));
-    CHECK(countAccent(low, 64) > 0);
-
-    slider.setEnabled(false);
-    CHECK(countAccent(drawKnob(lnf, slider, 64, 0.9f), 64) == 0);
-    dgtest::savePng(high, "knob-64");
-}
-
-TEST_CASE("a knob has a body in its centre", "[look]")
-{
-    juce::ScopedJuceInitialiser_GUI gui;
-    ui::DgLookAndFeel lnf;
-    juce::Slider slider;
-    slider.setRange(0.0, 1.0);
-    // Zeiger zeigt bei 0.5 nach oben; links und rechts der Mitte liegt der Körper.
-    const auto img = drawKnob(lnf, slider, 64, 0.5f);
-    CHECK(img.getPixelAt(24, 34).getAlpha() == 255);
-    CHECK(img.getPixelAt(40, 34).getAlpha() == 255);
-}
-
-TEST_CASE("a bipolar knob fills from its centre", "[look]")
-{
-    juce::ScopedJuceInitialiser_GUI gui;
-    ui::DgLookAndFeel lnf;
-    juce::Slider slider;
-    slider.setRange(-1.0, 1.0);
-    // In der Mitte ist der Wertebogen leer; voll rechts läuft er nur durch die rechte Hälfte.
-    CHECK(countAccent(drawKnob(lnf, slider, 64, 0.5f), 64) == 0);
-    const auto right = drawKnob(lnf, slider, 64, 1.0f);
-    CHECK(countAccent(right, 28) == 0);
-    CHECK(countAccent(right, 64) > 0);
 }
 
 TEST_CASE("a toggle shows a lamp instead of a tick box", "[look]")
@@ -397,12 +305,12 @@ TEST_CASE("a toggle shows a lamp instead of a tick box", "[look]")
     toggle.setToggleState(true, juce::dontSendNotification);
     const auto on = lamp();
     CHECK(on.getBrightness() > off.getBrightness() + 0.3f);
-    CHECK(isAccent(on));
+    CHECK(isAmber(on));
     CHECK(off.getAlpha() == 255); // ausgeschaltet: dunkel gefüllte Lampe statt leerem Kästchen
     toggle.setLookAndFeel(nullptr);
 }
 
-TEST_CASE("buttons and combo boxes have a lit top edge and look pressed when down", "[look]")
+TEST_CASE("buttons and combo boxes are flat with a light edge and darker when down", "[look]")
 {
     juce::ScopedJuceInitialiser_GUI gui;
     ui::DgLookAndFeel lnf;
@@ -412,13 +320,15 @@ TEST_CASE("buttons and combo boxes have a lit top edge and look pressed when dow
     const auto render = [&](bool down) {
         juce::Image img(juce::Image::ARGB, 110, 28, true);
         juce::Graphics g(img);
-        lnf.drawButtonBackground(g, button, ui::colours::panel, false, down);
+        lnf.drawButtonBackground(g, button, ui::colours::button, false, down);
         return img;
     };
     const auto up = render(false);
     const auto down = render(true);
-    CHECK(up.getPixelAt(55, 5).getBrightness() > up.getPixelAt(55, 22).getBrightness());     // oben heller
-    CHECK(down.getPixelAt(55, 5).getBrightness() < down.getPixelAt(55, 22).getBrightness()); // gedrückt: umgekehrt
+    CHECK(up.getPixelAt(55, 5) == up.getPixelAt(55, 22)); // kein Verlauf
+    CHECK(up.getPixelAt(55, 14) == ui::colours::button);
+    CHECK(up.getPixelAt(55, 0) == ui::colours::edgeLight); // 1-px-Kante
+    CHECK(down.getPixelAt(55, 14).getBrightness() < up.getPixelAt(55, 14).getBrightness());
 
     juce::ComboBox box;
     box.setLookAndFeel(&lnf);
@@ -428,19 +338,21 @@ TEST_CASE("buttons and combo boxes have a lit top edge and look pressed when dow
         juce::Graphics g(img);
         lnf.drawComboBox(g, 100, 24, false, 0, 0, 0, 0, box);
     }
-    CHECK(img.getPixelAt(50, 5).getBrightness() > img.getPixelAt(50, 19).getBrightness());
+    CHECK(img.getPixelAt(30, 5) == img.getPixelAt(30, 19));
+    CHECK(img.getPixelAt(30, 0) == ui::colours::edge);
     box.setLookAndFeel(nullptr);
 }
 
-TEST_CASE("a label set to the embedded bold cut keeps that cut", "[look]")
+TEST_CASE("a label set to the bold monospace cut stays monospace", "[look]")
 {
     juce::ScopedJuceInitialiser_GUI gui;
     ui::DgLookAndFeel lnf;
     juce::Label label;
     label.setFont(juce::Font(ui::font(22.0f, true)));
-    CHECK(lnf.getLabelFont(label).getTypefacePtr() == juce::Font(ui::font(22.0f, true)).getTypefacePtr());
+    CHECK(isMono(lnf.getLabelFont(label)));
+    CHECK(lnf.getLabelFont(label).isBold());
     label.setFont(juce::Font(ui::font(22.0f)));
-    CHECK(lnf.getLabelFont(label).getTypefacePtr() == juce::Font(ui::font(22.0f)).getTypefacePtr());
+    CHECK_FALSE(lnf.getLabelFont(label).isBold());
 }
 
 namespace {
@@ -513,7 +425,7 @@ TEST_CASE("a latched pad shows the light dot with a dark ring in the editor", "[
     const auto img = dgtest::snapshot(*editor);
     dgtest::savePng(img, "editor-latched");
     // Mitte des Punkts oben rechts auf Pad 1 (unten links im Raster).
-    const auto dot = img.getPixelAt(87, 333);
+    const auto dot = img.getPixelAt(89, 331);
     CHECK(dot.getRed() > 220);
     CHECK(dot.getGreen() > 220);
     CHECK(dot.getBlue() > 220);
@@ -529,7 +441,7 @@ juce::Label* valueBox(juce::Slider& slider)
 }
 } // namespace
 
-TEST_CASE("a knob's value field has no frame and no box", "[look]")
+TEST_CASE("a knob's value field is an amber LCD with an edge", "[look]")
 {
     juce::ScopedJuceInitialiser_GUI gui;
     // Wie im Editor: Der Elternteil hat das Look-and-Feel schon, der Regler kommt später dazu.
@@ -540,9 +452,9 @@ TEST_CASE("a knob's value field has no frame and no box", "[look]")
     parent.addAndMakeVisible(knob);
     auto* box = valueBox(knob.slider);
     REQUIRE(box != nullptr);
-    CHECK(box->findColour(juce::Label::outlineColourId).isTransparent());
-    CHECK(box->findColour(juce::Label::backgroundColourId).isTransparent());
-    CHECK(box->findColour(juce::Label::textColourId) == ui::colours::text);
+    CHECK(box->findColour(juce::Label::outlineColourId) == ui::colours::edge);
+    CHECK(box->findColour(juce::Label::backgroundColourId) == ui::colours::lcd);
+    CHECK(box->findColour(juce::Label::textColourId) == ui::colours::amber);
     parent.removeChildComponent(&knob);
     parent.setLookAndFeel(nullptr);
 }
@@ -555,7 +467,7 @@ TEST_CASE("a knob shows its value with at most two decimals", "[look]")
     pitch.attach(p.state(), slotParamId(0, SlotField::Pitch));
     CHECK(pitch.slider.getTextFromValue(600.00006) == "600.00");
     CHECK(pitch.slider.getTextFromValue(123.456) == "123.46");
-    CHECK(pitch.slider.getTextFromValue(3999.9993) == "4000.00");
+    CHECK(pitch.slider.getTextFromValue(3999.9993) == "4000.0");
     auto* box = valueBox(pitch.slider);
     REQUIRE(box != nullptr);
     CHECK(box->getText() == pitch.slider.getTextFromValue(pitch.slider.getValue()));
@@ -677,4 +589,167 @@ TEST_CASE("all pad colours render dimmed and lit with the latch dot", "[look][pa
     const auto lit = dgtest::snapshot(grid);
     dgtest::savePng(lit, "pad-colours-lit");
     CHECK(dgtest::hasVisiblePixel(lit));
+}
+
+namespace {
+// Abstand zweier Farben im RGB-Raum.
+float rgbDistance(juce::Colour a, juce::Colour b)
+{
+    const float dr = static_cast<float>(a.getRed() - b.getRed());
+    const float dg = static_cast<float>(a.getGreen() - b.getGreen());
+    const float db = static_cast<float>(a.getBlue() - b.getBlue());
+    return std::sqrt(dr * dr + dg * dg + db * db);
+}
+
+// Messpunkt (Raster-Koordinaten) links neben dem Namen: Füllung der Kachel, abseits von Text und Marken.
+juce::Point<int> fillPoint(ui::PadGrid& grid, int slot)
+{
+    const auto r = grid.pad(slot).getBounds().reduced(ui::PadGrid::kTileInset);
+    return { r.getX() + 3, r.getCentreY() };
+}
+} // namespace
+
+TEST_CASE("pad states are distinguishable", "[look][pads]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    dgtest::TempDir tmp;
+    const auto kitFile = tmp.dir.getChildFile("Dub.dgkit");
+    sampleFolderFor(kitFile).createDirectory();
+    DubgefahrenProcessor p;
+    p.applyKit(makeFactoryKit(), kitFile);
+    p.clearSlot(2);
+    p.setSlotSample(3, "gone.wav"); // fehlende Datei
+    p.waitForSampleLoads();
+
+    ui::PadGrid grid(p);
+    grid.setSize(360, 384);
+    grid.refreshNames();
+    REQUIRE(grid.isEmpty(2));
+    REQUIRE(grid.isMissing(3));
+    grid.setSelected(5);
+    grid.setPadStates(1u << 1, 1u << 4, -1); // Pad 2 getroffen, Pad 5 gelatcht, Pad 6 gewählt
+    REQUIRE(grid.padBrightness(1) == 1.0f);
+    const auto img = dgtest::snapshot(grid);
+    dgtest::savePng(img, "pad-states");
+
+    const auto body = [&grid](int s) { return grid.pad(s).getBounds().reduced(ui::PadGrid::kTileInset); };
+    const auto fillAt = [&](int s) { return img.getPixelAt(fillPoint(grid, s).x, fillPoint(grid, s).y); };
+
+    const auto r3 = body(3);
+    const auto r4 = body(4);
+    const auto r5 = body(5);
+    const std::vector<std::pair<const char*, juce::Colour>> samples {
+        { "empty", fillAt(2) },
+        { "assigned", fillAt(0) },
+        { "hit", fillAt(1) },
+        { "selected edge", img.getPixelAt(r5.getX(), r5.getCentreY()) },
+        { "latched dot", img.getPixelAt(r4.getRight() - 10, r4.getY() + 10) },
+        { "missing mark", img.getPixelAt(r3.getRight() - 34 + 8 - 3, r3.getY() + 3 + 10) },
+    };
+    for (std::size_t i = 0; i < samples.size(); ++i)
+        for (std::size_t j = i + 1; j < samples.size(); ++j)
+        {
+            INFO(samples[i].first << " vs " << samples[j].first);
+            CHECK(rgbDistance(samples[i].second, samples[j].second) > 24.0f);
+        }
+
+    // Der Farbbalken unterscheidet ein belegtes Pad von seiner eigenen Fläche.
+    const auto r0 = body(0);
+    CHECK(rgbDistance(img.getPixelAt(r0.getX() + 4, r0.getBottom() - 3), fillAt(0)) > 24.0f);
+    CHECK(img.getPixelAt(r0.getX() + 4, r0.getBottom() - 3) == grid.padBaseColour(0));
+    CHECK(fillAt(2) == ui::colours::lcd);
+    CHECK(fillAt(0) == ui::colours::strip);
+}
+
+TEST_CASE("a long pad name uses two lines inside the tile", "[look][pads]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    dgtest::TempDir tmp;
+    const auto kitFile = tmp.dir.getChildFile("Dub.dgkit");
+    sampleFolderFor(kitFile).createDirectory();
+    DubgefahrenProcessor p;
+    p.applyKit(makeFactoryKit(), kitFile);
+    p.setSlotName(0, "Long Dub Siren With Spaces 12345"); // 32 Zeichen, an Leerzeichen umbrechbar
+    ui::PadGrid grid(p);
+    grid.setSize(360, 384);
+    grid.refreshNames();
+    grid.setPadStates(0, 0, -1);
+    const auto img = dgtest::snapshot(grid);
+
+    const auto r = grid.pad(0).getBounds().reduced(ui::PadGrid::kTileInset);
+    const auto fill = img.getPixelAt(r.getX() + 3, r.getCentreY());
+    // Namensbereich unter der Indexzeile, über dem Farbbalken, innerhalb des Rahmens.
+    int bands = 0;
+    bool inBand = false;
+    for (int y = r.getY() + 4 + 12; y < r.getBottom() - 4 - 3; ++y)
+    {
+        bool row = false;
+        for (int x = r.getX() + 6; x < r.getRight() - 6 && !row; ++x)
+            row = rgbDistance(img.getPixelAt(x, y), fill) > 80.0f;
+        if (row && !inBand)
+            ++bands;
+        inBand = row;
+    }
+    CHECK(bands == 2);
+
+    // Außerhalb des Kachelkörpers (Rand der Kachel) bleibt alles wie der Hintergrund.
+    const auto outside = img.getPixelAt(0, 0);
+    const auto tile = grid.pad(0).getBounds();
+    for (int y = tile.getY(); y < tile.getBottom(); ++y)
+        for (int x = tile.getX(); x < tile.getRight(); ++x)
+            if (!r.contains(x, y))
+                REQUIRE(img.getPixelAt(x, y) == outside);
+}
+
+TEST_CASE("a selected pad and a focused pad have different frame colours", "[look][pads]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    dgtest::TempDir tmp;
+    const auto kitFile = tmp.dir.getChildFile("Dub.dgkit");
+    sampleFolderFor(kitFile).createDirectory();
+    DubgefahrenProcessor p;
+    p.applyKit(makeFactoryKit(), kitFile);
+    ui::PadGrid grid(p);
+    grid.setSize(360, 384);
+    grid.refreshNames();
+    grid.setSelected(5);
+    grid.setPadStates(0, 0, 6); // Pad 6 gewählt, Pad 7 im Fokus
+    const auto img = dgtest::snapshot(grid);
+    const auto edge = [&](int s) {
+        const auto r = grid.pad(s).getBounds().reduced(ui::PadGrid::kTileInset);
+        return img.getPixelAt(r.getX(), r.getCentreY());
+    };
+    CHECK(edge(5) == ui::colours::text);
+    CHECK(edge(6) == ui::colours::accent);
+    CHECK(edge(5) != edge(6));
+}
+
+TEST_CASE("a triggered pad is filled with its colour", "[look][pads]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    DubgefahrenProcessor p;
+    for (int s = 0; s < kNumPadColours; ++s)
+        p.setSlotColour(s, s);
+    ui::PadGrid grid(p);
+    grid.setSize(360, 384);
+    grid.refreshNames();
+    grid.setPadStates(0xffu, 0u, -1);
+    const auto img = dgtest::snapshot(grid);
+    for (int s = 0; s < kNumPadColours; ++s)
+    {
+        INFO("pad " << s);
+        REQUIRE(grid.padBrightness(s) == 1.0f);
+        const auto pt = fillPoint(grid, s);
+        CHECK(img.getPixelAt(pt.x, pt.y) == ui::padColour(s).base);
+        CHECK(grid.padBaseColour(s) == ui::padColour(s).base);
+    }
+}
+
+TEST_CASE("lit pad text contrasts with every pad colour", "[look][pads]")
+{
+    for (int i = 0; i < kNumPadColours; ++i)
+    {
+        INFO(ui::padColour(i).name);
+        CHECK(ui::contrastRatio(ui::padColour(i).litText, ui::padColour(i).base) >= 4.5f);
+    }
 }

@@ -34,11 +34,11 @@ public:
     {
         switch (l)
         {
-            case Layout::Edit: return { 1200, 640 };
+            case Layout::Edit: return { 1200, 656 };
             case Layout::Live: return { 880, 460 };
             case Layout::EditAdvanced: break;
         }
-        return { 1200, 744 };
+        return { 1200, 776 };
     }
     Layout layout() const { return layout_; }
     // Für Tests und die Header-Taster: wechselt die Ansicht bzw. klappt Advanced auf/zu.
@@ -125,20 +125,19 @@ private:
     juce::Component content_;
     juce::Label title_;
     ui::CpuMeter cpuMeter_;
-    juce::TextButton kitButton_ { juce::String::fromUTF8("Kit ▾") };
-    juce::TextButton settingsButton_ { "Settings" };
-    juce::TextButton importButton_ { "Import" };
-    juce::TextButton exportButton_ { "Export" };
+    juce::TextButton kitButton_ { juce::String::fromUTF8("KIT ▼") };
+    juce::TextButton settingsButton_ { "SETTINGS" };
+    juce::TextButton importButton_ { "IMPORT" };
+    juce::TextButton exportButton_ { "EXPORT" };
     juce::TextButton panicButton_ { "PANIC" };
-    juce::TextButton viewButton_ { "Live" };
-    juce::TextButton advancedButton_ { juce::String::fromUTF8("Advanced ▾") };
-    juce::ToggleButton followFocus_ { "Editor follows focus" };
+    juce::TextButton viewButton_ { "LIVE" };
+    juce::TextButton advancedButton_ { juce::String::fromUTF8("ADVANCED ▼") };
+    juce::ToggleButton followFocus_ { "EDITOR FOLLOWS FOCUS" };
     ui::PadGrid pads_;
     ui::SlotEditor slotEditor_;
     ui::LivePanel live_;
     ui::AdvancedPanel advanced_;
     ui::PerformancePanel perf_;
-    std::array<ui::PanelShadow, 4> panelShadows_;
     std::unique_ptr<juce::FileChooser> chooser_;
     // Das modale Settings-Fenster benutzt lnf_ und wird im Destruktor vor ihm geschlossen.
     std::unique_ptr<juce::DialogWindow> settingsWindow_;

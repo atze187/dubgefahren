@@ -10,7 +10,6 @@
 namespace dg::ui {
 
 namespace {
-constexpr float kCorner = 6.0f;
 constexpr float kGrab = 8.0f;    // Fangbereich eines Markers links und rechts
 constexpr float kHandle = 14.0f; // Kantenlänge des Griffs
 constexpr SlotField kWatched[5] = { SlotField::SampleStart, SlotField::LoopStart, SlotField::SampleEnd, SlotField::Loop,
@@ -245,13 +244,13 @@ void WaveformView::drawMarker(juce::Graphics& g, float x, juce::Colour colour, c
     const juce::Rectangle<float> line(std::clamp(x - 0.75f, 0.0f, std::max(0.0f, w - 1.5f)), 0.0f, 1.5f, h);
     const juce::Rectangle<float> handle(std::clamp(x - kHandle * 0.5f, 0.0f, std::max(0.0f, w - kHandle)), 0.0f, kHandle, kHandle);
     // Dunkle Kontur unter Linie und Griff: Der Marker bleibt auf jeder Pad-Farbe der Wellenform sichtbar.
-    g.setColour(colours::groove);
+    g.setColour(colours::lcd);
     g.fillRect(line.expanded(1.25f, 0.0f));
-    g.fillRoundedRectangle(handle.expanded(1.0f), 4.0f);
+    g.fillRoundedRectangle(handle.expanded(1.0f), 2.0f);
     g.setColour(colour);
     g.fillRect(line);
-    g.fillRoundedRectangle(handle, 3.0f);
-    g.setColour(colours::padEmpty);
+    g.fillRoundedRectangle(handle, 2.0f);
+    g.setColour(colours::lcd);
     g.setFont(font(10.0f, true));
     g.drawText(letter, handle, juce::Justification::centred);
 }
@@ -261,17 +260,17 @@ void WaveformView::paint(juce::Graphics& g)
     const auto bounds = getLocalBounds().toFloat();
     if (bounds.isEmpty())
         return;
-    juce::Path body;
-    body.addRoundedRectangle(bounds, kCorner);
-    g.setColour(colours::padEmpty);
-    g.fillPath(body);
+    const auto box = getLocalBounds();
+    g.setColour(colours::lcd);
+    g.fillRect(box);
 
     if (!hasData())
     {
-        inset_.render(g, body);
+        g.setColour(colours::edge);
+        g.drawRect(box, 1);
         g.setColour(colours::textDim);
-        g.setFont(font(13.0f));
-        g.drawText(hintText(), bounds, juce::Justification::centred);
+        g.setFont(font(11.0f));
+        g.drawText(hintText().toUpperCase(), bounds, juce::Justification::centred);
         return;
     }
 
@@ -289,12 +288,11 @@ void WaveformView::paint(juce::Graphics& g)
     const float h = bounds.getHeight();
     {
         const juce::Graphics::ScopedSaveState state(g);
-        g.reduceClipRegion(body);
 
         if (loopOn())
         {
             const auto seg = resolveLoopSegment(r, reverseOn(), data_->samples.size());
-            g.setColour(colours::latched.withAlpha(0.13f));
+            g.setColour(colours::accent.withAlpha(0.13f));
             g.fillRect(juce::Rectangle<float>(xFor(seg.lo), 0.0f, xFor(seg.hi) - xFor(seg.lo), h));
         }
 
@@ -309,16 +307,17 @@ void WaveformView::paint(juce::Graphics& g)
         }
 
         // Der nicht gespielte Teil ist abgedunkelt.
-        g.setColour(colours::padEmpty.withAlpha(0.72f));
+        g.setColour(colours::lcd.withAlpha(0.72f));
         g.fillRect(juce::Rectangle<float>(0.0f, 0.0f, xStart, h));
         g.fillRect(juce::Rectangle<float>(xEnd, 0.0f, bounds.getWidth() - xEnd, h));
     }
-    inset_.render(g, body);
+    g.setColour(colours::edge);
+    g.drawRect(box, 1);
 
     drawMarker(g, xStart, colours::text, "S");
     drawMarker(g, xEnd, colours::text, "E");
     if (loopOn())
-        drawMarker(g, xFor(r.loopStart), colours::latched, "L");
+        drawMarker(g, xFor(r.loopStart), colours::accent, "L");
 }
 
 } // namespace dg::ui

@@ -75,17 +75,6 @@ DubgefahrenEditor::~DubgefahrenEditor()
 void DubgefahrenEditor::paint(juce::Graphics& g)
 {
     ui::drawWindowBackground(g, getLocalBounds());
-    // Schatten ragen über ihre Komponenten hinaus, deshalb zeichnet sie der Editor darunter,
-    // im Koordinatensystem der skalierten content_-Komponente.
-    g.addTransform(content_.getTransform());
-    if (slotEditor_.isVisible())
-        panelShadows_[0].render(g, slotEditor_.getBounds().toFloat());
-    panelShadows_[1].render(g, live_.getBounds().toFloat());
-    if (advanced_.isVisible())
-        panelShadows_[2].render(g, advanced_.getBounds().toFloat());
-    panelShadows_[3].render(g, perf_.getBounds().toFloat());
-    g.setOrigin(pads_.getPosition());
-    pads_.paintGlows(g);
 }
 
 void DubgefahrenEditor::resized()
@@ -107,8 +96,8 @@ void DubgefahrenEditor::applyLayout()
     advanced_.setVisible(layout_ == Layout::EditAdvanced);
     for (juce::Component* c : std::initializer_list<juce::Component*> { &followFocus_, &settingsButton_, &importButton_, &exportButton_, &advancedButton_ })
         c->setVisible(!live);
-    viewButton_.setButtonText(live ? "Edit" : "Live");
-    advancedButton_.setButtonText(juce::String::fromUTF8(proc_.advancedOpen() ? "Advanced ▾" : "Advanced ▸"));
+    viewButton_.setButtonText(live ? "EDIT" : "LIVE");
+    advancedButton_.setButtonText(juce::String::fromUTF8(proc_.advancedOpen() ? "ADVANCED ▼" : "ADVANCED ►"));
 
     content_.setSize(base.x, base.y);
     layoutContent();
@@ -139,8 +128,8 @@ void DubgefahrenEditor::layoutContent()
     const auto base = baseSize(layout_);
     auto r = juce::Rectangle<int>(0, 0, base.x, base.y).reduced(12);
     auto header = r.removeFromTop(36);
-    title_.setBounds(header.removeFromLeft(220));
-    cpuMeter_.setBounds(header.removeFromLeft(90));
+    title_.setBounds(header.removeFromLeft(200));
+    cpuMeter_.setBounds(header.removeFromLeft(80).reduced(0, 6));
     panicButton_.setBounds(header.removeFromRight(90).reduced(2));
     header.removeFromRight(12);
     viewButton_.setBounds(header.removeFromRight(80).reduced(2));
@@ -150,7 +139,7 @@ void DubgefahrenEditor::layoutContent()
         r.removeFromTop(8);
         pads_.setBounds(r.removeFromLeft(360));
         r.removeFromLeft(12);
-        live_.setBounds(r.removeFromTop(232));
+        live_.setBounds(r.removeFromTop(188));
         r.removeFromTop(8);
         perf_.setBounds(r);
         return;
@@ -159,17 +148,17 @@ void DubgefahrenEditor::layoutContent()
     exportButton_.setBounds(header.removeFromRight(80).reduced(2));
     importButton_.setBounds(header.removeFromRight(80).reduced(2));
     kitButton_.setBounds(header.removeFromRight(110).reduced(2));
-    settingsButton_.setBounds(header.removeFromRight(80).reduced(2));
-    followFocus_.setBounds(header.removeFromRight(170));
+    settingsButton_.setBounds(header.removeFromRight(90).reduced(2));
+    followFocus_.setBounds(header.removeFromRight(220));
 
-    perf_.setBounds(r.removeFromBottom(84));
+    perf_.setBounds(r.removeFromBottom(56));
     r.removeFromBottom(8);
     if (layout_ == Layout::EditAdvanced)
     {
-        advanced_.setBounds(r.removeFromBottom(96));
+        advanced_.setBounds(r.removeFromBottom(112));
         r.removeFromBottom(8);
     }
-    live_.setBounds(r.removeFromBottom(96));
+    live_.setBounds(r.removeFromBottom(140));
     r.removeFromBottom(8);
     pads_.setBounds(r.removeFromLeft(360));
     r.removeFromLeft(12);
@@ -476,7 +465,7 @@ class SettingsWindow final : public juce::DialogWindow
 {
 public:
     SettingsWindow(const juce::String& title, std::function<void()> onClose)
-        : DialogWindow(title, ui::colours::panel, false, true), onClose_(std::move(onClose))
+        : DialogWindow(title, ui::colours::window, false, true), onClose_(std::move(onClose))
     {
     }
     void closeButtonPressed() override { onClose_(); }

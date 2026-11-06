@@ -84,27 +84,27 @@ private:
     Tab tab_ = Tab::Midi;
 
     juce::TextButton midiTab_ { "MIDI" };
-    juce::TextButton kitsTab_ { "Kits" };
-    juce::TextButton closeButton_ { "Close" };
+    juce::TextButton kitsTab_ { "KITS" };
+    juce::TextButton closeButton_ { "CLOSE" };
 
     int learning_ = -1;
     int lastRevision_ = -1;
     juce::Point<int> gridOrigin_;
 
     juce::ComboBox profileBox_;
-    juce::TextButton newButton_ { "New" };
-    juce::TextButton renameButton_ { "Rename" };
-    juce::TextButton deleteButton_ { "Delete" };
-    juce::TextButton folderButton_ { "Open profile folder" };
+    juce::TextButton newButton_ { "NEW" };
+    juce::TextButton renameButton_ { "RENAME" };
+    juce::TextButton deleteButton_ { "DELETE" };
+    juce::TextButton folderButton_ { "OPEN PROFILE FOLDER" };
     juce::Label hint_;
-    juce::ToggleButton originToggle_ { "Pad 1 at top left" };
+    juce::ToggleButton originToggle_ { "PAD 1 AT TOP LEFT" };
 
     juce::Label kitCaption_;
     juce::Label kitPath_;
     juce::Label kitWarning_;
-    juce::TextButton changeButton_ { juce::String::fromUTF8("Change…") };
-    juce::TextButton openButton_ { "Open folder" };
-    juce::TextButton defaultButton_ { "Use default" };
+    juce::TextButton changeButton_ { juce::String::fromUTF8("CHANGE…") };
+    juce::TextButton openButton_ { "OPEN FOLDER" };
+    juce::TextButton defaultButton_ { "USE DEFAULT" };
     std::unique_ptr<juce::FileChooser> chooser_;
 };
 

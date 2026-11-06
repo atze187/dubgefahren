@@ -9,14 +9,16 @@
 namespace dg::ui {
 
 namespace {
-// 4 Zeilen passen in die verfügbare Höhe von 384 px (Edit-Layout, Basisgröße 1200 × 640,
-// abzüglich 24 px Rand, 36 px Kopfzeile, 84 px Performance-Leiste, 96 px Live-Leiste und
-// 2x 8 px Abstand; das Layout mit Advanced-Leiste ist 1200 × 744 und lässt die Höhe gleich): kTopOffset + 4 * kRowHeight = 40 + 4*84 = 376 <= 384.
+// 4 Zeilen passen in die verfügbare Höhe von etwa 384 px: kTopOffset + 4 * kRowHeight = 40 + 4*84 = 376.
+// Die Zellen (Beschriftung 12 + Slider 22 = 34 px) sitzen mittig in ihrer Reihe, die Breite folgt dem Panel.
 constexpr int kNumRows = 4;
+constexpr int kNumCols = 5;
 constexpr int kTopOffset = 40;
 constexpr int kRowHeight = 84;
-constexpr int kRowLabelWidth = 64;
-constexpr int kCellWidth = 104;
+constexpr int kCellHeight = 34;
+constexpr int kCellGap = 8;
+constexpr int kSideMargin = 12;
+constexpr int kRowLabelWidth = 76;
 const char* const kRowNames[kNumRows] = { "OSC\nAMP", "LFO", "SWEEP\nTRIG", "MIX" };
 // Sample-Modus: Reihe 0 ist die Wellenform, darunter drei Reihen Regler.
 constexpr int kNumSampleRows = 3;
@@ -26,7 +28,7 @@ constexpr int kWaveformInset = 4; // Abstand der Wellenform zum oberen und unter
 
 SlotEditor::SlotEditor(DubgefahrenProcessor& proc) : proc_(proc), waveform_(proc)
 {
-    header_.setFont(font(18.0f, true));
+    header_.setFont(font(14.0f, true));
     header_.setColour(juce::Label::textColourId, colours::text);
     addAndMakeVisible(header_);
     renameButton_.onClick = [this] {
@@ -60,7 +62,7 @@ SlotEditor::SlotEditor(DubgefahrenProcessor& proc) : proc_(proc), waveform_(proc
     reverse_.button.onStateChange = [this] { waveform_.repaint(); };
     stretch_.box.onChange = [this] { updateStretchEnabled(); };
     stretchHint_.setText(u8("needs Loop"), juce::dontSendNotification);
-    stretchHint_.setFont(font(12.0f));
+    stretchHint_.setFont(font(11.0f));
     stretchHint_.setColour(juce::Label::textColourId, colours::textDim);
     stretchHint_.setJustificationType(juce::Justification::centredLeft);
     addChildComponent(stretchHint_);
@@ -111,7 +113,7 @@ void SlotEditor::refresh()
     const auto source = proc_.slotSource(slot_);
     mode_ = source == SourceType::Empty ? Mode::Empty : source == SourceType::Sample ? Mode::Sample : Mode::Synth;
     const bool empty = mode_ == Mode::Empty;
-    const auto title = "Slot " + juce::String(slot_ + 1);
+    const auto title = "SLOT " + juce::String(slot_ + 1);
     header_.setText(empty ? title : title + u8(" · ") + proc_.slotName(slot_), juce::dontSendNotification);
     emptyHint_.setVisible(empty);
     renameButton_.setVisible(!empty);
@@ -154,6 +156,19 @@ void SlotEditor::updateStretchEnabled()
     stretchHint_.setVisible(mode_ == Mode::Sample && mode == 2 && !loopOn);
 }
 
+std::vector<juce::Rectangle<int>> SlotEditor::controlBounds() const
+{
+    std::vector<juce::Rectangle<int>> out;
+    const auto& list = mode_ == Mode::Sample ? sampleControls_ : controls_;
+    if (mode_ != Mode::Empty)
+        for (auto* c : list)
+            if (c->isVisible())
+                out.push_back(c->getBounds());
+    if (stretchHint_.isVisible())
+        out.push_back(stretchHint_.getBounds());
+    return out;
+}
+
 void SlotEditor::paint(juce::Graphics& g)
 {
     drawPanelBody(g, getLocalBounds().toFloat());
@@ -177,14 +192,17 @@ void SlotEditor::resized()
     sampleButton_.setBounds(top.removeFromRight(180));
     header_.setBounds(top);
 
-    const auto place = [this](int row, int col, juce::Component& c) {
-        c.setBounds(kRowLabelWidth + col * kCellWidth, kTopOffset + row * kRowHeight, kCellWidth - 8, kRowHeight - 6);
+    // Spaltenbreite aus der Panelbreite: Beschriftung links, fünf Zellen, Rand rechts.
+    const int colWidth = (getWidth() - kRowLabelWidth - kSideMargin) / kNumCols;
+    const auto place = [this, colWidth](int row, int col, juce::Component& c) {
+        c.setBounds(kRowLabelWidth + col * colWidth, kTopOffset + row * kRowHeight + (kRowHeight - kCellHeight) / 2,
+                    colWidth - kCellGap, kCellHeight);
     };
     if (mode_ == Mode::Sample)
     {
-        waveform_.setBounds(12, kTopOffset + kWaveformInset, getWidth() - 24, kRowHeight - 2 * kWaveformInset);
+        waveform_.setBounds(kSideMargin, kTopOffset + kWaveformInset, getWidth() - 2 * kSideMargin, kRowHeight - 2 * kWaveformInset);
         place(1, 0, tune_);    place(1, 1, stretch_); place(1, 2, stretchPct_); place(1, 3, grain_);
-        stretchHint_.setBounds(kRowLabelWidth + 4 * kCellWidth, kTopOffset + kRowHeight, kCellWidth - 8, kRowHeight - 6);
+        place(1, 4, stretchHint_);
         place(2, 0, loop_);  place(2, 1, reverse_); place(2, 2, xfade_); place(2, 3, trigMode_); place(2, 4, choke_);
         place(3, 0, attack_);  place(3, 1, release_);  place(3, 2, vol_);        place(3, 3, pan_);      place(3, 4, send_);
     }

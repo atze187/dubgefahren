@@ -4,7 +4,6 @@
 #include <vector>
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_gui_basics/juce_gui_basics.h>
-#include "melatonin_blur/melatonin_blur.h"
 #include "engine/SampleData.h"
 #include "engine/SampleRegion.h"
 #include "engine/SlotFields.h"
@@ -82,7 +81,6 @@ private:
     std::optional<Marker> active_;
     float pressX_ = 0.0f;
     float seen_[5] = {}; // zuletzt gezeichnete Parameterwerte, für das Nachführen bei Automation
-    melatonin::InnerShadow inset_ { { juce::Colours::black.withAlpha(0.8f), 6, { 0, 2 } } };
 };
 
 } // namespace dg::ui

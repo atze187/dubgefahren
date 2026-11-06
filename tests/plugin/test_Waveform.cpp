@@ -1,5 +1,6 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
+#include <cmath>
 #include <limits>
 #include <vector>
 #include "engine/Kit.h"
@@ -347,4 +348,35 @@ TEST_CASE("markers keep a dark outline so they stay visible on any slot colour",
         CHECK(ui::relativeLuminance(img.getPixelAt(x + 2, y)) < 0.12f);
         CHECK(ui::relativeLuminance(img.getPixelAt(x - 2, y)) < 0.12f);
     }
+}
+
+TEST_CASE("the waveform keeps marker and region colours", "[waveform][look]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    Fixture f;
+    ui::DgLookAndFeel lnf;
+    ui::WaveformView view(f.p);
+    view.setLookAndFeel(&lnf);
+    view.setSize(580, 76);
+    view.setSlot(2);
+    f.set(SlotField::SampleStart, 0.2509f); // Linie auf ganzen Pixeln: x = 145.5
+    f.set(SlotField::SampleEnd, 0.7509f);
+    const auto plain = dgtest::snapshot(view);
+    f.set(SlotField::Loop, 1.0f);
+    f.set(SlotField::LoopStart, 0.5009f);
+    const auto looped = dgtest::snapshot(view);
+
+    const auto lineX = [&](Marker m) { return static_cast<int>(std::floor(view.markerX(m))); };
+    // Zeile 40: unter dem Griff, die Linie ist dort die volle Markerfarbe.
+    CHECK(plain.getPixelAt(lineX(Marker::Start), 40) == ui::colours::text);
+    CHECK(plain.getPixelAt(lineX(Marker::End), 40) == ui::colours::text);
+    CHECK(looped.getPixelAt(lineX(Marker::Loop), 40) == ui::colours::accent);
+
+    // Loop-Tönung: 13 % latched über dem Untergrund (Zeile 66, unterhalb der Kurve).
+    const auto expected = plain.getPixelAt(360, 66).overlaidWith(ui::colours::accent.withAlpha(0.13f));
+    const auto got = looped.getPixelAt(360, 66);
+    CHECK(std::abs(expected.getRed() - got.getRed()) <= 1);
+    CHECK(std::abs(expected.getGreen() - got.getGreen()) <= 1);
+    CHECK(std::abs(expected.getBlue() - got.getBlue()) <= 1);
+    view.setLookAndFeel(nullptr);
 }

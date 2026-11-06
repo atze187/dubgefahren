@@ -1,28 +1,58 @@
 #include "plugin/ui/Controls.h"
+#include <algorithm>
+#include <cmath>
 #include "plugin/ui/DgLookAndFeel.h"
 #include "plugin/ui/Fonts.h"
 
 namespace dg::ui {
 
 namespace {
+constexpr int kLabelHeight = 12;
+constexpr int kControlHeight = 22;
+
 void setupLabel(juce::Label& l, const juce::String& text)
 {
-    l.setText(text, juce::dontSendNotification);
-    l.setJustificationType(juce::Justification::centred);
+    l.setText(text.toUpperCase(), juce::dontSendNotification);
+    l.setJustificationType(juce::Justification::centredLeft);
+    l.setBorderSize(juce::BorderSize<int>(0, 0, 0, 0));
     l.setColour(juce::Label::textColourId, colours::textDim);
-    l.setFont(font(12.0f));
+    l.setFont(font(10.0f));
+}
+
+// Text mit so vielen Nachkommastellen wie passen (höchstens decimals); nie "-0.00".
+juce::String lcdText(double value, int decimals)
+{
+    for (int d = decimals;; --d)
+    {
+        // JUCE zeigt bei 0 Stellen alle signifikanten Stellen; ganze Zahlen deshalb selbst runden.
+        auto text = d > 0 ? juce::String(value, d) : juce::String(static_cast<juce::int64>(std::llround(value)));
+        if (text.startsWith("-") && text.getDoubleValue() == 0.0)
+            text = text.substring(1);
+        if (d <= 0 || lcdTextWidth(text) <= kLcdTextRoom)
+            return text;
+    }
 }
 } // namespace
 
+float lcdTextWidth(const juce::String& text)
+{
+    juce::GlyphArrangement glyphs;
+    glyphs.addLineOfText(juce::Font(font(kLcdFontHeight)), text, 0.0f, 0.0f);
+    return glyphs.getBoundingBox(0, -1, false).getWidth();
+}
+
 Knob::Knob(const juce::String& labelText)
 {
-    slider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+    slider.setSliderStyle(juce::Slider::LinearHorizontal);
+    // Ziehen bleibt relativ wie beim alten Drehregler: Ein Klick neben den Balken springt nicht.
+    slider.setSliderSnapsToMousePosition(false);
     // Farben des Wertefelds direkt am Slider setzen: Das Feld wird beim Anlegen gebaut, bevor der
     // Regler unter dem Look-and-Feel des Editors hängt, und übernähme sonst dessen Standardfarben.
-    slider.setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
-    slider.setColour(juce::Slider::textBoxBackgroundColourId, juce::Colours::transparentBlack);
-    slider.setColour(juce::Slider::textBoxTextColourId, colours::text);
-    slider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 64, 16);
+    slider.setColour(juce::Slider::textBoxOutlineColourId, colours::edge);
+    slider.setColour(juce::Slider::textBoxBackgroundColourId, colours::lcd);
+    slider.setColour(juce::Slider::textBoxTextColourId, colours::amber);
+    slider.setTextBoxStyle(juce::Slider::TextBoxRight, false, kLcdBoxWidth, kLcdBoxHeight);
+    slider.textFromValueFunction = [](double value) { return lcdText(value, 2); };
     setupLabel(label, labelText);
     addAndMakeVisible(slider);
     addAndMakeVisible(label);
@@ -33,20 +63,18 @@ void Knob::attach(juce::AudioProcessorValueTreeState& apvts, const juce::String&
     attachment_.reset();
     attachment_ = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(apvts, paramId, slider);
     // Die Attachment setzt die Textfunktion des Parameters (bis zu 7 Nachkommastellen). Angezeigt
-    // werden zwei, bei Zeiten (Einheit s) drei; der Wert selbst bleibt unverändert genau.
+    // werden zwei, bei Zeiten (Einheit s) drei, bei großen Werten weniger, damit der Text ins LCD passt;
+    // der Wert selbst bleibt unverändert genau.
     const auto* param = apvts.getParameter(paramId);
     const int decimals = param != nullptr && param->getLabel() == "s" ? 3 : 2;
-    slider.textFromValueFunction = [decimals](double value) {
-        const auto text = juce::String(value, decimals);
-        return text.startsWith("-") && text.getDoubleValue() == 0.0 ? text.substring(1) : text; // kein "-0.00"
-    };
+    slider.textFromValueFunction = [decimals](double value) { return lcdText(value, decimals); };
     slider.updateText();
 }
 
 void Knob::resized()
 {
     auto r = getLocalBounds();
-    label.setBounds(r.removeFromTop(14));
+    label.setBounds(r.removeFromTop(kLabelHeight));
     slider.setBounds(r);
 }
 
@@ -69,13 +97,13 @@ void Choice::attach(juce::AudioProcessorValueTreeState& apvts, const juce::Strin
 void Choice::resized()
 {
     auto r = getLocalBounds();
-    label.setBounds(r.removeFromTop(14));
-    box.setBounds(r.withSizeKeepingCentre(r.getWidth(), std::min(24, r.getHeight())));
+    label.setBounds(r.removeFromTop(kLabelHeight));
+    box.setBounds(r.removeFromTop(std::min(kControlHeight, r.getHeight())));
 }
 
 Toggle::Toggle(const juce::String& text)
 {
-    button.setButtonText(text);
+    button.setButtonText(text.toUpperCase());
     addAndMakeVisible(button);
 }
 
@@ -85,6 +113,6 @@ void Toggle::attach(juce::AudioProcessorValueTreeState& apvts, const juce::Strin
     attachment_ = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(apvts, paramId, button);
 }
 
-void Toggle::resized() { button.setBounds(getLocalBounds().withSizeKeepingCentre(getWidth(), 24)); }
+void Toggle::resized() { button.setBounds(getLocalBounds().withSizeKeepingCentre(getWidth(), std::min(kControlHeight, getHeight()))); }
 
 } // namespace dg::ui

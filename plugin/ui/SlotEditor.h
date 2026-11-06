@@ -33,6 +33,8 @@ public:
     bool stretchFactorEnabled() const { return stretchPct_.isEnabled() && grain_.isEnabled(); }
     bool xfadeEnabled() const { return xfade_.isEnabled(); }
     bool showsStretchHint() const { return stretchHint_.isVisible(); }
+    // Bounds aller sichtbaren Zellen (Regler, Wellenform, Hinweis) in Koordinaten des Slot-Editors.
+    std::vector<juce::Rectangle<int>> controlBounds() const;
 
     void paint(juce::Graphics& g) override;
     void resized() override;
@@ -46,7 +48,7 @@ private:
     DubgefahrenProcessor& proc_;
     int slot_ = -1;
     juce::Label header_;
-    juce::TextButton renameButton_ { u8("Rename") };
+    juce::TextButton renameButton_ { u8("RENAME") };
 
     Choice wave_ { u8("Wave") };
     Knob pitch_ { u8("Pitch") };

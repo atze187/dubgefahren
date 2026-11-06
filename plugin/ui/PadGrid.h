@@ -35,13 +35,10 @@ public:
     bool isSample(int slot) const;
     bool isMissing(int slot) const;
 
-    // So weit ragt der Glow höchstens über ein Pad hinaus (px im Basis-Layout).
-    static constexpr int kGlowReach = 24;
+    // Abstand der Kachel zum Rand ihrer Zelle (px im Basis-Layout): die Lücke zwischen den Kacheln.
+    static constexpr int kTileInset = 3;
 
-    // Glow aller Pads in den Koordinaten dieses Rasters. Ragt über die Pads und das Raster
-    // hinaus und wird deshalb vom Editor unter den Komponenten gezeichnet.
-    void paintGlows(juce::Graphics& g);
-    // Ein Glow hat sich geändert: Bereich (Raster-Koordinaten) neu zeichnen.
+    // Die Kachel eines Pads hat sich geändert (Helligkeit, Fokus, Farbe): Bereich (Raster-Koordinaten) neu zeichnen.
     std::function<void(juce::Rectangle<int>)> onGlowChanged;
 
     float padBrightness(int slot) const;

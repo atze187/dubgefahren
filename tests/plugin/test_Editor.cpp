@@ -23,7 +23,7 @@ TEST_CASE("editor opens with the stored scale and follows focus", "[editor]")
     std::unique_ptr<juce::AudioProcessorEditor> editor(p.createEditor());
     REQUIRE(dynamic_cast<DubgefahrenEditor*>(editor.get()) != nullptr);
     CHECK(editor->getWidth() == 1800);
-    CHECK(editor->getHeight() == 1116);
+    CHECK(editor->getHeight() == 1164);
 
     auto* e = static_cast<DubgefahrenEditor*>(editor.get());
     CHECK(e->selectedSlot() == 0);
@@ -439,7 +439,7 @@ TEST_CASE("the effects bar is split into the live strip and the advanced strip w
     auto* e = static_cast<DubgefahrenEditor*>(editor.get());
     REQUIRE(e != nullptr);
     CHECK(e->getWidth() == 1200);
-    CHECK(e->getHeight() == 744);
+    CHECK(e->getHeight() == 776);
 
     const auto check = [](const juce::Rectangle<int>& panel, const std::vector<juce::Rectangle<int>>& controls) {
         const auto local = panel.withZeroOrigin();
@@ -460,9 +460,35 @@ TEST_CASE("the effects bar is split into the live strip and the advanced strip w
 TEST_CASE("the editor has three layouts with fixed base sizes", "[editor]")
 {
     using Layout = DubgefahrenEditor::Layout;
-    CHECK(DubgefahrenEditor::baseSize(Layout::EditAdvanced) == juce::Point<int>(1200, 744));
-    CHECK(DubgefahrenEditor::baseSize(Layout::Edit) == juce::Point<int>(1200, 640));
+    CHECK(DubgefahrenEditor::baseSize(Layout::EditAdvanced) == juce::Point<int>(1200, 776));
+    CHECK(DubgefahrenEditor::baseSize(Layout::Edit) == juce::Point<int>(1200, 656));
     CHECK(DubgefahrenEditor::baseSize(Layout::Live) == juce::Point<int>(880, 460));
+}
+
+TEST_CASE("every slider cell is wide enough for its LCD", "[editor]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    for (const auto mode : { 0, 1, 2 })
+    {
+        DubgefahrenProcessor p;
+        p.setUiScale(1.0f);
+        p.setLiveView(mode == 2);
+        p.setAdvancedOpen(mode == 0);
+        std::unique_ptr<juce::AudioProcessorEditor> editor(p.createEditor());
+        auto* e = static_cast<DubgefahrenEditor*>(editor.get());
+        REQUIRE(e != nullptr);
+        auto cells = e->livePanel().controlBounds();
+        for (const auto& r : e->performancePanel().controlBounds())
+            cells.push_back(r);
+        if (e->advancedPanelVisible())
+            for (const auto& r : e->advancedPanel().controlBounds())
+                cells.push_back(r);
+        for (const auto& r : cells)
+        {
+            CHECK(r.getWidth() >= 120);
+            CHECK(r.getHeight() >= 30);
+        }
+    }
 }
 
 TEST_CASE("switching the view resizes the window, keeps the scale and hides what Live does not show", "[editor]")
@@ -494,7 +520,7 @@ TEST_CASE("switching the view resizes the window, keeps the scale and hides what
 
     e->setAdvancedOpen(false);
     CHECK(e->layout() == DubgefahrenEditor::Layout::Edit);
-    CHECK(e->getHeight() == 960);   // 640 * 1.5
+    CHECK(e->getHeight() == 984);   // 656 * 1.5
     CHECK_FALSE(e->advancedPanelVisible());
     CHECK(e->slotEditorVisible());
 }
@@ -534,6 +560,38 @@ TEST_CASE("in every layout all visible controls lie inside their panel without o
         CHECK(content.contains(e->livePanel().getBounds()));
         CHECK(content.contains(e->performancePanel().getBounds()));
         CHECK_FALSE(e->livePanel().getBounds().intersects(e->performancePanel().getBounds()));
+    }
+}
+
+TEST_CASE("slot editor cells fit the panel in synth and sample mode", "[editor]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    SampleSlotFixture f;
+    f.p.setUiScale(1.0f);
+    std::unique_ptr<juce::AudioProcessorEditor> editor(f.p.createEditor());
+    auto* e = static_cast<DubgefahrenEditor*>(editor.get());
+    REQUIRE(e != nullptr);
+    auto& se = e->slotEditor();
+    for (const int slot : { 0, 2 }) // 0 = Synth, 2 = Sample
+    {
+        e->selectSlot(slot);
+        if (slot == 2) // Hinweis "needs Loop" sichtbar machen
+        {
+            f.set(SlotField::Loop, 0.0f);
+            f.set(SlotField::StretchMode, 2.0f);
+            CHECK(se.showsStretchHint());
+        }
+        const auto cells = se.controlBounds();
+        CHECK(cells.size() >= 14);
+        const auto panel = se.getLocalBounds();
+        for (std::size_t i = 0; i < cells.size(); ++i)
+        {
+            CHECK(panel.contains(cells[i]));
+            CHECK(cells[i].getWidth() >= 120);
+            CHECK(cells[i].getHeight() >= 30);
+            for (std::size_t j = i + 1; j < cells.size(); ++j)
+                CHECK_FALSE(cells[i].intersects(cells[j]));
+        }
     }
 }
 
