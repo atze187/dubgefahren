@@ -195,7 +195,7 @@ TEST_CASE("an empty pad never lights up", "[look]")
     CHECK(grid.padBrightness(5) == 0.0f);
 }
 
-TEST_CASE("a changing glow reports the pad area plus its reach", "[look]")
+TEST_CASE("a changing pad reports only its own tile area", "[look]")
 {
     juce::ScopedJuceInitialiser_GUI gui;
     DubgefahrenProcessor p;
@@ -208,12 +208,12 @@ TEST_CASE("a changing glow reports the pad area plus its reach", "[look]")
 
     grid.setPadStates(1u << 3, 0u, 0);
     REQUIRE(areas.size() == 1);
-    CHECK(areas[0] == grid.pad(3).getBounds().expanded(ui::PadGrid::kGlowReach));
+    CHECK(areas[0] == grid.pad(3).getBounds());
 
     areas.clear();
     juce::Thread::sleep(20); // messbarer Zeitschritt, damit Pad 4 sicher vom Trigger-Wert abfällt
     grid.setPadStates(1u << 3, 0u, 1); // Fokus wandert von Pad 1 zu Pad 2
-    CHECK(areas.size() == 3);          // Pad 4 fällt auf den Haltewert, Pad 1 und 2 wechseln den Fokus-Glow
+    CHECK(areas.size() == 3);          // Pad 4 fällt auf den Haltewert, Pad 1 und 2 wechseln den Fokus
 }
 
 TEST_CASE("pads use the shared base colour until one is assigned", "[look]")
@@ -225,32 +225,6 @@ TEST_CASE("pads use the shared base colour until one is assigned", "[look]")
     grid.setPadBaseColour(0, juce::Colours::red);
     CHECK(grid.padBaseColour(0) == juce::Colours::red);
     CHECK(grid.padBaseColour(1) == ui::colours::padBase);
-}
-
-TEST_CASE("pad glows are drawn outside the pads and only for lit or focused pads", "[look]")
-{
-    juce::ScopedJuceInitialiser_GUI gui;
-    DubgefahrenProcessor p;
-    ui::PadGrid grid(p);
-    grid.setSize(360, 384);
-
-    const auto render = [&grid] {
-        juce::Image img(juce::Image::ARGB, 360 + 2 * ui::PadGrid::kGlowReach, 384 + 2 * ui::PadGrid::kGlowReach, true);
-        juce::Graphics g(img);
-        g.setOrigin(ui::PadGrid::kGlowReach, ui::PadGrid::kGlowReach);
-        grid.paintGlows(g);
-        return img;
-    };
-
-    grid.setPadStates(0u, 0u, -1);
-    CHECK_FALSE(dgtest::hasVisiblePixel(render()));
-
-    grid.setPadStates(1u, 0u, -1); // Pad 1 liegt unten links
-    const auto lit = render();
-    CHECK(dgtest::hasVisiblePixel(lit));
-    // Links neben dem Raster, auf Höhe von Pad 1: Glow ragt über das Raster hinaus.
-    const auto padBounds = grid.pad(0).getBounds();
-    CHECK(lit.getPixelAt(ui::PadGrid::kGlowReach - 3, ui::PadGrid::kGlowReach + padBounds.getCentreY()).getAlpha() > 0);
 }
 
 TEST_CASE("sixteen glowing pads paint within one timer tick", "[look][perf]")
@@ -271,7 +245,6 @@ TEST_CASE("sixteen glowing pads paint within one timer tick", "[look][perf]")
         juce::Graphics g(img);
         g.fillAll(ui::colours::window); // wie der Editor: jeder Frame beginnt mit dem Hintergrund
         g.addTransform(juce::AffineTransform::scale(2.0f));
-        grid.paintGlows(g);
         grid.paintEntireComponent(g, false);
     }
     const double perFrame = (juce::Time::getMillisecondCounterHiRes() - start) / frames;
@@ -452,7 +425,7 @@ TEST_CASE("a latched pad shows the light dot with a dark ring in the editor", "[
     const auto img = dgtest::snapshot(*editor);
     dgtest::savePng(img, "editor-latched");
     // Mitte des Punkts oben rechts auf Pad 1 (unten links im Raster).
-    const auto dot = img.getPixelAt(87, 333);
+    const auto dot = img.getPixelAt(89, 331);
     CHECK(dot.getRed() > 220);
     CHECK(dot.getGreen() > 220);
     CHECK(dot.getBlue() > 220);
@@ -616,4 +589,104 @@ TEST_CASE("all pad colours render dimmed and lit with the latch dot", "[look][pa
     const auto lit = dgtest::snapshot(grid);
     dgtest::savePng(lit, "pad-colours-lit");
     CHECK(dgtest::hasVisiblePixel(lit));
+}
+
+namespace {
+// Abstand zweier Farben im RGB-Raum.
+float rgbDistance(juce::Colour a, juce::Colour b)
+{
+    const float dr = static_cast<float>(a.getRed() - b.getRed());
+    const float dg = static_cast<float>(a.getGreen() - b.getGreen());
+    const float db = static_cast<float>(a.getBlue() - b.getBlue());
+    return std::sqrt(dr * dr + dg * dg + db * db);
+}
+
+// Messpunkt (Raster-Koordinaten) links neben dem Namen: Füllung der Kachel, abseits von Text und Marken.
+juce::Point<int> fillPoint(ui::PadGrid& grid, int slot)
+{
+    const auto r = grid.pad(slot).getBounds().reduced(ui::PadGrid::kTileInset);
+    return { r.getX() + 3, r.getCentreY() };
+}
+} // namespace
+
+TEST_CASE("pad states are distinguishable", "[look][pads]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    dgtest::TempDir tmp;
+    const auto kitFile = tmp.dir.getChildFile("Dub.dgkit");
+    sampleFolderFor(kitFile).createDirectory();
+    DubgefahrenProcessor p;
+    p.applyKit(makeFactoryKit(), kitFile);
+    p.clearSlot(2);
+    p.setSlotSample(3, "gone.wav"); // fehlende Datei
+    p.waitForSampleLoads();
+
+    ui::PadGrid grid(p);
+    grid.setSize(360, 384);
+    grid.refreshNames();
+    REQUIRE(grid.isEmpty(2));
+    REQUIRE(grid.isMissing(3));
+    grid.setSelected(5);
+    grid.setPadStates(1u << 1, 1u << 4, -1); // Pad 2 getroffen, Pad 5 gelatcht, Pad 6 gewählt
+    REQUIRE(grid.padBrightness(1) == 1.0f);
+    const auto img = dgtest::snapshot(grid);
+    dgtest::savePng(img, "pad-states");
+
+    const auto body = [&grid](int s) { return grid.pad(s).getBounds().reduced(ui::PadGrid::kTileInset); };
+    const auto fillAt = [&](int s) { return img.getPixelAt(fillPoint(grid, s).x, fillPoint(grid, s).y); };
+
+    const auto r3 = body(3);
+    const auto r4 = body(4);
+    const auto r5 = body(5);
+    const std::vector<std::pair<const char*, juce::Colour>> samples {
+        { "empty", fillAt(2) },
+        { "assigned", fillAt(0) },
+        { "hit", fillAt(1) },
+        { "selected edge", img.getPixelAt(r5.getX(), r5.getCentreY()) },
+        { "latched dot", img.getPixelAt(r4.getRight() - 10, r4.getY() + 10) },
+        { "missing mark", img.getPixelAt(r3.getRight() - 34 + 8 - 3, r3.getY() + 3 + 10) },
+    };
+    for (std::size_t i = 0; i < samples.size(); ++i)
+        for (std::size_t j = i + 1; j < samples.size(); ++j)
+        {
+            INFO(samples[i].first << " vs " << samples[j].first);
+            CHECK(rgbDistance(samples[i].second, samples[j].second) > 24.0f);
+        }
+
+    // Der Farbbalken unterscheidet ein belegtes Pad von seiner eigenen Fläche.
+    const auto r0 = body(0);
+    CHECK(rgbDistance(img.getPixelAt(r0.getX() + 4, r0.getBottom() - 3), fillAt(0)) > 24.0f);
+    CHECK(img.getPixelAt(r0.getX() + 4, r0.getBottom() - 3) == grid.padBaseColour(0));
+    CHECK(fillAt(2) == ui::colours::lcd);
+    CHECK(fillAt(0) == ui::colours::strip);
+}
+
+TEST_CASE("a triggered pad is filled with its colour", "[look][pads]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    DubgefahrenProcessor p;
+    for (int s = 0; s < kNumPadColours; ++s)
+        p.setSlotColour(s, s);
+    ui::PadGrid grid(p);
+    grid.setSize(360, 384);
+    grid.refreshNames();
+    grid.setPadStates(0xffu, 0u, -1);
+    const auto img = dgtest::snapshot(grid);
+    for (int s = 0; s < kNumPadColours; ++s)
+    {
+        INFO("pad " << s);
+        REQUIRE(grid.padBrightness(s) == 1.0f);
+        const auto pt = fillPoint(grid, s);
+        CHECK(img.getPixelAt(pt.x, pt.y) == ui::padColour(s).base);
+        CHECK(grid.padBaseColour(s) == ui::padColour(s).base);
+    }
+}
+
+TEST_CASE("lit pad text contrasts with every pad colour", "[look][pads]")
+{
+    for (int i = 0; i < kNumPadColours; ++i)
+    {
+        INFO(ui::padColour(i).name);
+        CHECK(ui::contrastRatio(ui::padColour(i).litText, ui::padColour(i).base) >= 4.5f);
+    }
 }

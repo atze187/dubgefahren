@@ -1,5 +1,4 @@
 #include "plugin/ui/PadGrid.h"
-#include "melatonin_blur/melatonin_blur.h"
 #include "plugin/PluginProcessor.h"
 #include "plugin/ui/Controls.h"
 #include "plugin/ui/DgLookAndFeel.h"
@@ -10,9 +9,8 @@
 namespace dg::ui {
 
 namespace {
-constexpr float kPadInset = 5.0f;  // Abstand des Pad-Körpers zum Rand seiner Zelle: Platz für Schatten und Glow
-constexpr float kPadCorner = 6.0f;
-constexpr float kGlowAlpha = 0.75f; // Deckkraft des Glows bei voller Helligkeit
+constexpr int kPadInset = PadGrid::kTileInset;
+constexpr int kBarHeight = 3; // Farbbalken unten auf belegten Pads
 } // namespace
 
 class PadGrid::Pad final : public juce::Component
@@ -26,7 +24,7 @@ public:
             owner_.proc_.previewRelease(slot_);
     }
 
-    // Liefert true, wenn sich etwas geändert hat, das den Glow betrifft (Fokus).
+    // Liefert true, wenn sich der Fokus geändert hat.
     bool setState(bool latched, bool focus, bool selected)
     {
         if (latched == latched_ && focus == focus_ && selected == selected_)
@@ -85,129 +83,92 @@ public:
         repaint();
     }
 
-    juce::Rectangle<float> bodyBounds() const { return getLocalBounds().toFloat().reduced(kPadInset); }
-
-    // Glow in den Koordinaten des Rasters.
-    void paintGlow(juce::Graphics& g)
-    {
-        const auto r = bodyBounds().translated(static_cast<float>(getX()), static_cast<float>(getY()));
-        if (r.isEmpty())
-            return;
-        juce::Path body;
-        body.addRoundedRectangle(r, kPadCorner);
-        if (!empty_ && brightness_ > 0.0f)
-        {
-            updateGlowImage(r, g.getInternalContext().getPhysicalPixelScaleFactor());
-            g.setOpacity(kGlowAlpha * brightness_);
-            g.drawImage(glowImage_, r.expanded(static_cast<float>(kGlowReach)));
-            g.setOpacity(1.0f);
-        }
-        if (focus_)
-            focusGlow_.render(g, body);
-    }
-
-    // Der Glow bei voller Helligkeit, einmal pro Größe, Skalierung und Farbe gerendert. Beim
-    // Animieren wird nur noch dieses Bild mit wechselnder Deckkraft gezeichnet: Ein Farbwechsel
-    // am melatonin-Schatten würde ihn in jedem Frame neu zusammensetzen (gemessen ca. 1,5 ms pro Pad).
-    void updateGlowImage(juce::Rectangle<float> body, float scale)
-    {
-        const float reach = static_cast<float>(kGlowReach);
-        const int w = std::max(1, juce::roundToInt((body.getWidth() + 2.0f * reach) * scale));
-        const int h = std::max(1, juce::roundToInt((body.getHeight() + 2.0f * reach) * scale));
-        if (glowImage_.isValid() && glowImage_.getWidth() == w && glowImage_.getHeight() == h && glowColour_ == baseColour_)
-            return;
-        glowImage_ = juce::Image(juce::Image::ARGB, w, h, true);
-        glowColour_ = baseColour_;
-        juce::Graphics ig(glowImage_);
-        ig.addTransform(juce::AffineTransform::scale(scale));
-        juce::Path p;
-        p.addRoundedRectangle(juce::Rectangle<float>(reach, reach, body.getWidth(), body.getHeight()), kPadCorner);
-        playGlow_.setColor(baseColour_);
-        playGlow_.render(ig, p);
-    }
+    juce::Rectangle<int> bodyBounds() const { return getLocalBounds().reduced(kPadInset); }
 
     void paint(juce::Graphics& g) override
     {
         const auto r = bodyBounds();
-        if (r.isEmpty())
+        if (r.getWidth() < 8 || r.getHeight() < 8)
             return;
-        juce::Path body;
-        body.addRoundedRectangle(r, kPadCorner);
 
-        if (empty_)
+        // Flache Kachel: Leere Pads sind vertieft (LCD-Farbe), belegte tragen die Panelfarbe.
+        // Beim Spielen blendet die Füllung zur Pad-Farbe.
+        const auto fill = empty_ ? colours::lcd : colours::strip.interpolatedWith(baseColour_, brightness_);
+        g.setColour(fill);
+        g.fillRect(r);
+
+        if (!empty_)
         {
-            // Leeres Pad: vertieft, ohne Grundfarbe und ohne Schlagschatten.
-            g.setColour(colours::padEmpty);
-            g.fillPath(body);
-            inset_.render(g, body);
-        }
-        else
-        {
-            drop_.render(g, body);
-            g.setGradientFill(juce::ColourGradient(colours::padTop, 0.0f, r.getY(), colours::padBottom, 0.0f, r.getBottom(), false));
-            g.fillPath(body);
-            if (!missing_)
-            {
-                // Schimmer der Grundfarbe am unteren Rand.
-                g.setGradientFill(juce::ColourGradient(baseColour_.withAlpha(0.0f), 0.0f, r.getCentreY(), baseColour_.withAlpha(0.35f), 0.0f,
-                                                       r.getBottom(), false));
-                g.fillPath(body);
-            }
-            if (brightness_ > 0.0f)
-            {
-                // Spielend: Körper in der Grundfarbe, oben heller.
-                g.setGradientFill(juce::ColourGradient(baseColour_.brighter(0.7f).withAlpha(brightness_), 0.0f, r.getY(),
-                                                       baseColour_.withAlpha(brightness_), 0.0f, r.getBottom(), false));
-                g.fillPath(body);
-            }
-            g.setColour(colours::highlight.withMultipliedAlpha(1.0f + brightness_));
-            g.fillRect(juce::Rectangle<float>(r.getX() + kPadCorner, r.getY() + 1.0f, r.getWidth() - 2.0f * kPadCorner, 1.0f));
+            // Farbbalken unten in der Pad-Farbe, innerhalb der Kante.
+            g.setColour(baseColour_);
+            g.fillRect(juce::Rectangle<int>(r.getX() + 1, r.getBottom() - 1 - kBarHeight, r.getWidth() - 2, kBarHeight));
         }
 
-        // Farbe zeigt Fokus, Dicke zeigt Auswahl. Ohne beides nur die dunkle Kontur.
+        // Farbe zeigt Fokus, Dicke zeigt Auswahl. Ohne beides nur die dünne Kante.
         if (focus_ || selected_)
         {
-            g.setColour(focus_ ? colours::accent : colours::text.withAlpha(0.6f));
-            g.drawRoundedRectangle(r, kPadCorner, selected_ ? 2.5f : 1.5f);
+            g.setColour(colours::accent);
+            g.drawRect(r, selected_ ? 2 : 1);
         }
         else
         {
-            g.setColour(colours::groove);
-            g.drawRoundedRectangle(r, kPadCorner, 1.0f);
+            g.setColour(colours::edge);
+            g.drawRect(r, 1);
         }
 
-        const auto text = r.reduced(6.0f);
+        const auto inner = r.reduced(6, 4);
         // Ab dem Haltewert steht der Text voll in der dunklen Farbe, damit er auf der hellen Fläche lesbar bleibt.
         const float textMix = juce::jlimit(0.0f, 1.0f, brightness_ / 0.6f);
         const auto dim = colours::textDim.interpolatedWith(litText_, textMix);
         g.setColour(dim);
-        g.setFont(font(11.0f));
-        g.drawText(juce::String(slot_ + 1), text, juce::Justification::topLeft);
-        // Fehlendes Sample: Name und Symbol in Warnfarbe, der Slot ist stumm.
+        g.setFont(font(10.0f));
+        g.drawText(juce::String(slot_ + 1), inner, juce::Justification::topLeft, false);
+
+        // Fehlendes Sample: Name in Warnfarbe, der Slot ist stumm.
         g.setColour(empty_ ? colours::textDim
                            : (missing_ ? colours::warning : colours::text.interpolatedWith(litText_, textMix)));
-        g.setFont(font(13.0f));
-        g.drawFittedText(empty_ ? juce::String("Empty") : name_, text.toNearestInt(), juce::Justification::centred, 2);
+        g.setFont(font(11.0f, true));
+        const auto label = inner.withTrimmedTop(12).withTrimmedBottom(kBarHeight + 1);
+        g.drawText(empty_ ? juce::String("EMPTY") : name_.toUpperCase(), label, juce::Justification::centred, true);
 
         if (sample_ && !empty_)
         {
-            g.setColour(missing_ ? colours::warning : dim);
-            g.setFont(font(13.0f));
-            g.drawText(u8("∿"), juce::Rectangle<float>(r.getRight() - 34.0f, r.getY() + 3.0f, 16.0f, 14.0f), juce::Justification::centred);
+            const auto mark = sampleMark();
+            if (missing_)
+            {
+                // Flache Warnmarke: Dreieck mit Ausrufezeichen.
+                juce::Path tri;
+                tri.addTriangle(mark.getCentreX(), mark.getY(), mark.getRight(), mark.getBottom(), mark.getX(), mark.getBottom());
+                g.setColour(colours::warning);
+                g.fillPath(tri);
+                g.setColour(colours::lcd);
+                g.fillRect(mark.getCentreX() - 1.0f, mark.getY() + 5.0f, 2.0f, 4.0f);
+                g.fillRect(mark.getCentreX() - 1.0f, mark.getBottom() - 3.0f, 2.0f, 2.0f);
+            }
+            else
+            {
+                g.setColour(dim);
+                g.setFont(font(13.0f));
+                g.drawText(u8("∿"), mark, juce::Justification::centred);
+            }
         }
 
         if (latched_)
         {
             // Heller Kern mit dunklem Ring: lesbar auf jeder Pad-Farbe, gedimmt wie leuchtend.
-            const juce::Rectangle<float> outer(r.getRight() - 15.0f, r.getY() + 5.0f, 10.0f, 10.0f);
-            juce::Path dot;
-            dot.addEllipse(outer);
-            dotShadow_.render(g, dot);
+            const juce::Rectangle<float> outer(static_cast<float>(r.getRight() - 15), static_cast<float>(r.getY() + 5), 10.0f, 10.0f);
             g.setColour(latchDotRing);
             g.fillEllipse(outer);
             g.setColour(latchDotCore);
             g.fillEllipse(outer.reduced(1.5f));
         }
+    }
+
+    // Ort der Sample-/Warnmarke oben rechts.
+    juce::Rectangle<float> sampleMark() const
+    {
+        const auto r = bodyBounds();
+        return { static_cast<float>(r.getRight() - 34), static_cast<float>(r.getY() + 3), 16.0f, 14.0f };
     }
 
     void mouseDown(const juce::MouseEvent& e) override
@@ -251,18 +212,9 @@ private:
     juce::String name_;
     juce::Colour baseColour_ { colours::padBase };
     juce::Colour litText_ { colours::padTextLit };
-    juce::Image glowImage_;
-    juce::Colour glowColour_;
     float brightness_ = 0.0f;
     bool wasLit_ = false;
     bool latched_ = false, focus_ = false, selected_ = false, held_ = false, empty_ = false, sample_ = false, missing_ = false;
-    // Als Member: melatonin cacht den berechneten Schatten im Objekt.
-    // Doppelte Klammern: ein Satz Parameter { Farbe, Radius, Versatz, Spread }.
-    melatonin::DropShadow drop_ { { colours::shadow, 4, { 0, 1 } } };
-    melatonin::InnerShadow inset_ { { juce::Colours::black.withAlpha(0.8f), 6, { 0, 2 } } };
-    melatonin::DropShadow playGlow_ { { colours::padBase, 14, { 0, 0 }, 2 } };
-    melatonin::DropShadow focusGlow_ { { colours::accent.withAlpha(0.7f), 9, { 0, 0 }, 1 } };
-    melatonin::DropShadow dotShadow_ { { juce::Colours::black.withAlpha(0.6f), 4 } };
 };
 
 PadGrid::PadGrid(DubgefahrenProcessor& proc) : proc_(proc)
@@ -328,9 +280,9 @@ void PadGrid::refreshNames()
         }
         pad.setLitTextColour(colour.litText);
     }
-    // Ein eben geleertes Pad verliert seinen Glow.
+    // Ein eben geleertes Pad verliert seine Füllung.
     if (onGlowChanged)
-        onGlowChanged(getLocalBounds().expanded(kGlowReach));
+        onGlowChanged(getLocalBounds());
 }
 
 bool PadGrid::isSample(int slot) const { return pads_[static_cast<std::size_t>(slot)]->isSample(); }
@@ -341,16 +293,10 @@ juce::Component& PadGrid::pad(int slot) { return *pads_[static_cast<std::size_t>
 
 bool PadGrid::isEmpty(int slot) const { return pads_[static_cast<std::size_t>(slot)]->isEmpty(); }
 
-void PadGrid::paintGlows(juce::Graphics& g)
-{
-    for (auto& p : pads_)
-        p->paintGlow(g);
-}
-
 void PadGrid::glowChanged(int slot)
 {
     if (onGlowChanged)
-        onGlowChanged(pads_[static_cast<std::size_t>(slot)]->getBounds().expanded(kGlowReach));
+        onGlowChanged(pads_[static_cast<std::size_t>(slot)]->getBounds());
 }
 
 float PadGrid::padBrightness(int slot) const { return pads_[static_cast<std::size_t>(slot)]->brightness(); }
@@ -368,7 +314,7 @@ juce::Colour PadGrid::padLitTextColour(int slot) const { return pads_[static_cas
 void PadGrid::paint(juce::Graphics& g)
 {
     // Gezeichnete Marken statt Schriftzeichen: unabhängig von der Glyphen-Abdeckung der Schrift.
-    auto legend = getLocalBounds().removeFromBottom(20).toFloat().withTrimmedLeft(kPadInset);
+    auto legend = getLocalBounds().removeFromBottom(20).toFloat().withTrimmedLeft(static_cast<float>(kPadInset));
     g.setFont(font(11.0f));
     const auto item = [&g, &legend](juce::Colour colour, const char* text, float width, bool diamond) {
         auto cell = legend.removeFromLeft(width);
@@ -386,8 +332,8 @@ void PadGrid::paint(juce::Graphics& g)
         g.setColour(colours::textDim);
         g.drawText(text, cell, juce::Justification::centredLeft);
     };
-    item(colours::padBase, "playing", 80.0f, false);
-    item(colours::accent, "focus", 80.0f, true);
+    item(colours::padBase, "PLAYING", 80.0f, false);
+    item(colours::accent, "FOCUS", 80.0f, true);
     {
         // Wie der Punkt auf dem Pad: heller Kern mit dunklem Ring.
         auto cell = legend.removeFromLeft(90.0f);
@@ -397,7 +343,7 @@ void PadGrid::paint(juce::Graphics& g)
         g.setColour(latchDotCore);
         g.fillEllipse(mark.reduced(1.5f));
         g.setColour(colours::textDim);
-        g.drawText("latched", cell, juce::Justification::centredLeft);
+        g.drawText("LATCHED", cell, juce::Justification::centredLeft);
     }
 }
 

@@ -75,11 +75,6 @@ DubgefahrenEditor::~DubgefahrenEditor()
 void DubgefahrenEditor::paint(juce::Graphics& g)
 {
     ui::drawWindowBackground(g, getLocalBounds());
-    // Pad-Glows ragen über ihre Komponenten hinaus, deshalb zeichnet sie der Editor darunter,
-    // im Koordinatensystem der skalierten content_-Komponente.
-    g.addTransform(content_.getTransform());
-    g.setOrigin(pads_.getPosition());
-    pads_.paintGlows(g);
 }
 
 void DubgefahrenEditor::resized()
