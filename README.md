@@ -129,7 +129,7 @@ stay visible in both views.
   knob, increasingly hard in the upper half. The level rises with the knob for moderate signals; very loud
   signals get quieter at the top. Highs are slightly softened as soon as Drive is above zero; at 0 the
   signal passes through untouched.
-- **Filter**: cutoff, resonance and a type knob that morphs low-pass, band-pass and high-pass; on both buses.
+- **Filter**: cutoff, resonance and a type slider (LP · BP · HP) that morphs continuously from low-pass through band-pass to high-pass; on both buses.
 - **Delay** (send bus): tape echo in the style of a Roland RE-201 Space Echo. *Time* is tempo-synced
   (1/16 triplet up to 1 bar), *Feedback* goes up to 110 % (self-oscillation), *Tone* darkens the repeats,
   *Wow* adds irregular pitch drift and flutter, *Mix* sets the level. Every repeat gets a little darker and
@@ -145,12 +145,18 @@ The *Live* button in the header switches to a compact view with the pads, Space,
 time, Master and the performance controls (window about 880 × 460). *Edit* shows everything, including the
 slot editor and the *Advanced* strip. The choice is saved with the project.
 
+The interface is a flat control panel in a monospace font with upper-case labels. Parameters are segment
+sliders: drag the bar, and the value shows in the LCD field next to it. Pads are flat tiles with a colour bar
+at the bottom; the tile fills with the pad colour while the pad plays, and a blue frame marks the focused or
+selected pad. The font is the system monospace font, so the exact look differs slightly between Windows and
+macOS.
+
 ## Kits
 
 Kit menu → factory kit, a new empty kit, or kits from the kit folder. Import/export as `.dgkit`
 (JSON, 16 slots, without effects).
 Right-click a pad: copy, paste, reset to factory settings, rename, clear, colour.
-Pads with a sound source can be given one of eight colours (Green, Turquoise, Blue, Violet, Pink, Red, Orange, Yellow) via right-click → Colour, e.g. to mark groups of sounds. The colour shows dimmed at rest and bright while the pad plays, and the sample waveform uses it too. Copy/Paste carries the colour; Clear Slot and Reset to Factory Default set it back to green. Colours are saved in the project and in kits (kit format version 6; older kits load all green). A latched pad shows a light dot with a dark ring in its top right corner.
+Pads with a sound source can be given one of eight colours (Green, Turquoise, Blue, Violet, Pink, Red, Orange, Yellow) via right-click → Colour, e.g. to mark groups of sounds. The colour shows as a bar along the bottom edge of the pad; while the pad plays, the whole tile fills with it, and the sample waveform uses it too. Copy/Paste carries the colour; Clear Slot and Reset to Factory Default set it back to green. Colours are saved in the project and in kits (kit format version 6; older kits load all green). A latched pad shows a light dot with a dark ring in its top right corner.
 An empty pad is silent; click it to choose a sound source: Synth, or Sample.
 Samples (WAV, AIFF, MP3, FLAC, up to 60 s, played in mono) live in a folder named like the kit,
 next to the `.dgkit` file (`Kits\Dub.dgkit` → `Kits\Dub\`). "Add File…" copies a file into that
