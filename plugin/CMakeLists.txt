@@ -52,6 +52,10 @@ target_compile_definitions(dg_plugin_shared INTERFACE
     JUCE_WEB_BROWSER=0
     JUCE_USE_CURL=0
     JUCE_VST3_CAN_REPLACE_VST2=0)
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    # Windows and macOS decode MP3 natively; on Linux JUCE's own decoder has to be switched on.
+    target_compile_definitions(dg_plugin_shared INTERFACE JUCE_USE_MP3AUDIOFORMAT=1)
+endif()
 target_link_libraries(dg_plugin_shared INTERFACE
     dg_engine
     juce::juce_audio_utils

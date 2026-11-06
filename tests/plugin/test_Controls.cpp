@@ -154,25 +154,26 @@ TEST_CASE("a disabled slider also dims its LCD text", "[controls]")
 {
     juce::ScopedJuceInitialiser_GUI gui;
     KnobFixture f(0.0, 1.0);
-    // Pixel im LCD-Feld (rechts, unter der Beschriftung), die nahe an der Farbe liegen.
-    const auto nearPixels = [](const juce::Image& img, juce::Colour target) {
+    // Text pixels im LCD-Feld (rechts, unter der Beschriftung), nach Farbton gezählt: Amber ist warm (rot > blau),
+    // textDim ist kühl (blau > rot). Anti-aliasing mischt mit dem fast schwarzen Hintergrund, ändert aber den Farbton
+    // nicht; so zählen auch Schriften, die auf Linux keine volldeckenden Pixel liefern.
+    const auto countPixels = [](const juce::Image& img, bool warm) {
         int n = 0;
         for (int y = 12; y < img.getHeight(); ++y)
             for (int x = img.getWidth() - ui::kLcdBoxWidth + 2; x < img.getWidth() - 2; ++x)
             {
                 const auto c = img.getPixelAt(x, y);
-                const int d = std::abs(c.getRed() - target.getRed()) + std::abs(c.getGreen() - target.getGreen())
-                              + std::abs(c.getBlue() - target.getBlue());
-                if (d <= 24)
+                const int r = c.getRed(), b = c.getBlue();
+                if (warm ? (r - b > 40) : (b - r >= 8 && b > 0x40))
                     ++n;
             }
         return n;
     };
-    CHECK(nearPixels(f.render(0.8), ui::colours::amber) > 0);
+    CHECK(countPixels(f.render(0.8), true) > 0);
     f.knob.slider.setEnabled(false);
     const auto dimmed = f.render(0.8);
-    CHECK(nearPixels(dimmed, ui::colours::amber) == 0);
-    CHECK(nearPixels(dimmed, ui::colours::textDim) > 0);
+    CHECK(countPixels(dimmed, true) == 0);
+    CHECK(countPixels(dimmed, false) > 0);
 }
 
 TEST_CASE("the LCD text of an attached knob fits too", "[controls]")
