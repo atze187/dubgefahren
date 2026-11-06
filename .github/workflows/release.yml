@@ -4,8 +4,6 @@ on:
   push:
     tags:
       - "v*"
-    branches:
-      - feature/linux-build # TEMPORARY: remove before merge
   workflow_dispatch:
 
 permissions:
@@ -160,13 +158,6 @@ jobs:
           validator=$(find build-linux/vst3validator -type f -name validator | head -n 1)
           test -n "$validator"
           tools/ci/xvfb-wm.sh "$validator" "$BUNDLE"
-
-      - name: Backtrace of a validator crash (TEMPORARY)
-        if: failure()
-        run: |
-          sudo apt-get install -y gdb
-          validator=$(find build-linux/vst3validator -type f -name validator | head -n 1)
-          tools/ci/xvfb-wm.sh gdb -batch -ex "handle SIGSEGV stop" -ex run -ex bt -ex "info registers rip" -ex "x/6i \$rip" --args "$validator" "$BUNDLE" 2>&1 | tail -60 || true
 
       - name: Validate (pluginval)
         run: |
