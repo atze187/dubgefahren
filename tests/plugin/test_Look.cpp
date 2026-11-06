@@ -255,8 +255,8 @@ TEST_CASE("sixteen glowing pads paint within one timer tick", "[look][perf]")
 }
 
 namespace {
-// Akzentgelb: viel Rot, mittleres Grün, wenig Blau.
-bool isAccent(juce::Colour c) { return c.getAlpha() > 200 && c.getRed() > 200 && c.getGreen() > 140 && c.getBlue() < 110; }
+// Bernstein: viel Rot, mittleres Grün, wenig Blau.
+bool isAmber(juce::Colour c) { return c.getAlpha() > 200 && c.getRed() > 200 && c.getGreen() > 140 && c.getBlue() < 110; }
 } // namespace
 
 TEST_CASE("controls draw nothing harmful into tiny or empty areas", "[look]")
@@ -305,7 +305,7 @@ TEST_CASE("a toggle shows a lamp instead of a tick box", "[look]")
     toggle.setToggleState(true, juce::dontSendNotification);
     const auto on = lamp();
     CHECK(on.getBrightness() > off.getBrightness() + 0.3f);
-    CHECK(isAccent(on));
+    CHECK(isAmber(on));
     CHECK(off.getAlpha() == 255); // ausgeschaltet: dunkel gefüllte Lampe statt leerem Kästchen
     toggle.setLookAndFeel(nullptr);
 }
@@ -659,6 +659,69 @@ TEST_CASE("pad states are distinguishable", "[look][pads]")
     CHECK(img.getPixelAt(r0.getX() + 4, r0.getBottom() - 3) == grid.padBaseColour(0));
     CHECK(fillAt(2) == ui::colours::lcd);
     CHECK(fillAt(0) == ui::colours::strip);
+}
+
+TEST_CASE("a long pad name uses two lines inside the tile", "[look][pads]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    dgtest::TempDir tmp;
+    const auto kitFile = tmp.dir.getChildFile("Dub.dgkit");
+    sampleFolderFor(kitFile).createDirectory();
+    DubgefahrenProcessor p;
+    p.applyKit(makeFactoryKit(), kitFile);
+    p.setSlotName(0, "Long Dub Siren With Spaces 12345"); // 32 Zeichen, an Leerzeichen umbrechbar
+    ui::PadGrid grid(p);
+    grid.setSize(360, 384);
+    grid.refreshNames();
+    grid.setPadStates(0, 0, -1);
+    const auto img = dgtest::snapshot(grid);
+
+    const auto r = grid.pad(0).getBounds().reduced(ui::PadGrid::kTileInset);
+    const auto fill = img.getPixelAt(r.getX() + 3, r.getCentreY());
+    // Namensbereich unter der Indexzeile, über dem Farbbalken, innerhalb des Rahmens.
+    int bands = 0;
+    bool inBand = false;
+    for (int y = r.getY() + 4 + 12; y < r.getBottom() - 4 - 3; ++y)
+    {
+        bool row = false;
+        for (int x = r.getX() + 6; x < r.getRight() - 6 && !row; ++x)
+            row = rgbDistance(img.getPixelAt(x, y), fill) > 80.0f;
+        if (row && !inBand)
+            ++bands;
+        inBand = row;
+    }
+    CHECK(bands == 2);
+
+    // Außerhalb des Kachelkörpers (Rand der Kachel) bleibt alles wie der Hintergrund.
+    const auto outside = img.getPixelAt(0, 0);
+    const auto tile = grid.pad(0).getBounds();
+    for (int y = tile.getY(); y < tile.getBottom(); ++y)
+        for (int x = tile.getX(); x < tile.getRight(); ++x)
+            if (!r.contains(x, y))
+                REQUIRE(img.getPixelAt(x, y) == outside);
+}
+
+TEST_CASE("a selected pad and a focused pad have different frame colours", "[look][pads]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    dgtest::TempDir tmp;
+    const auto kitFile = tmp.dir.getChildFile("Dub.dgkit");
+    sampleFolderFor(kitFile).createDirectory();
+    DubgefahrenProcessor p;
+    p.applyKit(makeFactoryKit(), kitFile);
+    ui::PadGrid grid(p);
+    grid.setSize(360, 384);
+    grid.refreshNames();
+    grid.setSelected(5);
+    grid.setPadStates(0, 0, 6); // Pad 6 gewählt, Pad 7 im Fokus
+    const auto img = dgtest::snapshot(grid);
+    const auto edge = [&](int s) {
+        const auto r = grid.pad(s).getBounds().reduced(ui::PadGrid::kTileInset);
+        return img.getPixelAt(r.getX(), r.getCentreY());
+    };
+    CHECK(edge(5) == ui::colours::text);
+    CHECK(edge(6) == ui::colours::accent);
+    CHECK(edge(5) != edge(6));
 }
 
 TEST_CASE("a triggered pad is filled with its colour", "[look][pads]")

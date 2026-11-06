@@ -131,7 +131,7 @@ void DgLookAndFeel::drawToggleButton(juce::Graphics& g, juce::ToggleButton& butt
     g.drawRect(lampBounds, 1.0f);
 
     g.setColour(button.findColour(juce::ToggleButton::textColourId).withAlpha(button.isEnabled() ? 1.0f : 0.5f));
-    g.setFont(font(std::min(15.0f, static_cast<float>(area.getHeight()) * 0.75f)));
+    g.setFont(font(11.0f));
     g.drawFittedText(button.getButtonText(), area.withTrimmedLeft(static_cast<int>(lampSize) + 10).withTrimmedRight(2),
                      juce::Justification::centredLeft, 10);
 }

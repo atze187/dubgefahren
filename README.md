@@ -118,7 +118,7 @@ profile yourself. Settings written by older versions (*Pad 1 note*, *Pad 1 at to
 
 All sirens share one effects chain. Each slot's *FX Send* sets how much of it feeds the send bus.
 
-Three performance knobs sit on top of the effects: **Space** (longer, wider echoes and reverb), **Grit**
+Three performance sliders sit on top of the effects: **Space** (longer, wider echoes and reverb), **Grit**
 (saturation, tape wobble, darker echoes, phaser) and **Throw** (the dub throw: more FX send and a delay that
 can run into self-oscillation). They add to the values of the individual controls: at 0 the sound is exactly
 what the individual controls say. Drive, the Delay *Feedback*, *Tone*, *Wow* and *Mix* controls, the Phaser
@@ -126,7 +126,7 @@ and the Reverb live in the collapsible *Advanced* strip in the Edit view; Filter
 stay visible in both views.
 
 - **Drive**: saturation in front of the filter, on both buses. Soft and warm in the lower half of the
-  knob, increasingly hard in the upper half. The level rises with the knob for moderate signals; very loud
+  slider, increasingly hard in the upper half. The level rises with the slider for moderate signals; very loud
   signals get quieter at the top. Highs are slightly softened as soon as Drive is above zero; at 0 the
   signal passes through untouched.
 - **Filter**: cutoff, resonance and a type slider (LP · BP · HP) that morphs continuously from low-pass through band-pass to high-pass; on both buses.

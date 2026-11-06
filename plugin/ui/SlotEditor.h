@@ -48,7 +48,7 @@ private:
     DubgefahrenProcessor& proc_;
     int slot_ = -1;
     juce::Label header_;
-    juce::TextButton renameButton_ { u8("Rename") };
+    juce::TextButton renameButton_ { u8("RENAME") };
 
     Choice wave_ { u8("Wave") };
     Knob pitch_ { u8("Pitch") };

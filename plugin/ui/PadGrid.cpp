@@ -104,10 +104,10 @@ public:
             g.fillRect(juce::Rectangle<int>(r.getX() + 1, r.getBottom() - 1 - kBarHeight, r.getWidth() - 2, kBarHeight));
         }
 
-        // Farbe zeigt Fokus, Dicke zeigt Auswahl. Ohne beides nur die dünne Kante.
+        // Blau zeigt den Fokus, Dicke zeigt die Auswahl. Gewählt ohne Fokus: zwei Pixel in Textfarbe.
         if (focus_ || selected_)
         {
-            g.setColour(colours::accent);
+            g.setColour(focus_ ? colours::accent : colours::text);
             g.drawRect(r, selected_ ? 2 : 1);
         }
         else
@@ -129,7 +129,8 @@ public:
                            : (missing_ ? colours::warning : colours::text.interpolatedWith(litText_, textMix)));
         g.setFont(font(11.0f, true));
         const auto label = inner.withTrimmedTop(12).withTrimmedBottom(kBarHeight + 1);
-        g.drawText(empty_ ? juce::String("EMPTY") : name_.toUpperCase(), label, juce::Justification::centred, true);
+        // Lange Namen (bis 32 Zeichen) nutzen zwei Zeilen, bevor sie gekürzt werden.
+        g.drawFittedText(empty_ ? juce::String("EMPTY") : name_.toUpperCase(), label, juce::Justification::centred, 2, 0.85f);
 
         if (sample_ && !empty_)
         {
