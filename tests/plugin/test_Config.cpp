@@ -145,7 +145,7 @@ TEST_CASE("an unusable user setting warns and falls back", "[config]")
     CHECK(info.warning.contains("settings"));
     CHECK(info.warning.contains("does not exist"));
 
-    info = resolveKitFolder("relativ\ordner", cfg, def);
+    info = resolveKitFolder("relativ\\ordner", cfg, def);
     CHECK(info.folder == configKits);
     CHECK(info.warning.contains("not an absolute path"));
 

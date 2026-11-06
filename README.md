@@ -1,6 +1,6 @@
 # Dubgefahren
 
-VST3 instrument for Windows and (experimental) macOS: 16 individually adjustable dub sirens, playable via MIDI notes you can learn per pad (default 36–51)
+VST3 instrument for Windows and (experimental) macOS and Linux: 16 individually adjustable dub sirens, playable via MIDI notes you can learn per pad (default 36–51)
 (e.g. Intech Studio Grid BU16), with a shared dub effects chain (drive, filter, tape delay with phaser on the echoes, spring reverb).
 
 *This is an experimental project to evaluate Claude. 
@@ -18,10 +18,19 @@ It is built and validated on GitHub Actions but has not been tested on real hard
 Copy `Dubgefahren.vst3` to `~/Library/Audio/Plug-Ins/VST3`, remove the quarantine flag with
 `xattr -cr ~/Library/Audio/Plug-Ins/VST3/Dubgefahren.vst3` and rescan plugins in your DAW. There is no AU version.
 
+**Linux (experimental):** `Dubgefahren-vX.Y.Z-linux-x64.zip` is an x86_64 VST3, built on Ubuntu 22.04 (glibc 2.35 or newer).
+It is built and validated on GitHub Actions (tests, Steinberg validator, pluginval) but has not been tested in a real
+DAW. It needs a desktop with X11 (or XWayland), ALSA and fontconfig, and a monospace font such as DejaVu Sans Mono.
+Copy `Dubgefahren.vst3` to `~/.vst3` and rescan plugins in your DAW.
+
 ## Requirements (building from source)
 
 - Windows 10/11 x64, Visual Studio 2026 with the "Desktop development with C++" workload (includes MSVC and CMake), or
-- macOS 11 or newer with Xcode command line tools, CMake 3.25+ and Ninja (only built and checked on GitHub Actions so far)
+- macOS 11 or newer with Xcode command line tools, CMake 3.25+ and Ninja (only built and checked on GitHub Actions so far), or
+- Linux x86_64 with GCC or Clang (C++20), CMake 3.25+, Ninja and the JUCE development packages (only built and checked on
+  GitHub Actions, Ubuntu 22.04): `libasound2-dev libjack-jackd2-dev ladspa-sdk libfreetype-dev libfontconfig1-dev libx11-dev
+  libxcomposite-dev libxcursor-dev libxext-dev libxinerama-dev libxrandr-dev libxrender-dev libglu1-mesa-dev mesa-common-dev`;
+  the tests need a display, for example `xvfb`
 - Git
 
 JUCE 8.0.15 and Catch2 are downloaded automatically on the first configure.
@@ -43,10 +52,15 @@ ctest --preset windows-release
 cmake --preset macos-universal        # macOS (universal arm64 + x86_64, deployment target 11.0)
 cmake --build --preset macos-release --parallel
 ctest --preset macos-release
+
+cmake --preset linux-x64              # Linux (x86_64; run ctest under xvfb-run on a machine without a display)
+cmake --build --preset linux-release --parallel
+ctest --preset linux-release
 ```
 
 The plugin is then located at `build\plugin\Dubgefahren_artefacts\Release\VST3\Dubgefahren.vst3`
-(macOS: `build-macos/plugin/Dubgefahren_artefacts/Release/VST3/Dubgefahren.vst3`).
+(macOS: `build-macos/plugin/Dubgefahren_artefacts/Release/VST3/Dubgefahren.vst3`,
+Linux: `build-linux/plugin/Dubgefahren_artefacts/Release/VST3/Dubgefahren.vst3`).
 
 ## Install
 
@@ -59,7 +73,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File build.ps1 install
 Copies the bundle to `%CommonProgramFiles%\VST3`. An existing `Dubgefahren.config.json` there
 is not overwritten. Different target: `cmake -DDG_VST3_INSTALL_DIR=<folder> build`.
 On macOS the default target is `~/Library/Audio/Plug-Ins/VST3` (no administrator rights needed):
-`cmake --install build-macos`.
+`cmake --install build-macos`. On Linux it is `~/.vst3` (`cmake --install build-linux`).
 
 ## Config: setting the kit folder (fallback)
 
@@ -67,21 +81,22 @@ The kit folder is normally set in **Settings → Kits**, and that choice wins. W
 this config file instead.
 
 File: `%CommonProgramFiles%\VST3\Dubgefahren.vst3\Contents\Resources\Dubgefahren.config.json`
-(edit as administrator). On macOS: `~/Library/Audio/Plug-Ins/VST3/Dubgefahren.vst3/Contents/Resources/Dubgefahren.config.json`.
+(edit as administrator). On macOS: `~/Library/Audio/Plug-Ins/VST3/Dubgefahren.vst3/Contents/Resources/Dubgefahren.config.json`,
+on Linux: `~/.vst3/Dubgefahren.vst3/Contents/Resources/Dubgefahren.config.json`.
 
 ```json
 { "kitFolder": "D:\\Music\\Dubgefahren\\Kits" }
 ```
 
-On macOS use a path such as `"%HOME%/Music/Dubgefahren/Kits"`.
-Environment variables such as `%USERPROFILE%` (Windows) or `%HOME%` (macOS) are allowed. Empty, missing or invalid → `Documents/Dubgefahren/Kits`.
+On macOS and Linux use a path such as `"%HOME%/Music/Dubgefahren/Kits"`.
+Environment variables such as `%USERPROFILE%` (Windows) or `%HOME%` (macOS, Linux) are allowed. Empty, missing or invalid → `Documents/Dubgefahren/Kits`.
 If the config is invalid, the plugin shows a notice when the kit menu, import or export is opened.
 
 ## Settings
 
 The **Settings** button in the header opens a window with two tabs. It is modal: audio and MIDI keep
 playing, but the plugin window waits until you close it. Everything takes effect immediately and is stored
-per user in `%APPDATA%\Dubgefahren\settings.json` (macOS: `~/Library/Application Support/Dubgefahren`),
+per user in `%APPDATA%\Dubgefahren\settings.json` (macOS: `~/Library/Application Support/Dubgefahren`, Linux: `~/.config/Dubgefahren`),
 shared by every project and instance.
 
 - **MIDI**: pad profiles, MIDI learn and the orientation of the pad grid (below).
@@ -148,8 +163,8 @@ slot editor and the *Advanced* strip. The choice is saved with the project.
 The interface is a flat control panel in a monospace font with upper-case labels. Parameters are segment
 sliders: drag the bar, and the value shows in the LCD field next to it. Pads are flat tiles with a colour bar
 at the bottom; the tile fills with the pad colour while the pad plays, and a blue frame marks the focused or
-selected pad. The font is the system monospace font, so the exact look differs slightly between Windows and
-macOS.
+selected pad. The font is the system monospace font, so the exact look differs slightly between Windows, macOS and
+Linux.
 
 ## Kits
 
@@ -170,15 +185,16 @@ Sample pads have a vintage time-stretch in the style of the Akai S950: the sampl
 
 `build.ps1 validate` builds Steinberg's VST3 validator and checks the plugin. For pluginval, download
 `pluginval_Windows.zip` from https://github.com/Tracktion/pluginval/releases and place
-`pluginval.exe` in `tools\bin\`. On macOS the same checks run in the `macos` job of the release workflow.
+`pluginval.exe` in `tools\bin\`. On macOS and Linux the same checks run in the `macos` and `linux` jobs of the release
+workflow (on Linux under `tools/ci/xvfb-wm.sh`, a virtual X display with a window manager).
 
 ## Releases
 
 Pushing a tag `v*` (e.g. `v0.1.0`) runs the GitHub Actions workflow `.github/workflows/release.yml`.
-Two jobs run in parallel, `windows` and `macos`; each builds, runs the tests, the Steinberg validator and pluginval
-(strictness 5) and uploads its zip as a build artifact. A third job, `publish`, attaches the zips of all successful
-jobs to the GitHub release for that tag. If the macOS job fails, the Windows release is still published (without
-the macOS zip). The workflow can also be started manually (Actions tab → "Build and release") to get the zips as
+Three jobs run in parallel, `windows`, `macos` and `linux`; each builds, runs the tests, the Steinberg validator and
+pluginval (strictness 5) and uploads its zip as a build artifact. A fourth job, `publish`, attaches the zips of all
+successful jobs to the GitHub release for that tag. If the macOS or Linux job fails, the Windows release is still
+published (without that zip). The workflow can also be started manually (Actions tab → "Build and release") to get the zips as
 build artifacts without publishing a release.
 
 ## License

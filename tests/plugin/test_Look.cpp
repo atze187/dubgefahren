@@ -467,7 +467,9 @@ TEST_CASE("a knob shows its value with at most two decimals", "[look]")
     pitch.attach(p.state(), slotParamId(0, SlotField::Pitch));
     CHECK(pitch.slider.getTextFromValue(600.00006) == "600.00");
     CHECK(pitch.slider.getTextFromValue(123.456) == "123.46");
-    CHECK(pitch.slider.getTextFromValue(3999.9993) == "4000.0");
+    // Seven characters ("4000.00") fit the LCD room only with a narrow monospace font; otherwise one decimal goes.
+    const auto nearFour = pitch.slider.getTextFromValue(3999.9993);
+    CHECK((nearFour == "4000.0" || nearFour == "4000.00"));
     auto* box = valueBox(pitch.slider);
     REQUIRE(box != nullptr);
     CHECK(box->getText() == pitch.slider.getTextFromValue(pitch.slider.getValue()));
