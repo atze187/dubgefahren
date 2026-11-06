@@ -54,7 +54,7 @@ TEST_CASE("contrast ratios follow the WCAG formula", "[padcolour]")
 
 TEST_CASE("the latch dot is readable on every pad colour, dimmed and lit", "[padcolour]")
 {
-    const auto dim = ui::colours::padTop.interpolatedWith(ui::colours::padBottom, 0.5f);
+    const auto dim = ui::colours::strip;
     CHECK(bestLatchContrast(dim) >= 3.0f);
     for (int i = 0; i < kNumPadColours; ++i)
     {

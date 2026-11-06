@@ -114,7 +114,7 @@ TEST_CASE("the LCD text fits for extreme values", "[controls]")
 {
     juce::ScopedJuceInitialiser_GUI gui;
     ui::Knob knob("x");
-    const float room = static_cast<float>(ui::kLcdBoxWidth - 8);
+    const float room = ui::kLcdTextRoom;
     for (const double v : { 0.0, 0.001, 12000.5, -1.0 })
     {
         const auto text = knob.slider.textFromValueFunction(v);
@@ -181,7 +181,7 @@ TEST_CASE("the LCD text of an attached knob fits too", "[controls]")
     DubgefahrenProcessor p;
     ui::Knob knob("x");
     knob.attach(p.state(), pid::cutoff);
-    const float room = static_cast<float>(ui::kLcdBoxWidth - 8);
+    const float room = ui::kLcdTextRoom;
     for (const double v : { 20.0, 12000.5, 19999.9993 })
         CHECK(ui::lcdTextWidth(knob.slider.textFromValueFunction(v)) <= room);
 }
@@ -204,10 +204,8 @@ TEST_CASE("cell labels are upper case", "[controls]")
     juce::ScopedJuceInitialiser_GUI gui;
     ui::Knob knob("Pitch");
     ui::Choice choice("Trigger Mode");
-    ui::Segmented seg("Type");
     CHECK(knob.label.getText() == "PITCH");
     CHECK(choice.label.getText() == "TRIGGER MODE");
-    CHECK(seg.label.getText() == "TYPE");
 }
 
 TEST_CASE("choice and toggle cells are 22 px high", "[controls]")
@@ -220,53 +218,4 @@ TEST_CASE("choice and toggle cells are 22 px high", "[controls]")
     ui::Toggle toggle("Sync");
     toggle.setSize(120, 40);
     CHECK(toggle.button.getHeight() == 22);
-}
-
-TEST_CASE("segmented selects the choice and follows the parameter", "[controls]")
-{
-    juce::ScopedJuceInitialiser_GUI gui;
-    DubgefahrenProcessor p;
-    const auto id = slotParamId(0, SlotField::TrigMode); // Gate, Latch, One-Shot
-    ui::Segmented seg("Mode");
-    seg.setSize(180, 34);
-    seg.attach(p.state(), id);
-    auto* param = dynamic_cast<juce::AudioParameterChoice*>(p.state().getParameter(id));
-    REQUIRE(param != nullptr);
-    REQUIRE(seg.numSegments() == 3);
-    CHECK(seg.selectedIndex() == param->getIndex());
-
-    seg.selectAt(seg.segmentBounds(2).getCentre());
-    CHECK(param->getIndex() == 2);
-    CHECK(seg.selectedIndex() == 2);
-
-    *param = 1; // von außen
-    CHECK(seg.selectedIndex() == 1);
-
-    // Segmente decken die Breite lückenlos ab.
-    CHECK(seg.segmentBounds(0).getX() == 0);
-    CHECK(seg.segmentBounds(2).getRight() == seg.getWidth());
-}
-
-TEST_CASE("segmented marks the active segment in amber on the button colour", "[controls]")
-{
-    juce::ScopedJuceInitialiser_GUI gui;
-    DubgefahrenProcessor p;
-    ui::DgLookAndFeel lnf;
-    ui::Segmented seg("Mode");
-    seg.setLookAndFeel(&lnf);
-    seg.setSize(180, 34);
-    seg.attach(p.state(), slotParamId(0, SlotField::TrigMode));
-    seg.selectAt(seg.segmentBounds(1).getCentre());
-    const auto img = dgtest::snapshot(seg);
-    dgtest::savePng(img, "segmented");
-    const auto active = seg.segmentBounds(1).reduced(2);
-    CHECK(img.getPixelAt(active.getX(), active.getY()) == ui::colours::button);
-    const auto idle = seg.segmentBounds(0).reduced(2);
-    CHECK(img.getPixelAt(idle.getX(), idle.getY()) != ui::colours::button);
-    bool amber = false;
-    for (int y = active.getY(); y < active.getBottom(); ++y)
-        for (int x = active.getX(); x < active.getRight(); ++x)
-            amber = amber || img.getPixelAt(x, y).getRed() > 200;
-    CHECK(amber);
-    seg.setLookAndFeel(nullptr);
 }

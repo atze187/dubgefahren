@@ -19,18 +19,7 @@ inline const juce::Colour accent { 0xff5aa9e6 };    // Blau
 inline const juce::Colour warning { 0xffff8c2a };
 inline const juce::Colour danger { 0xffff4d4d };
 
-// Alte Namen, die andere Dateien noch benutzen; Task 7 räumt sie auf.
-inline const juce::Colour background = window;
-inline const juce::Colour panel = strip;
-inline const juce::Colour outline = edge;
-inline const juce::Colour latched = accent;
-inline const juce::Colour groove = lcd;
-inline const juce::Colour highlight { 0x12ffffff };
-inline const juce::Colour shadow { 0x99000000 };
 inline const juce::Colour padBase { 0xff4cd07d };
-inline const juce::Colour padTop { 0xff27302f };
-inline const juce::Colour padBottom { 0xff161b1b };
-inline const juce::Colour padEmpty { 0xff101214 };
 inline const juce::Colour padTextLit { 0xff06240f }; // Text auf leuchtendem Pad
 } // namespace colours
 

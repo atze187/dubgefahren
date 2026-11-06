@@ -11,6 +11,8 @@ inline juce::String u8(const char* s) { return juce::String::fromUTF8(s); }
 inline constexpr int kLcdBoxWidth = 52;
 inline constexpr int kLcdBoxHeight = 18;
 inline constexpr float kLcdFontHeight = 10.0f;
+// Platz für Text im LCD-Feld: je 4 px Rand plus 1 px Reserve gegen Auslassungspunkte.
+inline constexpr float kLcdTextRoom = static_cast<float>(kLcdBoxWidth - 10);
 
 // Breite des Textes in der LCD-Schrift.
 float lcdTextWidth(const juce::String& text);
@@ -55,30 +57,6 @@ public:
 
 private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> attachment_;
-};
-
-// Schalter mit einem Segment je Eintrag eines AudioParameterChoice; das aktive Segment leuchtet bernsteinfarben.
-class Segmented final : public juce::Component
-{
-public:
-    explicit Segmented(const juce::String& labelText);
-    void attach(juce::AudioProcessorValueTreeState& apvts, const juce::String& paramId);
-    void resized() override;
-    void paint(juce::Graphics& g) override;
-    void mouseDown(const juce::MouseEvent& e) override;
-
-    int numSegments() const { return items_.size(); }
-    int selectedIndex() const { return selected_; }
-    juce::Rectangle<int> segmentBounds(int index) const;
-    void selectAt(juce::Point<int> p); // wählt das Segment unter p und schreibt den Parameter
-
-    juce::Label label;
-
-private:
-    juce::StringArray items_;
-    int selected_ = 0;
-    juce::Rectangle<int> row_;
-    std::unique_ptr<juce::ParameterAttachment> attachment_;
 };
 
 } // namespace dg::ui

@@ -370,10 +370,10 @@ TEST_CASE("the waveform keeps marker and region colours", "[waveform][look]")
     // Zeile 40: unter dem Griff, die Linie ist dort die volle Markerfarbe.
     CHECK(plain.getPixelAt(lineX(Marker::Start), 40) == ui::colours::text);
     CHECK(plain.getPixelAt(lineX(Marker::End), 40) == ui::colours::text);
-    CHECK(looped.getPixelAt(lineX(Marker::Loop), 40) == ui::colours::latched);
+    CHECK(looped.getPixelAt(lineX(Marker::Loop), 40) == ui::colours::accent);
 
     // Loop-Tönung: 13 % latched über dem Untergrund (Zeile 66, unterhalb der Kurve).
-    const auto expected = plain.getPixelAt(360, 66).overlaidWith(ui::colours::latched.withAlpha(0.13f));
+    const auto expected = plain.getPixelAt(360, 66).overlaidWith(ui::colours::accent.withAlpha(0.13f));
     const auto got = looped.getPixelAt(360, 66);
     CHECK(std::abs(expected.getRed() - got.getRed()) <= 1);
     CHECK(std::abs(expected.getGreen() - got.getGreen()) <= 1);

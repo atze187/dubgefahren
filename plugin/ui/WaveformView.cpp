@@ -292,7 +292,7 @@ void WaveformView::paint(juce::Graphics& g)
         if (loopOn())
         {
             const auto seg = resolveLoopSegment(r, reverseOn(), data_->samples.size());
-            g.setColour(colours::latched.withAlpha(0.13f));
+            g.setColour(colours::accent.withAlpha(0.13f));
             g.fillRect(juce::Rectangle<float>(xFor(seg.lo), 0.0f, xFor(seg.hi) - xFor(seg.lo), h));
         }
 
@@ -317,7 +317,7 @@ void WaveformView::paint(juce::Graphics& g)
     drawMarker(g, xStart, colours::text, "S");
     drawMarker(g, xEnd, colours::text, "E");
     if (loopOn())
-        drawMarker(g, xFor(r.loopStart), colours::latched, "L");
+        drawMarker(g, xFor(r.loopStart), colours::accent, "L");
 }
 
 } // namespace dg::ui

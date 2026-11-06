@@ -9,7 +9,6 @@ namespace dg::ui {
 namespace {
 constexpr int kLabelHeight = 12;
 constexpr int kControlHeight = 22;
-constexpr float kLcdTextRoom = static_cast<float>(kLcdBoxWidth - 10); // je 4 px Rand plus 1 px Reserve gegen Auslassungspunkte
 
 void setupLabel(juce::Label& l, const juce::String& text)
 {
@@ -104,7 +103,7 @@ void Choice::resized()
 
 Toggle::Toggle(const juce::String& text)
 {
-    button.setButtonText(text);
+    button.setButtonText(text.toUpperCase());
     addAndMakeVisible(button);
 }
 
@@ -115,82 +114,5 @@ void Toggle::attach(juce::AudioProcessorValueTreeState& apvts, const juce::Strin
 }
 
 void Toggle::resized() { button.setBounds(getLocalBounds().withSizeKeepingCentre(getWidth(), std::min(kControlHeight, getHeight()))); }
-
-Segmented::Segmented(const juce::String& labelText)
-{
-    setupLabel(label, labelText);
-    addAndMakeVisible(label);
-}
-
-void Segmented::attach(juce::AudioProcessorValueTreeState& apvts, const juce::String& paramId)
-{
-    attachment_.reset();
-    items_.clear();
-    selected_ = 0;
-    auto* choice = dynamic_cast<juce::AudioParameterChoice*>(apvts.getParameter(paramId));
-    if (choice == nullptr)
-    {
-        jassertfalse; // nur Choice-Parameter
-        repaint();
-        return;
-    }
-    items_ = choice->choices;
-    attachment_ = std::make_unique<juce::ParameterAttachment>(
-        *choice,
-        [this](float v) {
-            selected_ = std::clamp(juce::roundToInt(v), 0, std::max(0, items_.size() - 1));
-            repaint();
-        });
-    attachment_->sendInitialUpdate();
-    repaint();
-}
-
-void Segmented::resized()
-{
-    auto r = getLocalBounds();
-    label.setBounds(r.removeFromTop(kLabelHeight));
-    row_ = r.removeFromTop(std::min(kControlHeight, r.getHeight()));
-}
-
-juce::Rectangle<int> Segmented::segmentBounds(int index) const
-{
-    const int n = std::max(1, items_.size());
-    // Ganzzahlige Grenzen, die die Breite lückenlos teilen.
-    const int x0 = row_.getX() + row_.getWidth() * index / n;
-    const int x1 = row_.getX() + row_.getWidth() * (index + 1) / n;
-    return { x0, row_.getY(), x1 - x0, row_.getHeight() };
-}
-
-void Segmented::paint(juce::Graphics& g)
-{
-    for (int i = 0; i < items_.size(); ++i)
-    {
-        const auto r = segmentBounds(i);
-        const bool active = i == selected_;
-        const auto cell = r.toFloat().reduced(0.5f);
-        g.setColour(active ? colours::button : colours::lcd);
-        g.fillRoundedRectangle(cell, 2.0f);
-        g.setColour(active ? colours::edgeLight : colours::edge);
-        g.drawRoundedRectangle(cell, 2.0f, 1.0f);
-        g.setColour(active ? colours::amber : colours::textDim);
-        g.setFont(juce::Font(font(10.0f, active)));
-        g.drawFittedText(items_[i].toUpperCase(), r.reduced(2, 0), juce::Justification::centred, 1, 0.8f);
-    }
-}
-
-void Segmented::selectAt(juce::Point<int> p)
-{
-    for (int i = 0; i < items_.size(); ++i)
-        if (segmentBounds(i).contains(p))
-        {
-            if (attachment_ != nullptr)
-                attachment_->setValueAsCompleteGesture(static_cast<float>(i));
-            selected_ = i;
-            repaint();
-            return;
-        }
-}
-
-void Segmented::mouseDown(const juce::MouseEvent& e) { selectAt(e.getPosition()); }
 
 } // namespace dg::ui
