@@ -79,6 +79,8 @@ target_link_libraries(Dubgefahren PRIVATE dg_plugin_shared)
 
 if(APPLE)
     set(DG_VST3_DEFAULT_INSTALL_DIR "$ENV{HOME}/Library/Audio/Plug-Ins/VST3")
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    set(DG_VST3_DEFAULT_INSTALL_DIR "$ENV{HOME}/.vst3")
 else()
     set(DG_VST3_DEFAULT_INSTALL_DIR "$ENV{CommonProgramFiles}/VST3")
 endif()

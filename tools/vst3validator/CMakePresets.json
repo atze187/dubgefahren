@@ -16,10 +16,19 @@
       "binaryDir": "${sourceDir}/../../build-macos/vst3validator",
       "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" },
       "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Darwin" }
+    },
+    {
+      "name": "validator-linux",
+      "displayName": "VST3 validator (Linux)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/../../build-linux/vst3validator",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" },
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Linux" }
     }
   ],
   "buildPresets": [
     { "name": "validator-windows", "configurePreset": "validator-windows", "configuration": "Release", "targets": ["validator"] },
-    { "name": "validator-macos", "configurePreset": "validator-macos", "targets": ["validator"] }
+    { "name": "validator-macos", "configurePreset": "validator-macos", "targets": ["validator"] },
+    { "name": "validator-linux", "configurePreset": "validator-linux", "targets": ["validator"] }
   ]
 }

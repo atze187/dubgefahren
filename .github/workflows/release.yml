@@ -120,9 +120,75 @@ jobs:
           name: ${{ steps.package.outputs.name }}
           path: ${{ steps.package.outputs.zip }}
 
+  linux:
+    # 22.04 on purpose: the plugin links against the glibc of the build machine, so an older one runs on more distros.
+    runs-on: ubuntu-22.04
+    timeout-minutes: 90
+    env:
+      BUNDLE: build-linux/plugin/Dubgefahren_artefacts/Release/VST3/Dubgefahren.vst3
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build xvfb fonts-dejavu-core \
+            libasound2-dev libjack-jackd2-dev ladspa-sdk libfreetype-dev libfontconfig1-dev \
+            libx11-dev libxcomposite-dev libxcursor-dev libxext-dev libxinerama-dev libxrandr-dev libxrender-dev \
+            libglu1-mesa-dev mesa-common-dev libgtk-3-dev libgtkmm-3.0-dev
+
+      - name: Configure
+        run: cmake --preset linux-x64
+
+      - name: Build
+        run: cmake --build --preset linux-release --parallel
+
+      - name: Test
+        run: xvfb-run -a ctest --preset linux-release
+
+      - name: Check architecture
+        run: |
+          file "$BUNDLE/Contents/x86_64-linux/Dubgefahren.so"
+          file "$BUNDLE/Contents/x86_64-linux/Dubgefahren.so" | grep -q "x86-64"
+
+      - name: Validate (Steinberg validator)
+        run: |
+          (cd tools/vst3validator && cmake --preset validator-linux && cmake --build --preset validator-linux --parallel)
+          validator=$(find build-linux/vst3validator -type f -name validator | head -n 1)
+          test -n "$validator"
+          xvfb-run -a "$validator" "$BUNDLE"
+
+      - name: Validate (pluginval)
+        run: |
+          curl -fsSL -o pluginval.zip "https://github.com/Tracktion/pluginval/releases/download/v1.0.4/pluginval_Linux.zip"
+          unzip -q pluginval.zip -d pluginval-extract
+          chmod +x pluginval-extract/pluginval
+          xvfb-run -a pluginval-extract/pluginval --strictness-level 5 --validate-in-process --validate "$BUNDLE"
+
+      - name: Package
+        id: package
+        run: |
+          if [ "$GITHUB_REF_TYPE" = tag ]; then version=$GITHUB_REF_NAME; else version="dev-${GITHUB_SHA::7}"; fi
+          name="Dubgefahren-$version-linux-x64"
+          staging="$RUNNER_TEMP/$name"
+          mkdir -p "$staging"
+          cp -r "$BUNDLE" "$staging/Dubgefahren.vst3"
+          cp README.md LICENSE "$staging"
+          zip="$RUNNER_TEMP/$name.zip"
+          (cd "$staging" && zip -qr "$zip" .)
+          echo "zip=$zip" >> "$GITHUB_OUTPUT"
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.package.outputs.name }}
+          path: ${{ steps.package.outputs.zip }}
+
   publish:
-    needs: [windows, macos]
-    # Runs even if the macOS job failed: the Windows release must not depend on it.
+    needs: [windows, macos, linux]
+    # Runs even if the macOS or Linux job failed: the Windows release must not depend on them.
     if: always() && needs.windows.result == 'success'
     runs-on: ubuntu-latest
     steps:
@@ -144,6 +210,14 @@ jobs:
           **macOS (experimental):** the macOS build is untested on real hardware and not notarized.
           After copying `Dubgefahren.vst3` to `~/Library/Audio/Plug-Ins/VST3`, remove the quarantine with
           `xattr -cr ~/Library/Audio/Plug-Ins/VST3/Dubgefahren.vst3` and rescan plugins in your DAW.
+
+          EOF
+          fi
+          if ls dist/*-linux-x64.zip >/dev/null 2>&1; then
+            cat >> notes.md <<'EOF'
+          **Linux (experimental):** x86_64 VST3, built on Ubuntu 22.04 and untested on real hardware.
+          Copy `Dubgefahren.vst3` to `~/.vst3` and rescan plugins in your DAW. It needs a desktop with X11
+          (or XWayland), ALSA and fontconfig, and a monospace font such as DejaVu Sans Mono.
 
           EOF
           fi
