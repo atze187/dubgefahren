@@ -44,6 +44,7 @@ public:
     int getSliderThumbRadius(juce::Slider& slider) override;
     juce::Label* createSliderTextBox(juce::Slider& slider) override;
     juce::Font getLabelFont(juce::Label& label) override;
+    void drawLabel(juce::Graphics& g, juce::Label& label) override;
     juce::Font getTextButtonFont(juce::TextButton& button, int buttonHeight) override;
     juce::Font getComboBoxFont(juce::ComboBox& box) override;
     juce::Font getPopupMenuFont() override;

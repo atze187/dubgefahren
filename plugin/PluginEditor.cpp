@@ -144,7 +144,7 @@ void DubgefahrenEditor::layoutContent()
         r.removeFromTop(8);
         pads_.setBounds(r.removeFromLeft(360));
         r.removeFromLeft(12);
-        live_.setBounds(r.removeFromTop(232));
+        live_.setBounds(r.removeFromTop(188));
         r.removeFromTop(8);
         perf_.setBounds(r);
         return;
@@ -156,14 +156,14 @@ void DubgefahrenEditor::layoutContent()
     settingsButton_.setBounds(header.removeFromRight(80).reduced(2));
     followFocus_.setBounds(header.removeFromRight(170));
 
-    perf_.setBounds(r.removeFromBottom(84));
+    perf_.setBounds(r.removeFromBottom(56));
     r.removeFromBottom(8);
     if (layout_ == Layout::EditAdvanced)
     {
-        advanced_.setBounds(r.removeFromBottom(96));
+        advanced_.setBounds(r.removeFromBottom(112));
         r.removeFromBottom(8);
     }
-    live_.setBounds(r.removeFromBottom(96));
+    live_.setBounds(r.removeFromBottom(140));
     r.removeFromBottom(8);
     pads_.setBounds(r.removeFromLeft(360));
     r.removeFromLeft(12);

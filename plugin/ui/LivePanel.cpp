@@ -7,6 +7,16 @@
 
 namespace dg::ui {
 
+namespace {
+constexpr int kCellHeight = 34;    // Beschriftung 12 + Slider 22
+constexpr int kTitleHeight = 16;
+constexpr int kStripCellWidth = 170; // Edit: eine Gruppe je Spalte
+constexpr int kStripGap = 24;        // Abstand zwischen Gruppen, der Trenner liegt in der Mitte
+constexpr int kStripRowPitch = 38;
+constexpr int kCompactRowPitch = 58; // Live: Titel + Zelle je Gruppenzeile
+constexpr int kCompactGap = 10;
+} // namespace
+
 LivePanel::LivePanel(DubgefahrenProcessor& proc)
 {
     auto& s = proc.state();
@@ -29,71 +39,64 @@ void LivePanel::paint(juce::Graphics& g)
     g.setFont(font(11.0f, true));
     g.setColour(colours::textDim);
     const auto title = [&g](const juce::String& text, int x, int y, int w) {
-        g.drawText(text, x, y, w, 16, juce::Justification::centredLeft);
-    };
-    const auto divider = [&](int x) {
-        drawDivider(g, static_cast<float>(x), 6.0f, static_cast<float>(getHeight() - 6));
+        g.drawText(text, x, y, w, kTitleHeight, juce::Justification::centredLeft);
     };
     if (getWidth() >= 900)
     {
-        title("DUB FX", space_.getX(), 4, 270);
-        title("FILTER", cutoff_.getX(), 4, 3 * 72);
-        title("DELAY", delayTime_.getX(), 4, 110);
-        title("MASTER", master_.getX(), 4, 72);
-        divider(cutoff_.getX() - 7);
-        divider(delayTime_.getX() - 7);
-        divider(master_.getX() - 7);
+        // Edit: vier Gruppen als Spalten mit je einem Titel und einem Trenner davor
+        title("DUB FX", space_.getX(), 4, kStripCellWidth);
+        title("FILTER", cutoff_.getX(), 4, kStripCellWidth);
+        title("DELAY", delayTime_.getX(), 4, kStripCellWidth);
+        title("MASTER", master_.getX(), 4, kStripCellWidth);
+        for (const int x : { cutoff_.getX(), delayTime_.getX(), master_.getX() })
+            drawDivider(g, static_cast<float>(x - kStripGap / 2), 6.0f, static_cast<float>(getHeight() - 6));
     }
     else
     {
-        title("DUB FX", 12, 4, getWidth() - 24);
-        title(u8("FILTER · DELAY · MASTER"), 12, 122, getWidth() - 24);
+        // Live: DUB FX und FILTER je eine Zeile, DELAY und MASTER teilen sich die dritte
+        title("DUB FX", space_.getX(), space_.getY() - kTitleHeight - 2, 200);
+        title("FILTER", cutoff_.getX(), cutoff_.getY() - kTitleHeight - 2, 200);
+        title("DELAY", delayTime_.getX(), delayTime_.getY() - kTitleHeight - 2, 200);
+        title("MASTER", master_.getX(), master_.getY() - kTitleHeight - 2, 200);
+        drawDivider(g, static_cast<float>(master_.getX() - kCompactGap / 2), static_cast<float>(master_.getY() - kTitleHeight - 2),
+                    static_cast<float>(master_.getBottom()));
     }
 }
 
 void LivePanel::resized()
 {
-    constexpr int kCell = 72;
     if (getWidth() >= 900)
     {
-        // One row (Edit): DUB FX | FILTER | DELAY | MASTER
-        int x = 12;
-        const int h = getHeight() - 24;
-        for (auto* k : { &space_, &grit_, &throw_ })
-        {
-            k->setBounds(x, 20, 90 - 6, h);
-            x += 90;
-        }
-        x += 12;
-        for (auto* k : { &cutoff_, &resonance_, &filterType_ })
-        {
-            k->setBounds(x, 20, kCell - 6, h);
-            x += kCell;
-        }
-        x += 12;
-        delayTime_.setBounds(x, 20, 110, h);
-        x += 122;
-        master_.setBounds(x, 20, kCell - 6, h);
+        // Edit: DUB FX | FILTER | DELAY | MASTER, je drei Zeilen
+        const auto column = [this](int index, std::initializer_list<juce::Component*> cells) {
+            const int x = 12 + index * (kStripCellWidth + kStripGap);
+            int y = 22;
+            for (auto* c : cells)
+            {
+                c->setBounds(x, y, kStripCellWidth, kCellHeight);
+                y += kStripRowPitch;
+            }
+        };
+        column(0, { &space_, &grit_, &throw_ });
+        column(1, { &cutoff_, &resonance_, &filterType_ });
+        column(2, { &delayTime_ });
+        column(3, { &master_ });
     }
     else
     {
-        // Compact (Live): three big knobs on top, filter, time and master below
-        const int colW = (getWidth() - 24) / 3;
-        int x = 12;
-        for (auto* k : { &space_, &grit_, &throw_ })
-        {
-            k->setBounds(x, 20, colW - 6, 100);
-            x += colW;
-        }
-        x = 12;
-        for (auto* k : { &cutoff_, &resonance_, &filterType_ })
-        {
-            k->setBounds(x, 140, kCell - 6, 88);
-            x += kCell;
-        }
-        delayTime_.setBounds(x + 4, 150, 110, 70);
-        x += 126;
-        master_.setBounds(x, 140, kCell - 6, 88);
+        // Compact (Live): drei Zellen je Zeile
+        const int cw = (getWidth() - 24 - 2 * kCompactGap) / 3;
+        const auto row = [&](int rowIndex, std::initializer_list<juce::Component*> cells) {
+            int x = 12;
+            for (auto* c : cells)
+            {
+                c->setBounds(x, 22 + rowIndex * kCompactRowPitch, cw, kCellHeight);
+                x += cw + kCompactGap;
+            }
+        };
+        row(0, { &space_, &grit_, &throw_ });
+        row(1, { &cutoff_, &resonance_, &filterType_ });
+        row(2, { &delayTime_, &master_ });
     }
 }
 

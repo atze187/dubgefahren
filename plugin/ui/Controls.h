@@ -7,10 +7,10 @@ namespace dg::ui {
 
 inline juce::String u8(const char* s) { return juce::String::fromUTF8(s); }
 
-// LCD-Wertefeld rechts neben dem Segment-Slider: Box 44x18, Text mit je 4 px Rand.
-inline constexpr int kLcdBoxWidth = 44;
+// LCD-Wertefeld rechts neben dem Segment-Slider: Box 52x18, Text 10 px mit je 4 px Rand.
+inline constexpr int kLcdBoxWidth = 52;
 inline constexpr int kLcdBoxHeight = 18;
-inline constexpr float kLcdFontHeight = 9.0f;
+inline constexpr float kLcdFontHeight = 10.0f;
 
 // Breite des Textes in der LCD-Schrift.
 float lcdTextWidth(const juce::String& text);

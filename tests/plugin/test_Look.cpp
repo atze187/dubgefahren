@@ -149,7 +149,7 @@ TEST_CASE("the edit view without the advanced strip paints at its base size", "[
     const auto img = dgtest::snapshot(*editor);
     REQUIRE(img.isValid());
     CHECK(img.getWidth() == 1200);
-    CHECK(img.getHeight() == 640);
+    CHECK(img.getHeight() == 656);
     dgtest::savePng(img, "editor-edit-1.00");
 }
 

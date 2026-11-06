@@ -34,11 +34,11 @@ public:
     {
         switch (l)
         {
-            case Layout::Edit: return { 1200, 640 };
+            case Layout::Edit: return { 1200, 656 };
             case Layout::Live: return { 880, 460 };
             case Layout::EditAdvanced: break;
         }
-        return { 1200, 744 };
+        return { 1200, 776 };
     }
     Layout layout() const { return layout_; }
     // Für Tests und die Header-Taster: wechselt die Ansicht bzw. klappt Advanced auf/zu.

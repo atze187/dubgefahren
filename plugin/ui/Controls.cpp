@@ -9,7 +9,7 @@ namespace dg::ui {
 namespace {
 constexpr int kLabelHeight = 12;
 constexpr int kControlHeight = 22;
-constexpr float kLcdTextRoom = static_cast<float>(kLcdBoxWidth - 8); // je 4 px Rand
+constexpr float kLcdTextRoom = static_cast<float>(kLcdBoxWidth - 10); // je 4 px Rand plus 1 px Reserve gegen Auslassungspunkte
 
 void setupLabel(juce::Label& l, const juce::String& text)
 {
@@ -45,6 +45,8 @@ float lcdTextWidth(const juce::String& text)
 Knob::Knob(const juce::String& labelText)
 {
     slider.setSliderStyle(juce::Slider::LinearHorizontal);
+    // Ziehen bleibt relativ wie beim alten Drehregler: Ein Klick neben den Balken springt nicht.
+    slider.setSliderSnapsToMousePosition(false);
     // Farben des Wertefelds direkt am Slider setzen: Das Feld wird beim Anlegen gebaut, bevor der
     // Regler unter dem Look-and-Feel des Editors hängt, und übernähme sonst dessen Standardfarben.
     slider.setColour(juce::Slider::textBoxOutlineColourId, colours::edge);

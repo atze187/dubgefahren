@@ -123,6 +123,58 @@ TEST_CASE("the LCD text fits for extreme values", "[controls]")
     }
 }
 
+TEST_CASE("the LCD shows up to six characters with two decimals", "[controls]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    ui::Knob knob("x");
+    CHECK(knob.slider.textFromValueFunction(123.45) == "123.45");
+    CHECK(knob.slider.textFromValueFunction(-1.5) == "-1.50");
+    CHECK(knob.slider.textFromValueFunction(0.25) == "0.25");
+    CHECK(ui::kLcdBoxWidth == 52);
+    CHECK(ui::kLcdFontHeight == 10.0f);
+}
+
+TEST_CASE("clicking away from the thumb does not move the slider", "[controls]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    KnobFixture f(0.0, 1.0);
+    f.knob.slider.setValue(0.2, juce::dontSendNotification);
+    CHECK_FALSE(f.knob.slider.getSliderSnapsToMousePosition());
+
+    const auto pos = juce::Point<float>(static_cast<float>(f.knob.slider.getWidth()) * 0.6f, 11.0f);
+    const auto now = juce::Time::getCurrentTime();
+    const juce::MouseEvent e(juce::Desktop::getInstance().getMainMouseSource(), pos, juce::ModifierKeys::leftButtonModifier,
+                             0.0f, 0.0f, 0.0f, 0.0f, 0.0f, &f.knob.slider, &f.knob.slider, now, pos, now, 1, false);
+    f.knob.slider.mouseDown(e);
+    CHECK(f.knob.slider.getValue() == 0.2);
+    f.knob.slider.mouseUp(e);
+}
+
+TEST_CASE("a disabled slider also dims its LCD text", "[controls]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    KnobFixture f(0.0, 1.0);
+    // Pixel im LCD-Feld (rechts, unter der Beschriftung), die nahe an der Farbe liegen.
+    const auto nearPixels = [](const juce::Image& img, juce::Colour target) {
+        int n = 0;
+        for (int y = 12; y < img.getHeight(); ++y)
+            for (int x = img.getWidth() - ui::kLcdBoxWidth + 2; x < img.getWidth() - 2; ++x)
+            {
+                const auto c = img.getPixelAt(x, y);
+                const int d = std::abs(c.getRed() - target.getRed()) + std::abs(c.getGreen() - target.getGreen())
+                              + std::abs(c.getBlue() - target.getBlue());
+                if (d <= 24)
+                    ++n;
+            }
+        return n;
+    };
+    CHECK(nearPixels(f.render(0.8), ui::colours::amber) > 0);
+    f.knob.slider.setEnabled(false);
+    const auto dimmed = f.render(0.8);
+    CHECK(nearPixels(dimmed, ui::colours::amber) == 0);
+    CHECK(nearPixels(dimmed, ui::colours::textDim) > 0);
+}
+
 TEST_CASE("the LCD text of an attached knob fits too", "[controls]")
 {
     juce::ScopedJuceInitialiser_GUI gui;

@@ -33,30 +33,32 @@ void PerformancePanel::paint(juce::Graphics& g)
 
 void PerformancePanel::resized()
 {
+    constexpr int kCellHeight = 34; // Beschriftung 12 + Slider 22
     if (getWidth() >= 900)
     {
-        int x = 130;
+        // Edit: eine Zeile, links der Titel
+        const int y = (getHeight() - kCellHeight) / 2;
+        int x = 140;
         for (juce::Component* c : std::initializer_list<juce::Component*> { &pitch_, &rate_, &depth_, &sweep_ })
         {
-            c->setBounds(x, 4, 72, getHeight() - 8);
-            x += 76;
+            c->setBounds(x, y, 150, kCellHeight);
+            x += 160;
         }
-        constexpr int kChoiceHeight = 44;
-        const int choiceY = (getHeight() - kChoiceHeight) / 2;
-        target_.setBounds(x + 20, choiceY, 120, kChoiceHeight);
-        latchStop_.setBounds(x + 160, choiceY, 170, kChoiceHeight);
+        x += 20;
+        target_.setBounds(x, y, 130, kCellHeight);
+        latchStop_.setBounds(x + 150, y, 150, kCellHeight);
     }
     else
     {
-        // Compact (Live): four knobs on top, the two choices below
-        int x = 12;
-        for (juce::Component* c : std::initializer_list<juce::Component*> { &pitch_, &rate_, &depth_, &sweep_ })
+        // Compact (Live): zwei Zeilen zu je drei Zellen
+        constexpr int kGap = 10;
+        const int cw = (getWidth() - 24 - 2 * kGap) / 3;
+        int i = 0;
+        for (juce::Component* c : std::initializer_list<juce::Component*> { &pitch_, &rate_, &depth_, &sweep_, &target_, &latchStop_ })
         {
-            c->setBounds(x, 22, 72, 84);
-            x += 76;
+            c->setBounds(12 + (i % 3) * (cw + kGap), 26 + (i / 3) * 50, cw, kCellHeight);
+            ++i;
         }
-        target_.setBounds(12, 108, 130, 40);
-        latchStop_.setBounds(154, 108, 170, 40);
     }
 }
 
