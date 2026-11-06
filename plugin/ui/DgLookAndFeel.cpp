@@ -1,4 +1,5 @@
 #include "plugin/ui/DgLookAndFeel.h"
+#include "plugin/ui/Controls.h"
 #include <algorithm>
 #include <cmath>
 
@@ -8,8 +9,9 @@ DgLookAndFeel::DgLookAndFeel()
 {
     setColour(juce::ResizableWindow::backgroundColourId, colours::window);
     setColour(juce::Label::textColourId, colours::text);
-    setColour(juce::Slider::textBoxTextColourId, colours::text);
-    setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
+    setColour(juce::Slider::textBoxTextColourId, colours::amber);
+    setColour(juce::Slider::textBoxOutlineColourId, colours::edge);
+    setColour(juce::Slider::textBoxBackgroundColourId, colours::lcd);
     setColour(juce::ComboBox::backgroundColourId, colours::lcd);
     setColour(juce::ComboBox::outlineColourId, colours::edge);
     setColour(juce::ComboBox::textColourId, colours::text);
@@ -27,51 +29,53 @@ DgLookAndFeel::DgLookAndFeel()
     setColour(juce::PopupMenu::highlightedTextColourId, colours::window);
 }
 
-void DgLookAndFeel::drawRotarySlider(juce::Graphics& g, int x, int y, int width, int height, float sliderPos,
-                                     float rotaryStartAngle, float rotaryEndAngle, juce::Slider& slider)
+void DgLookAndFeel::drawLinearSlider(juce::Graphics& g, int x, int y, int width, int height, float sliderPos,
+                                     float minSliderPos, float maxSliderPos, juce::Slider::SliderStyle style,
+                                     juce::Slider& slider)
 {
-    const auto bounds = juce::Rectangle<int>(x, y, width, height).toFloat().reduced(4.0f);
-    const float radius = std::min(bounds.getWidth(), bounds.getHeight()) / 2.0f;
-    const float lineW = 3.0f;
-    const float arcR = radius - lineW;
-    if (arcR < 3.0f)
-        return; // zu klein zum Zeichnen (erstes Layout, winzige Zelle)
-    const auto centre = bounds.getCentre();
-    const juce::PathStrokeType stroke(lineW, juce::PathStrokeType::curved, juce::PathStrokeType::butt);
-
-    juce::Path track;
-    track.addCentredArc(centre.x, centre.y, arcR, arcR, 0.0f, rotaryStartAngle, rotaryEndAngle, true);
-    g.setColour(colours::lcd);
-    g.strokePath(track, stroke);
-
-    const float angle = rotaryStartAngle + sliderPos * (rotaryEndAngle - rotaryStartAngle);
-    const bool bipolar = slider.getMinimum() < 0.0 && slider.getMaximum() > 0.0;
-    const float from = bipolar
-        ? rotaryStartAngle + static_cast<float>(slider.valueToProportionOfLength(0.0)) * (rotaryEndAngle - rotaryStartAngle)
-        : rotaryStartAngle;
-
-    if (std::abs(angle - from) > 0.001f)
+    if (style != juce::Slider::LinearHorizontal)
     {
-        juce::Path value;
-        value.addCentredArc(centre.x, centre.y, arcR, arcR, 0.0f, std::min(from, angle), std::max(from, angle), true);
-        g.setColour(slider.isEnabled() ? colours::amber : colours::textDim);
-        g.strokePath(value, stroke);
-    }
-
-    // Flacher Körper mit Kante, darauf der Zeiger.
-    const float bodyR = arcR - 6.0f;
-    if (bodyR < 4.0f)
+        LookAndFeel_V4::drawLinearSlider(g, x, y, width, height, sliderPos, minSliderPos, maxSliderPos, style, slider);
         return;
-    g.setColour(colours::button);
-    g.fillEllipse(centre.x - bodyR, centre.y - bodyR, bodyR * 2.0f, bodyR * 2.0f);
-    g.setColour(colours::edgeLight);
-    g.drawEllipse(centre.x - bodyR, centre.y - bodyR, bodyR * 2.0f, bodyR * 2.0f, 1.0f);
-
-    const juce::Point<float> dir(std::sin(angle), -std::cos(angle));
-    g.setColour(slider.isEnabled() ? colours::text : colours::textDim);
-    g.drawLine({ centre + dir * (bodyR * 0.35f), centre + dir * (bodyR * 0.85f) }, 2.0f);
+    }
+    constexpr float kSeg = 5.0f;
+    constexpr float kGap = 1.0f;
+    constexpr float kBar = 8.0f;
+    const float left = static_cast<float>(x);
+    const float right = left + static_cast<float>(width);
+    const float top = static_cast<float>(y) + std::floor((static_cast<float>(height) - kBar) * 0.5f);
+    const float filled = left + static_cast<float>(slider.valueToProportionOfLength(slider.getValue())) * (right - left);
+    const bool bipolar = slider.getMinimum() < 0.0 && slider.getMaximum() > 0.0;
+    const float centre = left + static_cast<float>(slider.valueToProportionOfLength(0.0)) * (right - left);
+    const float litFrom = bipolar ? std::min(centre, filled) : left;
+    const float litTo = bipolar ? std::max(centre, filled) : filled;
+    const bool enabled = slider.isEnabled();
+    const auto on = enabled ? colours::accent : colours::textDim;
+    for (float sx = left; sx + kSeg <= right + 0.01f; sx += kSeg + kGap)
+    {
+        const float mid = sx + kSeg * 0.5f;
+        g.setColour(mid > litFrom && mid < litTo ? on : colours::edge);
+        g.fillRect(sx, top, kSeg, kBar);
+    }
+    if (bipolar)
+    {
+        // Mittelmarke über die volle Balkenhöhe.
+        g.setColour(colours::edgeLight);
+        g.fillRect(std::round(centre) - 0.5f, top, 1.0f, kBar);
+    }
 }
 
+int DgLookAndFeel::getSliderThumbRadius(juce::Slider&) { return 0; }
+
+juce::Label* DgLookAndFeel::createSliderTextBox(juce::Slider& slider)
+{
+    // LCD-Wertefeld: kleine Schrift, 4 px Rand, mittig; Farben kommen aus den Slider-Farben.
+    auto* l = LookAndFeel_V4::createSliderTextBox(slider);
+    l->setFont(font(kLcdFontHeight));
+    l->setBorderSize(juce::BorderSize<int>(0, 4, 0, 4));
+    l->setJustificationType(juce::Justification::centred);
+    return l;
+}
 void DgLookAndFeel::drawButtonBackground(juce::Graphics& g, juce::Button& b, const juce::Colour& background,
                                          bool highlighted, bool down)
 {

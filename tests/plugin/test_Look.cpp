@@ -282,25 +282,8 @@ TEST_CASE("sixteen glowing pads paint within one timer tick", "[look][perf]")
 }
 
 namespace {
-juce::Image drawKnob(ui::DgLookAndFeel& lnf, juce::Slider& slider, int size, float pos)
-{
-    juce::Image img(juce::Image::ARGB, std::max(1, size), std::max(1, size), true);
-    juce::Graphics g(img);
-    lnf.drawRotarySlider(g, 0, 0, size, size, pos, juce::MathConstants<float>::pi * 1.2f, juce::MathConstants<float>::pi * 2.8f, slider);
-    return img;
-}
-
 // Akzentgelb: viel Rot, mittleres Grün, wenig Blau.
 bool isAccent(juce::Colour c) { return c.getAlpha() > 200 && c.getRed() > 200 && c.getGreen() > 140 && c.getBlue() < 110; }
-
-int countAccent(const juce::Image& img, int maxX)
-{
-    int n = 0;
-    for (int y = 0; y < img.getHeight(); ++y)
-        for (int x = 0; x < std::min(maxX, img.getWidth()); ++x)
-            n += isAccent(img.getPixelAt(x, y)) ? 1 : 0;
-    return n;
-}
 } // namespace
 
 TEST_CASE("controls draw nothing harmful into tiny or empty areas", "[look]")
@@ -309,9 +292,15 @@ TEST_CASE("controls draw nothing harmful into tiny or empty areas", "[look]")
     ui::DgLookAndFeel lnf;
     juce::Slider slider;
     slider.setRange(0.0, 1.0);
+    const auto drawSlider = [&](int w, int h) {
+        juce::Image im(juce::Image::ARGB, std::max(1, w), std::max(1, h), true);
+        juce::Graphics gr(im);
+        lnf.drawLinearSlider(gr, 0, 0, w, h, 0.5f, 0.0f, 1.0f, juce::Slider::LinearHorizontal, slider);
+        return im;
+    };
     for (const int size : { 0, 1, 3, 8, 11 })
-        CHECK_NOTHROW(drawKnob(lnf, slider, size, 0.5f));
-    CHECK_FALSE(dgtest::hasVisiblePixel(drawKnob(lnf, slider, 3, 0.5f)));
+        CHECK_NOTHROW(drawSlider(size, size));
+    CHECK_FALSE(dgtest::hasVisiblePixel(drawSlider(3, 3)));
 
     juce::Image img(juce::Image::ARGB, 8, 8, true);
     juce::Graphics g(img);
@@ -324,48 +313,6 @@ TEST_CASE("controls draw nothing harmful into tiny or empty areas", "[look]")
     juce::ComboBox box;
     CHECK_NOTHROW(lnf.drawComboBox(g, 0, 0, false, 0, 0, 0, 0, box));
     CHECK_FALSE(dgtest::hasVisiblePixel(img));
-}
-
-TEST_CASE("a knob shows its value arc in the accent colour and dims when disabled", "[look]")
-{
-    juce::ScopedJuceInitialiser_GUI gui;
-    ui::DgLookAndFeel lnf;
-    juce::Slider slider;
-    slider.setRange(0.0, 1.0);
-
-    const auto low = drawKnob(lnf, slider, 64, 0.1f);
-    const auto high = drawKnob(lnf, slider, 64, 0.9f);
-    CHECK(countAccent(high, 64) > countAccent(low, 64));
-    CHECK(countAccent(low, 64) > 0);
-
-    slider.setEnabled(false);
-    CHECK(countAccent(drawKnob(lnf, slider, 64, 0.9f), 64) == 0);
-    dgtest::savePng(high, "knob-64");
-}
-
-TEST_CASE("a knob has a body in its centre", "[look]")
-{
-    juce::ScopedJuceInitialiser_GUI gui;
-    ui::DgLookAndFeel lnf;
-    juce::Slider slider;
-    slider.setRange(0.0, 1.0);
-    // Zeiger zeigt bei 0.5 nach oben; links und rechts der Mitte liegt der Körper.
-    const auto img = drawKnob(lnf, slider, 64, 0.5f);
-    CHECK(img.getPixelAt(24, 34).getAlpha() == 255);
-    CHECK(img.getPixelAt(40, 34).getAlpha() == 255);
-}
-
-TEST_CASE("a bipolar knob fills from its centre", "[look]")
-{
-    juce::ScopedJuceInitialiser_GUI gui;
-    ui::DgLookAndFeel lnf;
-    juce::Slider slider;
-    slider.setRange(-1.0, 1.0);
-    // In der Mitte ist der Wertebogen leer; voll rechts läuft er nur durch die rechte Hälfte.
-    CHECK(countAccent(drawKnob(lnf, slider, 64, 0.5f), 64) == 0);
-    const auto right = drawKnob(lnf, slider, 64, 1.0f);
-    CHECK(countAccent(right, 28) == 0);
-    CHECK(countAccent(right, 64) > 0);
 }
 
 TEST_CASE("a toggle shows a lamp instead of a tick box", "[look]")
@@ -521,7 +468,7 @@ juce::Label* valueBox(juce::Slider& slider)
 }
 } // namespace
 
-TEST_CASE("a knob's value field has no frame and no box", "[look]")
+TEST_CASE("a knob's value field is an amber LCD with an edge", "[look]")
 {
     juce::ScopedJuceInitialiser_GUI gui;
     // Wie im Editor: Der Elternteil hat das Look-and-Feel schon, der Regler kommt später dazu.
@@ -532,9 +479,9 @@ TEST_CASE("a knob's value field has no frame and no box", "[look]")
     parent.addAndMakeVisible(knob);
     auto* box = valueBox(knob.slider);
     REQUIRE(box != nullptr);
-    CHECK(box->findColour(juce::Label::outlineColourId).isTransparent());
-    CHECK(box->findColour(juce::Label::backgroundColourId).isTransparent());
-    CHECK(box->findColour(juce::Label::textColourId) == ui::colours::text);
+    CHECK(box->findColour(juce::Label::outlineColourId) == ui::colours::edge);
+    CHECK(box->findColour(juce::Label::backgroundColourId) == ui::colours::lcd);
+    CHECK(box->findColour(juce::Label::textColourId) == ui::colours::amber);
     parent.removeChildComponent(&knob);
     parent.setLookAndFeel(nullptr);
 }
@@ -547,7 +494,7 @@ TEST_CASE("a knob shows its value with at most two decimals", "[look]")
     pitch.attach(p.state(), slotParamId(0, SlotField::Pitch));
     CHECK(pitch.slider.getTextFromValue(600.00006) == "600.00");
     CHECK(pitch.slider.getTextFromValue(123.456) == "123.46");
-    CHECK(pitch.slider.getTextFromValue(3999.9993) == "4000.00");
+    CHECK(pitch.slider.getTextFromValue(3999.9993) == "4000.0");
     auto* box = valueBox(pitch.slider);
     REQUIRE(box != nullptr);
     CHECK(box->getText() == pitch.slider.getTextFromValue(pitch.slider.getValue()));

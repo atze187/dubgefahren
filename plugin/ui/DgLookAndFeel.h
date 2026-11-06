@@ -38,10 +38,11 @@ class DgLookAndFeel final : public juce::LookAndFeel_V4
 {
 public:
     DgLookAndFeel();
-    // Flacher Übergang, bis die Regler durch Segment-Slider ersetzt sind.
-    void drawRotarySlider(juce::Graphics& g, int x, int y, int width, int height, float sliderPos,
-                          float rotaryStartAngle, float rotaryEndAngle, juce::Slider& slider) override;
-
+    // Segment-Slider: 5 px Segmente, 1 px Lücke, 8 px Balken; bipolare Slider füllen von der Mitte.
+    void drawLinearSlider(juce::Graphics& g, int x, int y, int width, int height, float sliderPos, float minSliderPos,
+                          float maxSliderPos, juce::Slider::SliderStyle style, juce::Slider& slider) override;
+    int getSliderThumbRadius(juce::Slider& slider) override;
+    juce::Label* createSliderTextBox(juce::Slider& slider) override;
     juce::Font getLabelFont(juce::Label& label) override;
     juce::Font getTextButtonFont(juce::TextButton& button, int buttonHeight) override;
     juce::Font getComboBoxFont(juce::ComboBox& box) override;
