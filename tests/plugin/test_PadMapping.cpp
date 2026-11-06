@@ -1,8 +1,18 @@
 #include <catch2/catch_test_macros.hpp>
 #include "plugin/PadMapping.h"
+#include "plugin/UserSettings.h"
 #include "PadMappingTestHelpers.h"
 
 using namespace dg;
+
+namespace {
+struct TempFolder
+{
+    juce::File dir = juce::File::createTempFile("dgmapping");
+    ~TempFolder() { dir.deleteRecursively(); }
+    juce::File profiles() const { return dir.getChildFile("Profiles"); }
+};
+} // namespace
 
 TEST_CASE("pad mapping settings parse a valid file", "[padmapping]")
 {
@@ -21,7 +31,6 @@ TEST_CASE("missing, partial or broken settings fall back to the defaults value b
     CHECK(parsePadMappingSettings("not json") == defaults);
     CHECK(parsePadMappingSettings("[1, 2]") == defaults);
     CHECK(parsePadMappingSettings("{}") == defaults);
-    // Ein gültiger Wert bleibt erhalten, wenn der andere fehlt.
     CHECK(parsePadMappingSettings(R"({ "firstNote": 32 })").firstNote == 32);
     CHECK(parsePadMappingSettings(R"({ "firstNote": 32 })").origin == PadOrigin::BottomLeft);
     CHECK(parsePadMappingSettings(R"({ "padOrigin": "topLeft" })").firstNote == 36);
@@ -42,54 +51,150 @@ TEST_CASE("settings values outside the range or of the wrong type are ignored", 
     CHECK(parsePadMappingSettings(R"({ "padOrigin": 1 })").origin == PadOrigin::BottomLeft);
 }
 
-TEST_CASE("settings round-trip through a file and create the folder", "[padmapping]")
+TEST_CASE("first start creates Default from the legacy settings", "[padmapping]")
 {
-    const auto dir = juce::File::createTempFile("dgpad");
-    const auto file = dir.getChildFile("nested").getChildFile("settings.json");
-    REQUIRE_FALSE(file.existsAsFile());
-    CHECK(loadPadMappingSettings(file) == PadMappingSettings {}); // fehlende Datei: Standard
-
-    const PadMappingSettings written { 32, PadOrigin::TopLeft };
-    REQUIRE(savePadMappingSettings(file, written));
-    CHECK(loadPadMappingSettings(file) == written);
-    const auto text = file.loadFileAsString();
-    CHECK(text.contains("firstNote"));
-    CHECK(text.contains("topLeft"));
-    CHECK(padMappingSettingsToJson(written).contains("32"));
-    dir.deleteRecursively();
+    TempFolder t;
+    t.dir.createDirectory();
+    const auto file = t.dir.getChildFile("settings.json");
+    file.replaceWithText(R"({"firstNote":32,"padOrigin":"topLeft"})");
+    UserSettings settings(file);
+    PadMapping m(t.profiles(), settings);
+    CHECK(m.profileNames() == juce::StringArray { "Default" });
+    CHECK(m.profile().notes[0] == 32);
+    CHECK(m.profile().notes[15] == 47);
+    CHECK(m.origin() == PadOrigin::TopLeft);
+    CHECK(m.activeProfile() == "Default");
+    CHECK(m.noteMap().slotForNote(32) == 0);
 }
 
-TEST_CASE("the first pad note field accepts only whole numbers from 0 to 112", "[padmapping]")
+TEST_CASE("first start without legacy settings gives 36 and bottom left", "[padmapping]")
 {
-    CHECK(parsePadFirstNote("0") == 0);
-    CHECK(parsePadFirstNote("36") == 36);
-    CHECK(parsePadFirstNote("  40 ") == 40);
-    CHECK(parsePadFirstNote("112") == 112);
-    CHECK(parsePadFirstNote("007") == 7);
-    for (const char* bad : { "", " ", "abc", "-3", "113", "1e2", "0x20", "36.5", "1234", "3 6" })
+    TempFolder t;
+    UserSettings settings { juce::File() };
+    PadMapping m(t.profiles(), settings);
+    CHECK(m.profile().notes[0] == 36);
+    CHECK(m.profile().notes[15] == 51);
+    CHECK(m.origin() == PadOrigin::BottomLeft);
+}
+
+TEST_CASE("an existing profile folder ignores legacy settings", "[padmapping]")
+{
+    TempFolder t;
+    ProfileStore(t.profiles()).save(makeConsecutiveProfile("Default", 50, PadOrigin::BottomLeft));
+    const auto file = t.dir.getChildFile("settings.json");
+    file.replaceWithText(R"({"firstNote":32})");
+    UserSettings settings(file);
+    PadMapping m(t.profiles(), settings);
+    CHECK(m.profile().notes[0] == 50);
+}
+
+TEST_CASE("the saved selection is restored and falls back to Default", "[padmapping]")
+{
+    TempFolder t;
+    ProfileStore(t.profiles()).save(makeConsecutiveProfile("A", 60, PadOrigin::BottomLeft));
     {
-        INFO(bad);
-        CHECK_FALSE(parsePadFirstNote(bad).has_value());
+        UserSettings settings { juce::File() };
+        settings.setProfile("A");
+        PadMapping m(t.profiles(), settings);
+        CHECK(m.activeProfile() == "A");
+        CHECK(m.noteMap().slotForNote(60) == 0);
+    }
+    UserSettings settings { juce::File() };
+    settings.setProfile("gone");
+    PadMapping m(t.profiles(), settings);
+    CHECK(m.activeProfile() == "Default");
+}
+
+TEST_CASE("a missing or broken Default file is recreated with the standard assignment", "[padmapping]")
+{
+    for (const bool broken : { false, true })
+    {
+        TempFolder t;
+        ProfileStore store(t.profiles());
+        store.save(makeConsecutiveProfile("Other", 60, PadOrigin::BottomLeft));
+        if (broken)
+            t.profiles().getChildFile("Default.json").replaceWithText("{");
+        UserSettings settings { juce::File() };
+        PadMapping m(t.profiles(), settings);
+        CHECK(m.profile().notes[0] == 36);
+        CHECK(store.contains("Default"));
     }
 }
 
-TEST_CASE("the shared pad mapping clamps the note and keeps the origin", "[padmapping]")
+TEST_CASE("setPadNote persists, frees the previous owner and updates the NoteMap", "[padmapping]")
 {
-    dgtest::ScopedPadMapping restore;
-    auto& m = PadMapping::instance();
-    CHECK(padMappingFile() == juce::File()); // Test-Builds berühren keine Einstellungsdatei
-    CHECK(m.firstNote() == 36);
-    CHECK(m.origin() == PadOrigin::BottomLeft);
+    TempFolder t;
+    UserSettings settings { juce::File() };
+    PadMapping m(t.profiles(), settings);
+    int rev = m.revision();
 
-    m.setFirstNote(32);
-    CHECK(m.firstNote() == 32);
-    m.setFirstNote(200);
-    CHECK(m.firstNote() == 112);
-    m.setFirstNote(-5);
-    CHECK(m.firstNote() == 0);
+    m.setPadNote(1, 60);
+    CHECK(m.noteMap().slotForNote(60) == 1);
+    CHECK(m.revision() > rev);
+    {
+        PadMapping again(t.profiles(), settings);
+        CHECK(again.noteMap().slotForNote(60) == 1);
+        CHECK(again.noteMap().slotForNote(37) == -1);
+    }
 
+    rev = m.revision();
+    m.setPadNote(2, 60);
+    CHECK(m.noteMap().noteForSlot(1) == -1);
+    CHECK(m.revision() > rev);
+    rev = m.revision();
+    m.setPadNote(2, -1);
+    CHECK(m.noteMap().noteForSlot(2) == -1);
+    CHECK(m.revision() > rev);
+}
+
+TEST_CASE("setOrigin persists in the profile", "[padmapping]")
+{
+    TempFolder t;
+    UserSettings settings { juce::File() };
+    PadMapping m(t.profiles(), settings);
     m.setOrigin(PadOrigin::TopLeft);
     CHECK(m.origin() == PadOrigin::TopLeft);
-    CHECK((m.settings() == PadMappingSettings { 0, PadOrigin::TopLeft }));
-    CHECK(&PadMapping::instance() == &m); // ein Objekt je Prozess
+    PadMapping again(t.profiles(), settings);
+    CHECK(again.origin() == PadOrigin::TopLeft);
+}
+
+TEST_CASE("create, select, rename and delete", "[padmapping]")
+{
+    TempFolder t;
+    UserSettings settings { juce::File() };
+    PadMapping m(t.profiles(), settings);
+
+    CHECK(m.createProfile() == "New profile");
+    CHECK(m.createProfile() == "New profile 2");
+    CHECK(m.activeProfile() == "New profile 2");
+    CHECK(settings.profile() == "New profile 2");
+
+    CHECK(m.renameActiveProfile("Launchpad"));
+    CHECK(m.activeProfile() == "Launchpad");
+    CHECK(settings.profile() == "Launchpad");
+    CHECK(m.profileNames().contains("Launchpad"));
+    CHECK_FALSE(m.profileNames().contains("New profile 2"));
+    CHECK_FALSE(m.renameActiveProfile("default"));
+    CHECK_FALSE(m.renameActiveProfile("a/b"));
+    CHECK(m.activeProfile() == "Launchpad");
+
+    CHECK(m.selectProfile("Default"));
+    CHECK_FALSE(m.renameActiveProfile("x"));
+    CHECK_FALSE(m.deleteActiveProfile());
+    CHECK(m.activeProfile() == "Default");
+
+    CHECK(m.selectProfile("Launchpad"));
+    CHECK(m.deleteActiveProfile());
+    CHECK(m.activeProfile() == "Default");
+    CHECK_FALSE(m.profileNames().contains("Launchpad"));
+
+    CHECK_FALSE(m.selectProfile("nope"));
+    CHECK(m.activeProfile() == "Default");
+}
+
+TEST_CASE("in test builds the singleton uses a temporary profile folder", "[padmapping]")
+{
+    const auto folder = PadMapping::instance().profilesFolder();
+    CHECK(folder.isAChildOf(juce::File::getSpecialLocation(juce::File::tempDirectory)));
+    CHECK(userSettingsFile() == juce::File());
 }

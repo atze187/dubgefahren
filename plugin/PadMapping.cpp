@@ -1,8 +1,21 @@
 #include "plugin/PadMapping.h"
-#include <algorithm>
 #include <cmath>
+#include "plugin/UserSettings.h"
 
 namespace dg {
+
+namespace {
+const juce::String kDefaultProfile = "Default";
+
+#ifdef DG_NO_USER_SETTINGS
+// Ein Ordner je Testprozess, der beim Beenden wieder verschwindet.
+struct TempProfilesFolder
+{
+    juce::File dir = juce::File::createTempFile("dgprofiles");
+    ~TempProfilesFolder() { dir.deleteRecursively(); }
+};
+#endif
+} // namespace
 
 PadMappingSettings parsePadMappingSettings(const juce::String& json)
 {
@@ -23,85 +36,118 @@ PadMappingSettings parsePadMappingSettings(const juce::String& json)
     return s;
 }
 
-juce::String padMappingSettingsToJson(const PadMappingSettings& s)
-{
-    auto* object = new juce::DynamicObject();
-    object->setProperty("firstNote", s.firstNote);
-    object->setProperty("padOrigin", s.origin == PadOrigin::TopLeft ? "topLeft" : "bottomLeft");
-    return juce::JSON::toString(juce::var(object));
-}
-
-std::optional<int> parsePadFirstNote(const juce::String& text)
-{
-    const auto t = text.trim();
-    if (t.isEmpty() || t.length() > 3 || !t.containsOnly("0123456789"))
-        return std::nullopt;
-    const int value = t.getIntValue();
-    if (value > kMaxPadFirstNote)
-        return std::nullopt;
-    return value;
-}
-
-PadMappingSettings loadPadMappingSettings(const juce::File& file)
-{
-    if (!file.existsAsFile())
-        return {};
-    return parsePadMappingSettings(file.loadFileAsString());
-}
-
-bool savePadMappingSettings(const juce::File& file, const PadMappingSettings& settings)
-{
-    file.getParentDirectory().createDirectory();
-    return file.replaceWithText(padMappingSettingsToJson(settings));
-}
-
-juce::File padMappingFile()
+juce::File padProfilesFolder()
 {
 #ifdef DG_NO_USER_SETTINGS
-    return {};
+    static TempProfilesFolder temp;
+    return temp.dir;
 #else
-    return juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
-        .getChildFile("Dubgefahren")
-        .getChildFile("settings.json");
+    return userSettingsFile().getParentDirectory().getChildFile("Profiles");
 #endif
 }
 
 PadMapping& PadMapping::instance()
 {
-    static PadMapping mapping; // wird im Konstruktor des Processors angelegt, nie im Audio-Thread
+    static PadMapping mapping(padProfilesFolder(), UserSettings::instance()); // wird im Konstruktor des Processors angelegt, nie im Audio-Thread
     return mapping;
 }
 
-PadMapping::PadMapping() : file_(padMappingFile())
+PadMapping::PadMapping(juce::File profilesFolder, UserSettings& settings)
+    : store_(std::move(profilesFolder)), settings_(settings)
 {
-    if (file_ != juce::File())
+    // Beim ersten Start (noch keine Profile) wird Default aus den alten Einstellungen angelegt.
+    const bool fresh = store_.names().isEmpty();
+    if (!store_.load(kDefaultProfile).has_value())
     {
-        const auto s = loadPadMappingSettings(file_);
-        firstNote_.store(s.firstNote);
-        origin_.store(static_cast<int>(s.origin));
+        PadMappingSettings start;
+        if (fresh)
+            if (const auto legacy = settings_.legacyPad())
+                start = *legacy;
+        store_.save(makeConsecutiveProfile(kDefaultProfile, start.firstNote, start.origin));
+    }
+    auto chosen = settings_.profile().isNotEmpty() ? store_.load(settings_.profile()) : std::nullopt;
+    if (!chosen)
+        chosen = store_.load(kDefaultProfile);
+    activate(chosen ? *chosen : makeConsecutiveProfile(kDefaultProfile, kDefaultPadFirstNote, PadOrigin::BottomLeft));
+}
+
+void PadMapping::activate(const PadProfile& profile)
+{
+    active_ = profile;
+    noteMap_.setAll(profile.notes);
+    active_.notes = noteMap_.notes(); // bereinigt um Duplikate
+    origin_.store(static_cast<int>(profile.origin));
+    revision_.fetch_add(1);
+}
+
+void PadMapping::saveActive()
+{
+    if (!store_.save(active_))
+    {
+        DBG("Could not write profile " << active_.name);
     }
 }
 
-void PadMapping::setFirstNote(int note)
+bool PadMapping::selectProfile(const juce::String& name)
 {
-    firstNote_.store(std::clamp(note, 0, kMaxPadFirstNote));
-    persist();
+    const auto profile = store_.load(name);
+    if (!profile)
+        return false;
+    activate(*profile);
+    settings_.setProfile(profile->name);
+    return true;
+}
+
+juce::String PadMapping::createProfile()
+{
+    juce::String name = "New profile";
+    for (int n = 2; store_.contains(name); ++n)
+        name = "New profile " + juce::String(n);
+    auto profile = store_.load(kDefaultProfile).value_or(makeConsecutiveProfile(kDefaultProfile, kDefaultPadFirstNote, PadOrigin::BottomLeft));
+    profile.name = name;
+    store_.save(profile);
+    activate(profile);
+    settings_.setProfile(name);
+    return name;
+}
+
+bool PadMapping::renameActiveProfile(const juce::String& newName)
+{
+    if (active_.name.equalsIgnoreCase(kDefaultProfile) || !store_.rename(active_.name, newName))
+        return false;
+    active_.name = newName;
+    settings_.setProfile(newName);
+    revision_.fetch_add(1);
+    return true;
+}
+
+bool PadMapping::deleteActiveProfile()
+{
+    if (active_.name.equalsIgnoreCase(kDefaultProfile))
+        return false;
+    const auto doomed = active_.name;
+    if (!store_.remove(doomed))
+        return false;
+    selectProfile(kDefaultProfile);
+    return true;
+}
+
+void PadMapping::setPadNote(int slot, int note)
+{
+    if (slot < 0 || slot >= kNumSlots || note < -1 || note > 127)
+        return;
+    noteMap_.assign(slot, note);
+    active_.notes = noteMap_.notes();
+    saveActive();
+    revision_.fetch_add(1);
 }
 
 void PadMapping::setOrigin(PadOrigin origin)
 {
+    active_.origin = origin;
     origin_.store(static_cast<int>(origin));
-    persist();
-}
-
-void PadMapping::persist() const
-{
-    if (file_ == juce::File())
-        return;
-    if (!savePadMappingSettings(file_, settings()))
-    {
-        DBG("Could not write " << file_.getFullPathName());
-    }
+    saveActive();
+    revision_.fetch_add(1);
 }
 
 } // namespace dg

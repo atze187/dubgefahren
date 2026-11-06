@@ -1,6 +1,6 @@
 # Dubgefahren
 
-VST3 instrument for Windows and (experimental) macOS: 16 individually adjustable dub sirens, playable via 16 consecutive MIDI notes (default 36–51, adjustable)
+VST3 instrument for Windows and (experimental) macOS: 16 individually adjustable dub sirens, playable via MIDI notes you can learn per pad (default 36–51)
 (e.g. Intech Studio Grid BU16), with a shared dub effects chain (drive, filter, tape delay with phaser on the echoes, spring reverb).
 
 *This is an experimental project to evaluate Claude. 
@@ -61,7 +61,10 @@ is not overwritten. Different target: `cmake -DDG_VST3_INSTALL_DIR=<folder> buil
 On macOS the default target is `~/Library/Audio/Plug-Ins/VST3` (no administrator rights needed):
 `cmake --install build-macos`.
 
-## Config: setting the kit folder
+## Config: setting the kit folder (fallback)
+
+The kit folder is normally set in **Settings → Kits**, and that choice wins. Without it the plugin reads
+this config file instead.
 
 File: `%CommonProgramFiles%\VST3\Dubgefahren.vst3\Contents\Resources\Dubgefahren.config.json`
 (edit as administrator). On macOS: `~/Library/Audio/Plug-Ins/VST3/Dubgefahren.vst3/Contents/Resources/Dubgefahren.config.json`.
@@ -74,15 +77,42 @@ On macOS use a path such as `"%HOME%/Music/Dubgefahren/Kits"`.
 Environment variables such as `%USERPROFILE%` (Windows) or `%HOME%` (macOS) are allowed. Empty, missing or invalid → `Documents/Dubgefahren/Kits`.
 If the config is invalid, the plugin shows a notice when the kit menu, import or export is opened.
 
-## MIDI mapping
+## Settings
 
-The 16 pads answer to 16 consecutive MIDI notes. By default pad 1 is note 36 and sits at the bottom left
-of the pad grid. The **MIDI** menu in the header changes both: *Pad 1 note* sets the note of the first
-pad, *Pad 1 at top left* flips the grid so that pad 1 is at the top left. The setting is stored per user in
-`%APPDATA%\Dubgefahren\settings.json` and applies to every project and instance.
+The **Settings** button in the header opens a window with two tabs. It is modal: audio and MIDI keep
+playing, but the plugin window waits until you close it. Everything takes effect immediately and is stored
+per user in `%APPDATA%\Dubgefahren\settings.json` (macOS: `~/Library/Application Support/Dubgefahren`),
+shared by every project and instance.
 
-The Intech Grid BU16 sends its buttons row by row from the top left starting at note 32: set
-*Pad 1 note* to 32 and enable *Pad 1 at top left* to make the grid match the controller.
+- **MIDI**: pad profiles, MIDI learn and the orientation of the pad grid (below).
+- **Kits**: the kit folder. *Change…* picks a folder, *Open folder* shows it, *Use default* goes back to
+  `Documents/Dubgefahren/Kits`. If the folder in your settings is gone, the plugin falls back to the
+  config file below (or the default folder) and shows a warning here.
+
+## MIDI learn and profiles
+
+Each of the 16 pads has its own MIDI note. By default pad 1 is note 36, pad 2 is 37 and so on, with
+pad 1 at the bottom left of the pad grid.
+
+To assign pads to your controller: open **Settings → MIDI**, click a pad in the grid (it shows
+*press…*), then press a pad on the controller or a key on the keyboard. Choose the next pad by hand,
+there is no auto-advance. Clicking the pad again or pressing Esc cancels. If the note already belongs to
+another pad, it moves to the pad you are learning; that pad becomes unassigned. Every assignment is saved
+at once. The **Pad 1 at top left** switch only changes how the grid is drawn, so it matches your controller.
+
+The assignment lives in a **profile**. *Default* is always there and cannot be renamed or deleted.
+*New* creates a profile (a copy of *Default*), *Rename* and *Delete* work on the selected one. Profiles
+are plain JSON files in `%APPDATA%\Dubgefahren\Profiles` (*Open profile folder* shows the folder):
+
+```json
+{ "padOrigin": "topLeft", "notes": [32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47] }
+```
+
+`null` in `notes` leaves a pad without a note. To share a profile with a colleague who has the same
+controller, send them the file and have them drop it into their profile folder; it shows up in the list
+the next time you open the tab. A plugin cannot tell which controller is connected, so you pick the
+profile yourself. Settings written by older versions (*Pad 1 note*, *Pad 1 at top left*) become the
+*Default* profile on the first start.
 
 ## Effects
 

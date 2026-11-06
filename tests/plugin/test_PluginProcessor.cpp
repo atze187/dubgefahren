@@ -8,6 +8,7 @@
 #include "plugin/ParameterLayout.h"
 #include "plugin/PluginProcessor.h"
 #include "plugin/PadMapping.h"
+#include "plugin/UserSettings.h"
 #include "PadMappingTestHelpers.h"
 
 using namespace dg;
@@ -197,40 +198,40 @@ TEST_CASE("processBlock plays note 36 and treats velocity 0 as note off", "[plug
     CHECK(p.activeMask() == 0u);
 }
 
-TEST_CASE("the first pad note moves the note block that triggers the pads", "[plugin][padmapping]")
+TEST_CASE("each pad is triggered by its own note", "[plugin][padmapping]")
 {
     juce::ScopedJuceInitialiser_GUI gui;
     dgtest::ScopedPadMapping restore;
-    PadMapping::instance().setFirstNote(32); // BU16: Note 32 ist Pad 1
+    PadMapping::instance().setPadNote(0, 40);
+    PadMapping::instance().setPadNote(1, 50);
 
     DubgefahrenProcessor p;
     prepare(p);
-
-    processBlocks(p, 1, noteMessage(32, true));
+    processBlocks(p, 1, noteMessage(40, true));
     CHECK(p.activeMask() == (1u << 0));
-    processBlocks(p, 1, noteMessage(36, true));
-    CHECK(p.activeMask() == ((1u << 0) | (1u << 4))); // Note 36 ist jetzt Pad 5
-    processBlocks(p, 1, noteMessage(47, true));
-    CHECK((p.activeMask() & (1u << 15)) != 0u);       // Pad 16
+    processBlocks(p, 1, noteMessage(50, true));
+    CHECK(p.activeMask() == ((1u << 0) | (1u << 1)));
 
-    // Davor und dahinter löst nichts aus.
     DubgefahrenProcessor q;
     prepare(q);
-    processBlocks(q, 1, noteMessage(31, true));
-    processBlocks(q, 1, noteMessage(48, true));
+    processBlocks(q, 1, noteMessage(36, true)); // vorher Pad 1, jetzt unbelegt (Pad 5 hat Note 40)
     CHECK(q.activeMask() == 0u);
 }
 
-TEST_CASE("with the default first note nothing changes", "[plugin][padmapping]")
+TEST_CASE("with the default profile nothing changes", "[plugin][padmapping]")
 {
     juce::ScopedJuceInitialiser_GUI gui;
     dgtest::ScopedPadMapping restore;
-    PadMapping::instance().setFirstNote(36);
-    PadMapping::instance().setOrigin(PadOrigin::BottomLeft);
+    PadMapping::instance().selectProfile("Default");
+    for (int s = 0; s < kNumSlots; ++s)
+        PadMapping::instance().setPadNote(s, -1);
+    for (int s = 0; s < kNumSlots; ++s)
+        PadMapping::instance().setPadNote(s, 36 + s);
 
     DubgefahrenProcessor p;
     prepare(p);
     processBlocks(p, 1, noteMessage(35, true));
+    processBlocks(p, 1, noteMessage(52, true));
     CHECK(p.activeMask() == 0u);
     processBlocks(p, 1, noteMessage(36, true));
     CHECK(p.activeMask() == 1u);
@@ -238,35 +239,69 @@ TEST_CASE("with the default first note nothing changes", "[plugin][padmapping]")
     CHECK((p.activeMask() & (1u << 15)) != 0u);
 }
 
-TEST_CASE("changing the first pad note takes effect for the next block", "[plugin][padmapping]")
+TEST_CASE("a change of the assignment takes effect for the next block", "[plugin][padmapping]")
 {
     juce::ScopedJuceInitialiser_GUI gui;
     dgtest::ScopedPadMapping restore;
     DubgefahrenProcessor p;
     prepare(p);
 
-    PadMapping::instance().setFirstNote(36);
+    PadMapping::instance().setPadNote(0, 36);
     processBlocks(p, 1, noteMessage(36, true));
     CHECK(p.activeMask() == 1u);
 
-    PadMapping::instance().setFirstNote(40);
-    processBlocks(p, 1, noteMessage(36, true)); // jetzt vor dem Block: ohne Wirkung
+    PadMapping::instance().setPadNote(1, 90);
+    processBlocks(p, 1, noteMessage(37, true)); // 37 gehört keinem Pad mehr
     CHECK(p.activeMask() == 1u);
-    processBlocks(p, 1, noteMessage(41, true)); // Pad 2
+    processBlocks(p, 1, noteMessage(90, true));
     CHECK(p.activeMask() == ((1u << 0) | (1u << 1)));
 }
 
-TEST_CASE("note off follows the same mapping and releases the pad", "[plugin][padmapping]")
+TEST_CASE("note off releases the pad the note on triggered, even after the assignment changed", "[plugin][padmapping]")
 {
     juce::ScopedJuceInitialiser_GUI gui;
     dgtest::ScopedPadMapping restore;
-    PadMapping::instance().setFirstNote(32);
+    PadMapping::instance().setPadNote(0, 40);
     DubgefahrenProcessor p;
     prepare(p);
 
-    processBlocks(p, 1, noteMessage(32, true));
+    processBlocks(p, 1, noteMessage(40, true));
     CHECK(p.activeMask() == 1u);
-    processBlocks(p, 60, noteMessage(32, false)); // Classic: Release 0,4 s
+    PadMapping::instance().setPadNote(0, -1);
+    PadMapping::instance().setPadNote(4, 40);
+    processBlocks(p, 60, noteMessage(40, false)); // Classic: Release 0,4 s
+    CHECK(p.activeMask() == 0u);
+}
+
+TEST_CASE("note off after switching the profile releases the original pad", "[plugin][padmapping]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    dgtest::ScopedPadMapping restore;
+    auto& mapping = PadMapping::instance();
+    mapping.selectProfile("Default");
+    for (int s = 0; s < kNumSlots; ++s)
+        mapping.setPadNote(s, -1);
+    mapping.setPadNote(0, 40);
+    mapping.createProfile(); // wird aktiv, belegt wie Default (jetzt mit Pad 1 = Note 40)
+    mapping.setPadNote(0, -1);
+    mapping.setPadNote(3, 40);
+    mapping.selectProfile("Default");
+
+    DubgefahrenProcessor p;
+    prepare(p);
+    processBlocks(p, 1, noteMessage(40, true));
+    CHECK(p.activeMask() == (1u << 0));
+    mapping.selectProfile("New profile");
+    processBlocks(p, 60, noteMessage(40, false));
+    CHECK(p.activeMask() == 0u);
+}
+
+TEST_CASE("a note off without a note on is ignored", "[plugin][padmapping]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    DubgefahrenProcessor p;
+    prepare(p);
+    processBlocks(p, 1, noteMessage(36, false));
     CHECK(p.activeMask() == 0u);
 }
 
@@ -606,4 +641,170 @@ TEST_CASE("changing a pad colour or name tells the host the state changed", "[pl
     p.setSlotName(2, "Siren");
     CHECK(counter.nonParameterChanges == 2);
     p.removeListener(&counter);
+}
+
+TEST_CASE("an armed processor captures the next note on and does not play it", "[plugin][learn]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    dgtest::ScopedPadMapping restore;
+    DubgefahrenProcessor p;
+    prepare(p);
+
+    p.armMidiLearn();
+    CHECK(p.midiLearnArmed());
+    processBlocks(p, 1, noteMessage(40, true)); // Note 40 gehört Pad 5
+    CHECK(p.activeMask() == 0u);
+    CHECK(p.takeLearnedNote() == 40);
+    CHECK_FALSE(p.takeLearnedNote().has_value());
+    CHECK_FALSE(p.midiLearnArmed());
+}
+
+TEST_CASE("the note off of a captured note is ignored", "[plugin][learn]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    dgtest::ScopedPadMapping restore;
+    DubgefahrenProcessor p;
+    prepare(p);
+
+    p.armMidiLearn();
+    processBlocks(p, 1, noteMessage(36, true));
+    processBlocks(p, 1, noteMessage(36, false));
+    CHECK(p.activeMask() == 0u);
+
+    processBlocks(p, 1, noteMessage(36, true));
+    CHECK(p.activeMask() == 1u);
+    processBlocks(p, 60, noteMessage(36, false));
+    CHECK(p.activeMask() == 0u);
+}
+
+TEST_CASE("only the first note on is captured", "[plugin][learn]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    dgtest::ScopedPadMapping restore;
+    DubgefahrenProcessor p;
+    prepare(p);
+
+    auto both = noteMessage(40, true);
+    both.addEvent(juce::MidiMessage::noteOn(1, 41, static_cast<juce::uint8>(100)), 0);
+    p.armMidiLearn();
+    processBlocks(p, 1, both);
+    CHECK(p.takeLearnedNote() == 40);
+    CHECK(p.activeMask() == (1u << 5)); // Note 41 löst Pad 6 aus
+}
+
+TEST_CASE("note offs and other MIDI do not satisfy learning", "[plugin][learn]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    DubgefahrenProcessor p;
+    prepare(p);
+
+    juce::MidiBuffer midi;
+    midi.addEvent(juce::MidiMessage::noteOff(1, 40), 0);
+    midi.addEvent(juce::MidiMessage::controllerEvent(1, 7, 100), 0);
+    std::array<juce::uint8, 20> sysExData {};
+    midi.addEvent(juce::MidiMessage::createSysExMessage(sysExData.data(), static_cast<int>(sysExData.size())), 0);
+    p.armMidiLearn();
+    processBlocks(p, 1, midi);
+    CHECK(p.midiLearnArmed());
+    CHECK_FALSE(p.takeLearnedNote().has_value());
+    p.disarmMidiLearn();
+}
+
+TEST_CASE("disarm discards the pending capture", "[plugin][learn]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    DubgefahrenProcessor p;
+    prepare(p);
+
+    p.armMidiLearn();
+    processBlocks(p, 1, noteMessage(40, true));
+    p.disarmMidiLearn();
+    CHECK_FALSE(p.takeLearnedNote().has_value());
+    CHECK_FALSE(p.midiLearnArmed());
+}
+
+TEST_CASE("learning is per instance", "[plugin][learn]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    dgtest::ScopedPadMapping restore;
+    DubgefahrenProcessor a, b;
+    prepare(a);
+    prepare(b);
+
+    a.armMidiLearn();
+    processBlocks(a, 1, noteMessage(40, true));
+    processBlocks(b, 1, noteMessage(40, true));
+    CHECK(a.activeMask() == 0u);
+    CHECK(a.takeLearnedNote() == 40);
+    CHECK(b.activeMask() == (1u << 4));
+    CHECK_FALSE(b.takeLearnedNote().has_value());
+}
+
+TEST_CASE("notes beyond the mapped range can be learned", "[plugin][learn]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    DubgefahrenProcessor p;
+    prepare(p);
+
+    for (const int note : { 5, 127 })
+    {
+        p.armMidiLearn();
+        processBlocks(p, 1, noteMessage(note, true));
+        CHECK(p.takeLearnedNote() == note);
+        CHECK(p.activeMask() == 0u);
+    }
+}
+
+TEST_CASE("setKitFolder changes the kit folder and persists it in the user settings", "[plugin][kitfolder]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    const auto dir = juce::File::createTempFile("dgkits");
+    dir.createDirectory();
+    DubgefahrenProcessor p;
+
+    p.setKitFolder(dir);
+    CHECK(p.kitFolder().folder == dir);
+    CHECK(p.kitFolder().warning.isEmpty());
+    CHECK(UserSettings::instance().kitFolder() == dir.getFullPathName());
+    p.useDefaultKitFolder();
+    dir.deleteRecursively();
+}
+
+TEST_CASE("useDefaultKitFolder returns to the default folder", "[plugin][kitfolder]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    const auto dir = juce::File::createTempFile("dgkits");
+    dir.createDirectory();
+    DubgefahrenProcessor p;
+    p.setKitFolder(dir);
+
+    p.useDefaultKitFolder();
+    CHECK(p.kitFolder().folder == defaultKitFolder());
+    CHECK(UserSettings::instance().kitFolder() == "");
+    dir.deleteRecursively();
+}
+
+TEST_CASE("setKitFolder with a missing folder keeps the previous one and sets a warning", "[plugin][kitfolder]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    DubgefahrenProcessor p;
+    const auto before = p.kitFolder().folder;
+    p.setKitFolder(juce::File::createTempFile("dgmissing"));
+    CHECK(p.kitFolder().folder == before);
+    CHECK(p.kitFolder().warning.isNotEmpty());
+    CHECK(UserSettings::instance().kitFolder() == "");
+}
+
+TEST_CASE("the kit folder setting reaches every instance", "[plugin][kitfolder]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    const auto dir = juce::File::createTempFile("dgkits");
+    dir.createDirectory();
+    DubgefahrenProcessor a, b;
+
+    a.setKitFolder(dir);
+    CHECK(b.kitFolder().folder == dir);
+    b.useDefaultKitFolder();
+    CHECK(a.kitFolder().folder == defaultKitFolder());
+    dir.deleteRecursively();
 }

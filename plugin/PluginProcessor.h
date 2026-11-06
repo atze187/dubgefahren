@@ -2,6 +2,7 @@
 #include <array>
 #include <atomic>
 #include <memory>
+#include <optional>
 #include <utility>
 #include <vector>
 #include <juce_audio_processors/juce_audio_processors.h>
@@ -84,6 +85,12 @@ public:
     void previewPress(int slot);
     void previewRelease(int slot);
     std::uint32_t activeMask() const { return engine_.activeMask(); }
+
+    // MIDI Learn (Message-Thread): Die nächste Note-On wird erfasst und nicht gespielt.
+    void armMidiLearn();
+    void disarmMidiLearn();
+    bool midiLearnArmed() const { return learnArmed_.load(); }
+    std::optional<int> takeLearnedNote(); // holt die erfasste Note (0..127) ab; danach nullopt
     std::uint32_t latchedMask() const { return engine_.latchedMask(); }
     int focusSlot() const { return engine_.focusSlot(); }
     float uiScale() const;
@@ -96,7 +103,11 @@ public:
     void setLiveView(bool live);
     bool advancedOpen() const;
     void setAdvancedOpen(bool open);
-    const KitFolderInfo& kitFolder() const { return kitFolder_; }
+    // Folgt der Einstellung des Nutzers, auch wenn eine andere Instanz sie geändert hat.
+    KitFolderInfo kitFolder() const;
+    // Kit-Ordner aus den Einstellungen des Nutzers (Message-Thread); ein fehlender Ordner ändert nichts und setzt eine Warnung.
+    void setKitFolder(const juce::File& folder);
+    void useDefaultKitFolder();
     // Erhöht sich, wenn sich Slot-Namen/-Parameter oder Editor-Settings von außerhalb des
     // Editors ändern (Host-Restore, applyKit, setSlot, setSlotName), damit der Editor per
     // Timer erkennen kann, dass er seine Anzeige neu einlesen muss.
@@ -133,7 +144,13 @@ private:
     // nach dem Leeren der FIFO für jeden gesetzten Slot zusätzlich ein PreviewOff.
     std::array<std::atomic<bool>, kNumSlots> pendingRelease_ {};
     bool lastPanic_ = false;
-    KitFolderInfo kitFolder_;
+    // Pad, das das letzte Note-On je MIDI-Note ausgelöst hat (-1 = keins); nur der Audio-Thread greift zu.
+    std::array<std::int8_t, 128> heldSlot_ = [] { std::array<std::int8_t, 128> a {}; a.fill(-1); return a; }();
+    // MIDI Learn: Der Audio-Thread legt die erste Note-On in learnedNote_ ab (-1 = keine).
+    std::atomic<bool> learnArmed_ { false };
+    std::atomic<int> learnedNote_ { -1 };
+    mutable KitFolderInfo kitFolder_;
+    mutable juce::String kitFolderSetting_; // Stand der Einstellung, zu dem kitFolder_ aufgelöst wurde
     std::atomic<int> stateGeneration_ { 0 };
     juce::AudioProcessLoadMeasurer loadMeasurer_;
     SampleLoader loader_;

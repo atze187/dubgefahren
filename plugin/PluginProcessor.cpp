@@ -5,6 +5,7 @@
 #include "plugin/KitFile.h"
 #include "plugin/PluginEditor.h"
 #include "plugin/SampleFiles.h"
+#include "plugin/UserSettings.h"
 
 namespace dg {
 
@@ -32,12 +33,43 @@ DubgefahrenProcessor::DubgefahrenProcessor()
 {
     events_.reserve(2048);
     ensureStateChildren();
-    kitFolder_ = resolveKitFolder(pluginConfigFile(), defaultKitFolder());
+    kitFolderSetting_ = UserSettings::instance().kitFolder();
+    kitFolder_ = resolveKitFolder(kitFolderSetting_, pluginConfigFile(), defaultKitFolder());
     engine_.prepare(44100.0, 512); // gültiger Zustand schon vor prepareToPlay
     startTimerHz(20);
 }
 
 DubgefahrenProcessor::~DubgefahrenProcessor() { stopTimer(); }
+
+KitFolderInfo DubgefahrenProcessor::kitFolder() const
+{
+    const auto setting = UserSettings::instance().kitFolder();
+    if (setting != kitFolderSetting_)
+    {
+        kitFolderSetting_ = setting;
+        kitFolder_ = resolveKitFolder(setting, pluginConfigFile(), defaultKitFolder());
+    }
+    return kitFolder_;
+}
+
+void DubgefahrenProcessor::setKitFolder(const juce::File& folder)
+{
+    if (!folder.isDirectory())
+    {
+        kitFolder_.warning = "The kit folder does not exist: " + folder.getFullPathName();
+        return;
+    }
+    UserSettings::instance().setKitFolder(folder.getFullPathName());
+    kitFolderSetting_ = UserSettings::instance().kitFolder();
+    kitFolder_ = resolveKitFolder(kitFolderSetting_, pluginConfigFile(), defaultKitFolder());
+}
+
+void DubgefahrenProcessor::useDefaultKitFolder()
+{
+    UserSettings::instance().setKitFolder({});
+    kitFolderSetting_ = {};
+    kitFolder_ = resolveKitFolder({}, pluginConfigFile(), defaultKitFolder());
+}
 
 void DubgefahrenProcessor::ensureStateChildren()
 {
@@ -60,11 +92,34 @@ void DubgefahrenProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
 {
     engine_.prepare(sampleRate, samplesPerBlock);
     lastPanic_ = false;
+    heldSlot_.fill(-1);
     loadMeasurer_.reset(sampleRate, samplesPerBlock);
     audioActive_.store(true);
 }
 
-void DubgefahrenProcessor::releaseResources() { audioActive_.store(false); }
+void DubgefahrenProcessor::releaseResources()
+{
+    audioActive_.store(false);
+    heldSlot_.fill(-1);
+}
+
+void DubgefahrenProcessor::armMidiLearn()
+{
+    learnedNote_.store(-1);
+    learnArmed_.store(true);
+}
+
+void DubgefahrenProcessor::disarmMidiLearn()
+{
+    learnArmed_.store(false);
+    learnedNote_.store(-1);
+}
+
+std::optional<int> DubgefahrenProcessor::takeLearnedNote()
+{
+    const int note = learnedNote_.exchange(-1);
+    return note >= 0 ? std::optional<int>(note) : std::nullopt;
+}
 
 bool DubgefahrenProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const
 {
@@ -129,7 +184,7 @@ void DubgefahrenProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::
         push(EngineEvent { EngineEvent::Type::Panic, 0, 0 });
     lastPanic_ = panic;
 
-    const int firstPadNote = padMapping_.firstNote();
+    const auto& noteMap = padMapping_.noteMap();
     for (const auto meta : midi)
     {
         // Keine juce::MidiMessage konstruieren: das würde bei SysEx (> 8 Bytes) im
@@ -140,15 +195,30 @@ void DubgefahrenProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::
         const int status = d[0] & 0xF0;
         const int note = d[1] & 0x7F;
         const int vel = d[2] & 0x7F;
-        // Die Engine kennt nur Note 36 bis 51 als Pad 1 bis 16: dazwischen liegt die einstellbare Basis.
-        const int engineNote = translateNote(note, firstPadNote);
-        if (engineNote < 0)
-            continue;
         const int offset = std::clamp(meta.samplePosition, 0, std::max(0, numSamples - 1));
+        // Die Engine kennt Pads als Note kFirstNote + Slot; welche MIDI-Note ein Pad auslöst, sagt die NoteMap.
         if (status == 0x90 && vel > 0)
-            push(EngineEvent { EngineEvent::Type::NoteOn, offset, engineNote });
+        {
+            if (learnArmed_.load(std::memory_order_relaxed) && learnArmed_.exchange(false))
+            {
+                learnedNote_.store(note); // wird nicht gespielt; das zugehörige Note-Off findet kein heldSlot_
+                continue;
+            }
+            const int slot = noteMap.slotForNote(note);
+            if (slot < 0)
+                continue;
+            heldSlot_[static_cast<std::size_t>(note)] = static_cast<std::int8_t>(slot);
+            push(EngineEvent { EngineEvent::Type::NoteOn, offset, kFirstNote + slot });
+        }
         else if (status == 0x80 || (status == 0x90 && vel == 0)) // Note-On mit Velocity 0 = Note-Off
-            push(EngineEvent { EngineEvent::Type::NoteOff, offset, engineNote });
+        {
+            // Das Note-Off gibt das Pad frei, das das Note-On ausgelöst hat, auch wenn sich die Belegung inzwischen änderte.
+            auto& held = heldSlot_[static_cast<std::size_t>(note)];
+            if (held < 0)
+                continue;
+            push(EngineEvent { EngineEvent::Type::NoteOff, offset, kFirstNote + held });
+            held = -1;
+        }
     }
 
     TransportInfo transport;

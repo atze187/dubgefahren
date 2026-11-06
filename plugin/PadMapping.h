@@ -1,15 +1,17 @@
 #pragma once
 #include <atomic>
-#include <optional>
 #include <juce_core/juce_core.h>
+#include "engine/NoteMap.h"
 #include "engine/PadRouter.h"
+#include "plugin/PadProfile.h"
 
 namespace dg {
 
-enum class PadOrigin { BottomLeft, TopLeft };
+class UserSettings;
 
 constexpr int kDefaultPadFirstNote = 36;
 
+// Die alten Einstellungen (firstNote, padOrigin) aus settings.json; nur noch für die Migration nach Default.json.
 struct PadMappingSettings
 {
     int firstNote = kDefaultPadFirstNote; // 0 .. kMaxPadFirstNote
@@ -19,39 +21,44 @@ struct PadMappingSettings
 
 // Liest die Einstellungen aus JSON-Text. Fehlt ein Wert oder ist er ungültig, gilt für ihn der Standard.
 PadMappingSettings parsePadMappingSettings(const juce::String& json);
-juce::String padMappingSettingsToJson(const PadMappingSettings& settings);
-// Zahlenfeld des Dialogs: eine ganze Zahl von 0 bis kMaxPadFirstNote, sonst nichts.
-std::optional<int> parsePadFirstNote(const juce::String& text);
 
-// Eine fehlende Datei ergibt die Standardwerte.
-PadMappingSettings loadPadMappingSettings(const juce::File& file);
-// Legt den Ordner an; liefert false, wenn die Datei nicht geschrieben werden konnte.
-bool savePadMappingSettings(const juce::File& file, const PadMappingSettings& settings);
+// <Ordner von settings.json>/Profiles; in Test-Builds (DG_NO_USER_SETTINGS) ein Temp-Ordner, der beim Beenden verschwindet.
+juce::File padProfilesFolder();
 
-// %APPDATA%\Dubgefahren\settings.json; in Test-Builds (DG_NO_USER_SETTINGS) leer.
-juce::File padMappingFile();
-
-// Prozessweit geteilte Belegung: Alle Instanzen im Host lesen dieselben Werte, der Audio-Thread
-// ohne Sperre. Setter nur im Message-Thread aufrufen.
+// Prozessweit geteilte Pad-Belegung: Alle Instanzen im Host lesen dieselbe NoteMap, der Audio-Thread
+// ohne Sperre. Alles außer noteMap() und origin() nur im Message-Thread aufrufen.
 class PadMapping
 {
 public:
+    PadMapping(juce::File profilesFolder, UserSettings& settings);
     static PadMapping& instance();
 
-    int firstNote() const { return firstNote_.load(std::memory_order_relaxed); }
+    const NoteMap& noteMap() const noexcept { return noteMap_; }
     PadOrigin origin() const { return static_cast<PadOrigin>(origin_.load(std::memory_order_relaxed)); }
-    PadMappingSettings settings() const { return { firstNote(), origin() }; }
+    PadProfile profile() const { return active_; }
+    juce::String activeProfile() const { return active_.name; }
+    // Steigt bei jeder Änderung (Auswahl, Note, Ursprung, Anlegen, Umbenennen, Löschen), damit Dialoge neu zeichnen.
+    int revision() const { return revision_.load(std::memory_order_relaxed); }
+    juce::StringArray profileNames() const { return store_.names(); }
+    juce::File profilesFolder() const { return store_.folder(); }
 
-    void setFirstNote(int note); // wird auf 0 .. kMaxPadFirstNote begrenzt
+    bool selectProfile(const juce::String& name);
+    juce::String createProfile(); // "New profile" (bei Bedarf "New profile 2", …), wie Default belegt; wird aktiv
+    bool renameActiveProfile(const juce::String& newName);
+    bool deleteActiveProfile(); // wählt danach Default
+    void setPadNote(int slot, int note); // -1 = unbelegt; speichert das aktive Profil
     void setOrigin(PadOrigin origin);
 
 private:
-    PadMapping();
-    void persist() const;
+    void activate(const PadProfile& profile);
+    void saveActive();
 
-    juce::File file_;
-    std::atomic<int> firstNote_ { kDefaultPadFirstNote };
+    ProfileStore store_;
+    UserSettings& settings_;
+    NoteMap noteMap_;
+    PadProfile active_;
     std::atomic<int> origin_ { static_cast<int>(PadOrigin::BottomLeft) };
+    std::atomic<int> revision_ { 0 };
 };
 
 } // namespace dg
