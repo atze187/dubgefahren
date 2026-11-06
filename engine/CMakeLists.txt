@@ -17,3 +17,7 @@ target_compile_features(dg_engine PUBLIC cxx_std_20)
 if(MSVC)
     target_compile_options(dg_engine PRIVATE /W4 /permissive-)
 endif()
+# The engine is linked into the plugin's shared library, so it must be position independent. Without -fPIC
+# GCC assumes local binding, keeps values in registers across calls that go through the PLT, and the dynamic
+# linker's lazy-binding stub clobbers them (segfault in SpringReverb::process on Linux).
+set_target_properties(dg_engine PROPERTIES POSITION_INDEPENDENT_CODE ON)
